@@ -1,23 +1,65 @@
-import { useMemo, useState } from 'react'
-import { chatModes, initialMessages, suggestedPrompts, transportPreview } from '../data/mockChat'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocalStorageState } from '../../../hooks/useLocalStorageState'
+import {
+  chatModes,
+  initialMessages,
+  suggestedPrompts,
+  transportPreview as fallbackTransportPreview,
+} from '../data/mockChat'
+import { fetchMessages, fetchTransportPreview, submitMessageToApi } from '../lib/apiTransport'
+import {
+  parseStoredInputHistory,
+  parseStoredMessages,
+  parseStoredModeId,
+  pushHistoryEntry,
+  pushMessage,
+} from '../lib/chatPersistence'
 import { simulateLocalReply } from '../lib/localTransport'
-import type { ChatMessage, ChatModeId, ComposerDraft } from '../model/types'
+import type { ChatMessage, ChatModeId, ComposerDraft, TransportPreview } from '../model/types'
 
-function createTimestamp() {
-  return new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'UTC',
-  }).format(new Date()) + ' UTC'
-}
+const CHAT_MESSAGES_KEY = 'sentinel-nexus.chat.messages'
+const CHAT_MODE_KEY = 'sentinel-nexus.chat.mode'
+const CHAT_HISTORY_KEY = 'sentinel-nexus.chat.history'
 
 export function useLocalChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [activeModeId, setActiveModeId] = useState<ChatModeId>('build')
+  const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(CHAT_MESSAGES_KEY, initialMessages, {
+    parse: parseStoredMessages,
+  })
+  const [activeModeId, setActiveModeId] = useLocalStorageState<ChatModeId>(CHAT_MODE_KEY, 'build', {
+    parse: parseStoredModeId,
+  })
   const [draft, setDraft] = useState<ComposerDraft>({ value: '', historyIndex: null })
-  const [inputHistory, setInputHistory] = useState<string[]>([])
+  const [inputHistory, setInputHistory] = useLocalStorageState<string[]>(CHAT_HISTORY_KEY, [], {
+    parse: parseStoredInputHistory,
+  })
   const [isResponding, setIsResponding] = useState(false)
+  const [transportPreview, setTransportPreview] = useState<TransportPreview>(fallbackTransportPreview)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hydrateFromApi = async () => {
+      try {
+        const [apiMessages, apiPreview] = await Promise.all([fetchMessages(), fetchTransportPreview()])
+        if (cancelled) return
+        if (apiMessages.length > 0) {
+          setMessages(apiMessages)
+        }
+        setTransportPreview(apiPreview)
+      } catch {
+        if (cancelled) return
+        setTransportPreview({
+          ...fallbackTransportPreview,
+          summary: `${fallbackTransportPreview.summary} Falling back to local simulator because the API is unavailable.`,
+        })
+      }
+    }
+
+    void hydrateFromApi()
+    return () => {
+      cancelled = true
+    }
+  }, [setMessages])
 
   const activeMode = useMemo(
     () => chatModes.find((mode) => mode.id === activeModeId) ?? chatModes[0],
@@ -35,41 +77,50 @@ export function useLocalChat() {
       : `History ${inputHistory.length - draft.historyIndex}/${inputHistory.length}`
 
   async function submitMessage(rawValue: string) {
-    const value = rawValue.trim()
+    const value = rawValue.trim().slice(0, 1200)
 
     if (!value || isResponding) {
       return
     }
 
-    const operatorMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'operator',
-      author: 'Marco',
-      body: value,
-      timestamp: createTimestamp(),
-      modeId: activeMode.id,
-      status: 'ready',
-    }
-
-    setMessages((current) => [...current, operatorMessage])
-    setInputHistory((current) => [value, ...current])
+    setInputHistory((current) => pushHistoryEntry(current, value))
     setDraft({ value: '', historyIndex: null })
     setIsResponding(true)
 
-    const reply = await simulateLocalReply(value, activeMode)
+    try {
+      try {
+        const response = await submitMessageToApi(value, activeMode)
+        setMessages((current) => pushMessage(pushMessage(current, response.operatorMessage), response.sentinelMessage))
+        return
+      } catch {
+        const operatorMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'operator',
+          author: 'Marco',
+          body: value,
+          timestamp: new Date().toISOString(),
+          modeId: activeMode.id,
+          status: 'ready',
+        }
 
-    const sentinelMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'sentinel',
-      author: 'Sentinel',
-      body: reply,
-      timestamp: createTimestamp(),
-      modeId: activeMode.id,
-      status: 'ready',
+        setMessages((current) => pushMessage(current, operatorMessage))
+
+        const reply = await simulateLocalReply(value, activeMode)
+        const sentinelMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'sentinel',
+          author: 'Sentinel',
+          body: `${reply}\n\nFallback reason: Nexus API unavailable.`,
+          timestamp: new Date().toISOString(),
+          modeId: activeMode.id,
+          status: 'ready',
+        }
+
+        setMessages((current) => pushMessage(current, sentinelMessage))
+      }
+    } finally {
+      setIsResponding(false)
     }
-
-    setMessages((current) => [...current, sentinelMessage])
-    setIsResponding(false)
   }
 
   function cycleHistory(direction: 'older' | 'newer') {
