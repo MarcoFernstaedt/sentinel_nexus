@@ -1,151 +1,394 @@
+:root {
+  color: rgba(244, 247, 251, 0.96);
+  background:
+    radial-gradient(circle at top, rgba(83, 118, 255, 0.22), transparent 28%),
+    linear-gradient(180deg, #0b1020 0%, #090d18 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: transparent;
+  color: #f4f7fb;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100vh;
+}
+
 .app-shell {
   min-height: 100vh;
-  padding: 32px;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
 }
 
-.topbar {
+.sidebar {
+  border-right: 1px solid rgba(168, 180, 214, 0.14);
+  padding: 2rem 1.5rem;
+  background: rgba(4, 8, 18, 0.74);
+  backdrop-filter: blur(16px);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.topbar-title {
-  margin: 4px 0 0;
-  color: var(--text);
+.eyebrow,
+.section-title,
+.mode-label {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.73rem;
+  color: #8da4ff;
 }
 
-.topbar-actions,
-.hero-actions,
-.link-cluster {
+.sidebar h1,
+.hero-card h2,
+.panel h3 {
+  margin: 0;
+}
+
+.sidebar-copy,
+.mode-description,
+.mini-card p,
+.stat-card p,
+.info-card p,
+.agent-row p,
+.task-row p,
+.tool-card p,
+.hero-copy,
+.chat-bubble p {
+  margin: 0;
+  color: #aebad8;
+  line-height: 1.55;
+}
+
+.mode-card,
+.panel,
+.mini-card,
+.stat-card,
+.info-card,
+.tool-card,
+.chat-bubble,
+.task-row,
+.agent-row {
+  border: 1px solid rgba(162, 176, 214, 0.14);
+  background: rgba(12, 18, 34, 0.78);
+  box-shadow: 0 18px 60px rgba(4, 9, 21, 0.35);
+}
+
+.mode-card {
+  border-radius: 20px;
+  padding: 1rem;
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 0.85rem;
 }
 
-.hero-panel {
-  padding: 72px 0 56px;
-  border-bottom: 1px solid var(--border);
+.mode-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6ef2b8, #48b8ff);
+  margin-top: 0.3rem;
+  box-shadow: 0 0 24px rgba(94, 236, 177, 0.55);
 }
 
-.hero-summary,
-.section-intro,
-.card p,
-.stack-list {
+.sidebar-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mini-card,
+.stat-card,
+.info-card,
+.tool-card {
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.mini-card strong,
+.stat-card strong,
+.info-card strong,
+.tool-card strong,
+.task-row strong,
+.agent-row strong {
+  display: block;
+  font-size: 1.02rem;
+  margin: 0.25rem 0;
+}
+
+.dashboard {
+  padding: 1.75rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.panel {
+  border-radius: 24px;
+  padding: 1.25rem;
+}
+
+.hero-card {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero-copy {
+  margin-top: 0.75rem;
   max-width: 70ch;
 }
 
-.hero-summary {
-  font-size: 1.1rem;
-  margin-bottom: 28px;
-}
-
-.section-shell {
-  padding: 48px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.section-heading {
-  margin-bottom: 24px;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.78rem;
-  color: var(--accent);
-}
-
-.card-grid {
+.hero-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.card {
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--panel);
-}
-
-.card--compact {
-  min-height: 0;
-}
-
-.stack-layout {
+.content-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: 1.5rem;
   align-items: start;
 }
 
-.stack-list {
-  margin: 0;
-  padding-left: 20px;
+.stack-column {
+  display: grid;
+  gap: 1.5rem;
 }
 
-.stack-list li + li {
-  margin-top: 12px;
+.panel-header,
+.mini-card-header,
+.chat-meta,
+.agent-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.action-link,
-.chip-link {
+.ghost-button,
+.composer button {
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: rgba(131, 149, 255, 0.12);
+  color: #f4f7fb;
+}
+
+.ghost-button:hover,
+.composer button:hover {
+  background: rgba(131, 149, 255, 0.2);
+}
+
+.chat-panel {
+  display: grid;
+  gap: 1rem;
+  min-height: 640px;
+}
+
+.chat-log {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+}
+
+.chat-bubble {
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.chat-bubble.operator {
+  background: rgba(19, 27, 50, 0.92);
+}
+
+.chat-bubble.sentinel {
+  background: linear-gradient(135deg, rgba(33, 44, 82, 0.96), rgba(16, 23, 45, 0.92));
+}
+
+.chat-meta {
+  margin-bottom: 0.45rem;
+  color: #8da4ff;
+  font-size: 0.86rem;
+}
+
+.composer {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.composer input {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(162, 176, 214, 0.14);
+  background: rgba(9, 13, 26, 0.95);
+  color: #f4f7fb;
+  padding: 0.85rem 1rem;
+}
+
+.list-grid,
+.tasks-list,
+.tools-list,
+.agents-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.agent-row,
+.task-row,
+.tool-card {
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.agent-row,
+.task-row,
+.tool-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.meter-block {
+  display: grid;
+  gap: 0.4rem;
+  color: #aebad8;
+  font-size: 0.88rem;
+}
+
+.meter-track {
+  width: 100%;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6f7dff, #55d6ff);
+}
+
+.agent-status,
+.pill,
+.task-state,
+.tool-card span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
+  width: fit-content;
   border-radius: 999px;
-  text-decoration: none;
-  font-weight: 600;
-  transition:
-    transform 120ms ease,
-    border-color 120ms ease,
-    background 120ms ease;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
 }
 
-.action-link:hover,
-.chip-link:hover {
-  transform: translateY(-1px);
+.pill,
+.agent-status {
+  background: rgba(125, 141, 255, 0.16);
+  color: #ccd5ff;
 }
 
-.action-link:focus-visible,
-.chip-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+.pill.stable {
+  background: rgba(93, 226, 171, 0.14);
+  color: #88f0c6;
 }
 
-.action-link--primary {
-  background: var(--accent);
-  color: #111;
+.pill.watch {
+  background: rgba(255, 198, 92, 0.14);
+  color: #ffd680;
 }
 
-.action-link--secondary,
-.chip-link {
-  background: transparent;
-  color: var(--text-h);
-  border: 1px solid var(--border);
+.pill.critical {
+  background: rgba(255, 107, 129, 0.14);
+  color: #ff99a9;
+}
+
+.task-state.in-progress {
+  background: rgba(97, 164, 255, 0.16);
+  color: #9ec7ff;
+}
+
+.task-state.queued {
+  background: rgba(255, 198, 92, 0.14);
+  color: #ffd680;
+}
+
+.task-state.blocked {
+  background: rgba(255, 107, 129, 0.14);
+  color: #ff99a9;
+}
+
+.task-state.done {
+  background: rgba(93, 226, 171, 0.14);
+  color: #88f0c6;
+}
+
+.tool-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.tool-card span {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f7fb;
+}
+
+@media (max-width: 1200px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-panel {
+    min-height: auto;
+  }
+
+  .hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
   .app-shell {
-    padding: 20px;
-  }
-
-  .topbar,
-  .stack-layout {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .card-grid {
     grid-template-columns: 1fr;
   }
 
-  .hero-panel {
-    padding: 48px 0 40px;
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid rgba(168, 180, 214, 0.14);
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard,
+  .sidebar {
+    padding: 1rem;
+  }
+
+  .hero-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    grid-template-columns: 1fr;
   }
 }

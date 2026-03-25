@@ -34,10 +34,10 @@ function App() {
         </section>
 
         <Section
-          id="architecture"
-          eyebrow="Architecture review"
-          title="What this pass improves"
-          intro="The starter template is now split into small, testable seams that can grow into a serious operator interface."
+          id="scope"
+          eyebrow="Scope discipline"
+          title="What Sentinel Nexus is—and what it is not"
+          intro="This product should remain the assistant-facing operator console. It should not drift into a second business operating system."
         >
           <div className="card-grid">
             {pillars.map((pillar) => (
@@ -50,10 +50,10 @@ function App() {
         </Section>
 
         <Section
-          id="stack"
-          eyebrow="Design principles"
-          title="Maintainability comes from structure, not promises"
-          intro="These principles should stay intact as the product grows into auth, APIs, dashboards, and policy-aware workflows."
+          id="roadmap"
+          eyebrow="Highest-value v1"
+          title="Build the shell first, then expand carefully"
+          intro="The product path is clear: overview now, deeper operating surfaces later."
         >
           <div className="card-grid card-grid--compact">
             {principles.map((principle) => (
@@ -66,9 +66,9 @@ function App() {
         </Section>
 
         <Section
-          eyebrow="Platform stack"
-          title="Current build surface"
-          intro="Useful because it is explicit. Dangerous only if future work keeps piling into the root without feature boundaries."
+          eyebrow="Architecture recommendation"
+          title="Keep modular seams visible from the start"
+          intro="Useful because it is explicit. Dangerous only if future work piles into the root without feature boundaries."
         >
           <div className="stack-layout">
             <ul className="stack-list">

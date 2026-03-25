@@ -21,52 +21,52 @@ export type IntegrationLink = {
 
 export const hero = {
   eyebrow: 'Sentinel Nexus',
-  title: 'Operator-grade intelligence, routed through one disciplined control surface.',
+  title: 'The operator console for Sentinel—separate from Dominion Edge Holdings.',
   summary:
-    'This frontend now establishes a maintainable shell for the Sentinel Nexus product: clear messaging, centralized content, reusable sections, and safer link primitives. It is intentionally small, but no longer disposable.',
+    'Nexus is the assistant platform: a clean control surface for status, focus, conversations, agents, tools, and usage. It should not absorb holdings, deal, portfolio, or acquisition workflows.',
   primaryAction: {
-    label: 'Open architecture notes',
-    href: '#architecture',
+    label: 'Lock v1 scope',
+    href: '#scope',
   } satisfies PrimaryAction,
   secondaryAction: {
-    label: 'Review build stack',
-    href: '#stack',
+    label: 'Review roadmap',
+    href: '#roadmap',
   } satisfies PrimaryAction,
 }
 
 export const pillars: Pillar[] = [
   {
-    title: 'Unified command surface',
+    title: 'Stay distinct',
     description:
-      'One place to coordinate workflows, context, and operator decisions instead of scattering them across tabs and tools.',
+      'If a feature smells like holdings management, CRM, pipeline operations, or portfolio oversight, it belongs in Dominion Edge Holdings, not in Nexus.',
   },
   {
-    title: 'Composable modules',
+    title: 'Win with the shell',
     description:
-      'Sections are data-driven and isolated so the app can grow into dashboards, agents, or integration panels without rewriting the shell.',
+      'The highest-value v1 is an elegant overview experience: excellent navigation, visible system state, obvious focus, and premium interaction quality.',
   },
   {
-    title: 'Security-aware defaults',
+    title: 'Design for expansion',
     description:
-      'External navigation is wrapped with safe defaults, and the structure makes it easy to introduce auth, policies, and audit instrumentation later.',
+      'Future chat, agents, tools, and usage features should arrive as modules behind stable seams—not as a sprawling rewrite of the root app.',
   },
 ]
 
 export const principles: Principle[] = [
   {
-    title: 'Start with seams',
+    title: 'v1 core: Overview',
     detail:
-      'The project now separates content, rendering, and styling so future product work does not collapse into a monolithic App.tsx.',
+      'Implement the dashboard shell, summary cards, focus rail, and room for today/next-action surfaces before building deeper operator workflows.',
   },
   {
-    title: 'Prefer typed content',
+    title: 'Later: Conversations and agents',
     detail:
-      'Product copy and section metadata live in one typed module, making reviews and future CMS/API transitions straightforward.',
+      'Threaded chat, agent runs, execution visibility, and coordination tools belong after the overview shell feels complete and trustworthy.',
   },
   {
-    title: 'Keep the shell honest',
+    title: 'Later: Tools and usage',
     detail:
-      'The interface explains what exists now and what should come next rather than pretending the starter template is a product.',
+      'Tool permissions, action history, cost visibility, and usage analytics should land only after clear product boundaries and auth patterns exist.',
   },
 ]
 
@@ -86,7 +86,7 @@ export const integrationLinks: IntegrationLink[] = [
 ]
 
 export const stackNotes = [
-  'Frontend-only shell today; no routing, state library, or backend coupling yet.',
-  'Good next step: introduce feature directories before adding API code or dashboard complexity.',
-  'Add auth boundaries, environment validation, and test coverage before handling sensitive operator data.',
+  'Current structure is strong enough for a front-end shell: page composition in App, small reusable components, typed content, and isolated styling.',
+  'Next structural move: add feature folders such as features/overview, features/conversations, and features/agents before introducing routing or API coupling.',
+  'Add auth boundaries, API clients, and audit-aware state only when the shell and module ownership are stable.',
 ]

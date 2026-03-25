@@ -1,36 +1,45 @@
 # Sentinel Nexus
 
-Sentinel Nexus now has a minimal but intentional frontend foundation instead of the stock Vite counter template.
+A clean v1 operator dashboard for Sentinel.
 
-## What changed in this review pass
+## What it includes
 
-- Replaced the starter template UI with a product-facing app shell.
-- Split rendering into small components (`AppHeader`, `Section`, `ExternalLink`).
-- Moved copy and section metadata into `src/content/siteContent.ts` so product changes are typed and centralized.
-- Added safer external link handling with `rel="noreferrer noopener"`.
-- Tightened the visual shell to reflect an operator-grade product direction.
+- Chat with Sentinel UI shell
+- System status panels
+- Usage and status metrics
+- Mode display
+- Sub-agent roles and activity view
+- Notes/tasks execution ledger
+- Quick tools panel
+- Responsive dark interface
 
-## Architecture notes
-
-Current structure:
-
-- `src/App.tsx` — page composition only
-- `src/components/` — reusable UI primitives
-- `src/content/` — typed content/config for the current shell
-- `src/index.css` / `src/App.css` — global tokens and layout styling
-
-Recommended next steps before significant feature growth:
-
-1. Add feature directories (`features/dashboard`, `features/agents`, `features/policies`) instead of expanding root-level files.
-2. Introduce routing only when multiple true product surfaces exist.
-3. Add environment validation, authentication boundaries, and API client isolation before handling real operator data.
-4. Add tests for rendering and future business logic as soon as stateful behavior appears.
-
-## Commands
+## Run
 
 ```bash
 npm install
 npm run dev
+```
+
+The Vite dev server is pinned to **port 3002**.
+
+## Build
+
+```bash
 npm run build
 npm run lint
 ```
+
+## Current integration state
+
+Working now:
+- Fully functional frontend shell
+- Structured data model for dashboard surfaces
+- Responsive layout and visual system
+- Production build and lint passing
+
+Still needs integration:
+- Live backend/chat transport
+- Real system telemetry and gateway status APIs
+- Persistent notes/tasks storage
+- Real sub-agent activity feeds
+- Auth, user/session management, and command execution wiring
