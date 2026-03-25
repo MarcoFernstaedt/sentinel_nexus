@@ -1,61 +1,90 @@
 import './App.css'
-import { IntegrationBoundaryList } from './components/IntegrationBoundaryList'
-import { ModeStatusPanel } from './components/ModeStatusPanel'
-import { RuntimeStats } from './components/RuntimeStats'
-import { TelemetrySection } from './components/TelemetrySection'
-import { useTelemetry } from './features/telemetry/useTelemetry'
+import { Composer } from './features/chat/components/Composer'
+import { ConversationView } from './features/chat/components/ConversationView'
+import { ModeSwitch } from './features/chat/components/ModeSwitch'
+import { PersonaPanel } from './features/chat/components/PersonaPanel'
+import { useLocalChat } from './features/chat/hooks/useLocalChat'
 
 function App() {
-  const { snapshot, lastRefreshLabel } = useTelemetry()
+  const {
+    activeMode,
+    activeModeId,
+    draft,
+    historyCursorLabel,
+    inputHistory,
+    isResponding,
+    messages,
+    modes,
+    suggestedPrompts,
+    transportPreview,
+    setActiveModeId,
+    setDraft,
+    submitMessage,
+    cycleHistory,
+  } = useLocalChat()
 
   return (
     <div className="app-shell">
-      <header className="hero-shell">
-        <div>
-          <p className="eyebrow">Sentinel Nexus</p>
-          <h1>Local telemetry board for operator control</h1>
-          <p className="hero-copy">
-            Built to feel alive now, even before full backend integration. Live browser/runtime signals drive
-            the board where possible; unavailable host data stays explicit instead of pretending to be real.
+      <aside className="left-rail">
+        <p className="eyebrow">Sentinel Nexus</p>
+        <h1>Local command interface for Sentinel.</h1>
+        <p className="muted-copy">
+          A deeper chat surface with visible runtime seams, persona-aware modes, and operator
+          prompt recall already built into the shell.
+        </p>
+
+        <div className="rail-card">
+          <p className="eyebrow">Current mode</p>
+          <strong>{activeMode.label}</strong>
+          <p className="muted-copy">{activeMode.intent}</p>
+        </div>
+
+        <div className="rail-card">
+          <p className="eyebrow">Why this build matters</p>
+          <p className="muted-copy">
+            The UI now behaves like a real command console locally, while staying clean enough to
+            swap in gateway events, persistence, and real transport later.
           </p>
         </div>
+      </aside>
 
-        <div className="hero-meta">
-          <div className="hero-meta__block">
-            <span>Snapshot</span>
-            <strong>{lastRefreshLabel} local refresh</strong>
-          </div>
-          <div className="hero-meta__block">
-            <span>Architecture</span>
-            <strong>Feature modules + runtime seams</strong>
-          </div>
-        </div>
-      </header>
+      <main className="workspace">
+        <section className="chat-surface panel">
+          <header className="surface-header">
+            <div>
+              <p className="eyebrow">Conversation</p>
+              <h2>Operator ↔ Sentinel</h2>
+              <p className="muted-copy">
+                Sentinel frames the exchange by mode, remembers recent prompts locally, and stages
+                runtime integration behind a mock transport seam.
+              </p>
+            </div>
+            <div className="header-badges">
+              <span className="status-pill">Local-only</span>
+              <span className="status-pill status-pill--subtle">Runtime adapter pending</span>
+            </div>
+          </header>
 
-      <RuntimeStats stats={snapshot.runtimeStats} />
-
-      <div className="dashboard-grid">
-        <div className="dashboard-main">
-          <TelemetrySection
-            eyebrow="VPS posture"
-            title="Remote status cards with honest local fallbacks"
-            intro="Reachability and session vitality are live or derived locally. True host metrics stay fenced until a runtime feed exists."
-            cards={snapshot.vpsCards}
+          <ModeSwitch modes={modes} activeModeId={activeModeId} onSelect={setActiveModeId} />
+          <ConversationView messages={messages} />
+          <Composer
+            draft={draft}
+            historyCursorLabel={historyCursorLabel}
+            isResponding={isResponding}
+            onDraftChange={(value) => setDraft({ value, historyIndex: null })}
+            onSubmit={() => submitMessage(draft.value)}
+            onHistory={cycleHistory}
           />
+        </section>
 
-          <TelemetrySection
-            eyebrow="Usage and local status"
-            title="Browser-fed signals for a live-feeling operator shell"
-            intro="These cards update from local runtime APIs now, while spend and queue budgets remain reserved for backend telemetry."
-            cards={snapshot.localUsageCards}
-          />
-        </div>
-
-        <aside className="dashboard-side">
-          <ModeStatusPanel mode={snapshot.modeStatus} />
-          <IntegrationBoundaryList boundaries={snapshot.integrationBoundaries} />
-        </aside>
-      </div>
+        <PersonaPanel
+          activeMode={activeMode}
+          transportPreview={transportPreview}
+          suggestedPrompts={suggestedPrompts}
+          historyCount={inputHistory.length}
+          onPromptSelect={(prompt) => setDraft({ value: prompt, historyIndex: null })}
+        />
+      </main>
     </div>
   )
 }
