@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite",
-    "dev:api": "bash -lc 'npm run build:api >/dev/null && if [ -f .env ]; then exec node --watch --env-file=.env dist-server/index.js; else exec node --watch --env-file=.env.example dist-server/index.js; fi'",
+    "dev:api": "bash -lc 'npm run build:api >/dev/null && if [ -f .env ]; then exec node --env-file=.env dist-server/index.js; else exec node --env-file=.env.example dist-server/index.js; fi'",
     "build": "tsc -b && vite build",
     "build:api": "tsc -p server/tsconfig.json",
     "build:all": "npm run build && npm run build:api",
