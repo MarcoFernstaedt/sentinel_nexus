@@ -1,17 +1,15 @@
 # Sentinel Nexus
 
-A clean v1 operator dashboard for Sentinel.
+A local-first Nexus chat shell for Sentinel.
 
-## What it includes
+## What it includes now
 
-- Chat with Sentinel UI shell
-- System status panels
-- Usage and status metrics
-- Mode display
-- Sub-agent roles and activity view
-- Notes/tasks execution ledger
-- Quick tools panel
-- Responsive dark interface
+- Deeper conversation layout focused on Operator ↔ Sentinel exchange
+- Mode switching for command, strategy, and build framing
+- Sentinel persona panel that changes with the active mode
+- Local prompt history recall shell via keyboard and UI controls
+- Mock/local transport adapter seam for future runtime integration
+- Responsive dark interface built for later gateway wiring
 
 ## Run
 
@@ -22,7 +20,7 @@ npm run dev
 
 The Vite dev server is pinned to **port 3002**.
 
-## Build
+## Validate
 
 ```bash
 npm run build
@@ -32,14 +30,14 @@ npm run lint
 ## Current integration state
 
 Working now:
-- Fully functional frontend shell
-- Structured data model for dashboard surfaces
-- Responsive layout and visual system
-- Production build and lint passing
+- Local-only chat state and simulated Sentinel replies
+- Mode-aware conversation filtering and persona framing
+- Input history recall using ↑/↓ plus recall controls
+- Clean feature-based chat architecture with transport isolation
 
-Still needs integration:
-- Live backend/chat transport
-- Real system telemetry and gateway status APIs
-- Persistent notes/tasks storage
-- Real sub-agent activity feeds
-- Auth, user/session management, and command execution wiring
+Still needs runtime integration:
+- Real backend/chat transport in place of the local simulator
+- Streaming events, delivery states, and error handling
+- Persistent conversation storage and restored history
+- Real operator identity/session wiring
+- Gateway telemetry and command execution hooks

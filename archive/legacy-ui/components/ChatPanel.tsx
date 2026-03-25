@@ -1,0 +1,32 @@
+import type { ChatMessage } from '../types'
+
+export function ChatPanel({ messages }: { messages: ChatMessage[] }) {
+  return (
+    <section className="panel chat-panel">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Command surface</p>
+          <h3>Sentinel chat</h3>
+        </div>
+        <span className="pill watch">Transport pending</span>
+      </div>
+
+      <div className="chat-log">
+        {messages.map((message) => (
+          <article key={message.id} className={`chat-bubble ${message.sender}`}>
+            <div className="chat-meta">
+              <span>{message.sender === 'sentinel' ? 'Sentinel' : 'Operator'}</span>
+              <span>{message.time}</span>
+            </div>
+            <p>{message.text}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="composer">
+        <input readOnly value="Local shell only — live command transport lands in runtime integration." />
+        <button type="button">Pending</button>
+      </div>
+    </section>
+  )
+}

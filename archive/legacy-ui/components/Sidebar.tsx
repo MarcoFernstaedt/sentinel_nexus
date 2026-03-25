@@ -1,0 +1,36 @@
+type SidebarProps = {
+  mode: string
+  summary: string
+  focusItems: string[]
+}
+
+export function Sidebar({ mode, summary, focusItems }: SidebarProps) {
+  return (
+    <aside className="sidebar">
+      <div>
+        <p className="eyebrow">Sentinel Nexus</p>
+        <h1>Operator workspace</h1>
+        <p className="sidebar-copy">{summary}</p>
+      </div>
+
+      <div className="mode-card">
+        <div className="mode-dot" aria-hidden="true" />
+        <div>
+          <p className="mode-label">Mode</p>
+          <strong>{mode}</strong>
+          <p className="mode-description">Local-first command shell with modular seams for runtime takeover.</p>
+        </div>
+      </div>
+
+      <section className="sidebar-section">
+        <p className="eyebrow">Focus stack</p>
+        {focusItems.map((item) => (
+          <article key={item} className="mini-card">
+            <strong>{item}</strong>
+            <p>Visible because the operator should not hunt for critical surfaces.</p>
+          </article>
+        ))}
+      </section>
+    </aside>
+  )
+}

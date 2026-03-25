@@ -1,91 +1,61 @@
 import './App.css'
-import { AppHeader } from './components/AppHeader'
-import { ExternalLink } from './components/ExternalLink'
-import { Section } from './components/Section'
-import {
-  hero,
-  integrationLinks,
-  pillars,
-  principles,
-  stackNotes,
-} from './content/siteContent'
+import { IntegrationBoundaryList } from './components/IntegrationBoundaryList'
+import { ModeStatusPanel } from './components/ModeStatusPanel'
+import { RuntimeStats } from './components/RuntimeStats'
+import { TelemetrySection } from './components/TelemetrySection'
+import { useTelemetry } from './features/telemetry/useTelemetry'
 
 function App() {
+  const { snapshot, lastRefreshLabel } = useTelemetry()
+
   return (
     <div className="app-shell">
-      <AppHeader
-        primaryAction={hero.primaryAction}
-        secondaryAction={hero.secondaryAction}
-      />
+      <header className="hero-shell">
+        <div>
+          <p className="eyebrow">Sentinel Nexus</p>
+          <h1>Local telemetry board for operator control</h1>
+          <p className="hero-copy">
+            Built to feel alive now, even before full backend integration. Live browser/runtime signals drive
+            the board where possible; unavailable host data stays explicit instead of pretending to be real.
+          </p>
+        </div>
 
-      <main>
-        <section className="hero-panel">
-          <p className="eyebrow">{hero.eyebrow}</p>
-          <h1>{hero.title}</h1>
-          <p className="hero-summary">{hero.summary}</p>
-          <div className="hero-actions">
-            <a className="action-link action-link--primary" href={hero.primaryAction.href}>
-              {hero.primaryAction.label}
-            </a>
-            <a className="action-link action-link--secondary" href={hero.secondaryAction.href}>
-              {hero.secondaryAction.label}
-            </a>
+        <div className="hero-meta">
+          <div className="hero-meta__block">
+            <span>Snapshot</span>
+            <strong>{lastRefreshLabel} local refresh</strong>
           </div>
-        </section>
+          <div className="hero-meta__block">
+            <span>Architecture</span>
+            <strong>Feature modules + runtime seams</strong>
+          </div>
+        </div>
+      </header>
 
-        <Section
-          id="scope"
-          eyebrow="Scope discipline"
-          title="What Sentinel Nexus is—and what it is not"
-          intro="This product should remain the assistant-facing operator console. It should not drift into a second business operating system."
-        >
-          <div className="card-grid">
-            {pillars.map((pillar) => (
-              <article key={pillar.title} className="card">
-                <h3>{pillar.title}</h3>
-                <p>{pillar.description}</p>
-              </article>
-            ))}
-          </div>
-        </Section>
+      <RuntimeStats stats={snapshot.runtimeStats} />
 
-        <Section
-          id="roadmap"
-          eyebrow="Highest-value v1"
-          title="Build the shell first, then expand carefully"
-          intro="The product path is clear: overview now, deeper operating surfaces later."
-        >
-          <div className="card-grid card-grid--compact">
-            {principles.map((principle) => (
-              <article key={principle.title} className="card card--compact">
-                <h3>{principle.title}</h3>
-                <p>{principle.detail}</p>
-              </article>
-            ))}
-          </div>
-        </Section>
+      <div className="dashboard-grid">
+        <div className="dashboard-main">
+          <TelemetrySection
+            eyebrow="VPS posture"
+            title="Remote status cards with honest local fallbacks"
+            intro="Reachability and session vitality are live or derived locally. True host metrics stay fenced until a runtime feed exists."
+            cards={snapshot.vpsCards}
+          />
 
-        <Section
-          eyebrow="Architecture recommendation"
-          title="Keep modular seams visible from the start"
-          intro="Useful because it is explicit. Dangerous only if future work piles into the root without feature boundaries."
-        >
-          <div className="stack-layout">
-            <ul className="stack-list">
-              {stackNotes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-            <div className="link-cluster" aria-label="Core technologies">
-              {integrationLinks.map((link) => (
-                <ExternalLink key={link.label} href={link.href} className="chip-link">
-                  {link.label}
-                </ExternalLink>
-              ))}
-            </div>
-          </div>
-        </Section>
-      </main>
+          <TelemetrySection
+            eyebrow="Usage and local status"
+            title="Browser-fed signals for a live-feeling operator shell"
+            intro="These cards update from local runtime APIs now, while spend and queue budgets remain reserved for backend telemetry."
+            cards={snapshot.localUsageCards}
+          />
+        </div>
+
+        <aside className="dashboard-side">
+          <ModeStatusPanel mode={snapshot.modeStatus} />
+          <IntegrationBoundaryList boundaries={snapshot.integrationBoundaries} />
+        </aside>
+      </div>
     </div>
   )
 }
