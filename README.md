@@ -49,13 +49,23 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 
 ```bash
 npm install
-cp .env.example .env
-npm run dev:api
+cp .env.example .env # optional, defaults still work without it
 npm run dev
 ```
 
 Frontend: `http://localhost:3002`
 API: `http://localhost:4001`
+
+### Useful scripts
+
+```bash
+npm run dev       # starts frontend + API together for local development
+npm run dev:web   # frontend only
+npm run dev:api   # API only (TS watch mode)
+npm run start     # serves built frontend on 3002 + built API on 4001
+npm run build:all # builds frontend and API
+npm run lint
+```
 
 ## Validate
 
@@ -67,3 +77,8 @@ npm run lint
 ## Current blocker
 
 A real Nexus database runtime is not provisioned on the host yet. The architecture is ready for it, but the active storage implementation is still the file-backed adapter until SQLite/Postgres infrastructure is attached.
+
+## Local workflow notes
+
+- Frontend API calls now default to same-origin paths, so Vite proxying works cleanly in dev.
+- Set `VITE_API_BASE_URL` only when you intentionally want the frontend to talk to a different API origin.

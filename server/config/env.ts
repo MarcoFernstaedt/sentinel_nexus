@@ -8,6 +8,12 @@ const homeDir = process.env.HOME ?? rootDir
 const defaultDbDir = path.join(homeDir, '.openclaw', 'data', 'nexus')
 const defaultSchemaPath = path.join(rootDir, 'nexus.schema.sql')
 
+function expandHomePath(value: string): string {
+  if (value === '~') return homeDir
+  if (value.startsWith('~/')) return path.join(homeDir, value.slice(2))
+  return value
+}
+
 export interface AppConfig {
   port: number
   nodeEnv: string
@@ -17,11 +23,11 @@ export interface AppConfig {
 export function getAppConfig(): AppConfig {
   const driver = (process.env.NEXUS_DB_DRIVER ?? 'file-json') as NexusDatabaseConfig['driver']
   const dataDirectory = process.env.NEXUS_DB_DIR
-    ? path.resolve(process.env.NEXUS_DB_DIR)
+    ? path.resolve(expandHomePath(process.env.NEXUS_DB_DIR))
     : defaultDbDir
 
   const schemaPath = process.env.NEXUS_DB_SCHEMA_PATH
-    ? path.resolve(process.env.NEXUS_DB_SCHEMA_PATH)
+    ? path.resolve(expandHomePath(process.env.NEXUS_DB_SCHEMA_PATH))
     : defaultSchemaPath
 
   return {

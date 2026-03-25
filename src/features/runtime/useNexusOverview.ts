@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4001'
+import { apiUrl } from '../../lib/apiBaseUrl'
 
 type Severity = 'stable' | 'watch' | 'critical' | 'placeholder'
 
@@ -89,7 +88,7 @@ export function useNexusOverview(historyCount: number) {
 
     const hydrate = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/bootstrap`)
+        const response = await fetch(apiUrl('/api/bootstrap'))
         if (!response.ok) throw new Error('bootstrap failed')
         const bootstrap = (await response.json()) as BootstrapResponse
         if (cancelled) return
