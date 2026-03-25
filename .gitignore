@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+server/data/
+.nexus-db/
+dist-server/
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

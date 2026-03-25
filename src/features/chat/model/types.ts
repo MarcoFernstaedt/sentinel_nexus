@@ -23,8 +23,16 @@ export interface ComposerDraft {
   historyIndex: number | null
 }
 
+export interface RuntimeTarget {
+  apiBasePath: string
+  eventStreamPath: string
+  dbFilePath: string
+  sessionScope: string
+}
+
 export interface TransportPreview {
   provider: string
   state: 'local-only' | 'ready-for-runtime'
   summary: string
+  runtimeTarget: RuntimeTarget
 }

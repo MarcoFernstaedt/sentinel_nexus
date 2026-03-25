@@ -1,3 +1,4 @@
+import { nexusRuntimeContract } from '../../runtime/runtimeContract'
 import type { ChatMessage, ChatMode, TransportPreview } from '../model/types'
 
 export const chatModes: ChatMode[] = [
@@ -67,6 +68,12 @@ export const transportPreview: TransportPreview = {
   provider: 'Local simulator',
   state: 'ready-for-runtime',
   summary: 'Message submission, response generation, and state transitions are isolated behind a local adapter seam.',
+  runtimeTarget: {
+    apiBasePath: nexusRuntimeContract.apiBasePath,
+    eventStreamPath: nexusRuntimeContract.eventStreamPath,
+    dbFilePath: nexusRuntimeContract.db.filePath,
+    sessionScope: nexusRuntimeContract.surfaces.chat.scope,
+  },
 }
 
 export const suggestedPrompts = [

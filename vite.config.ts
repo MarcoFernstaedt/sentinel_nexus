@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3002,
+    proxy: {
+      '/api': 'http://localhost:4001',
+      '/health': 'http://localhost:4001',
+    },
   },
   preview: {
     port: 3002,

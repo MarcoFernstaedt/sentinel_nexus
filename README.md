@@ -1,45 +1,55 @@
 # Sentinel Nexus
 
-A local-first operator workspace for Sentinel.
+Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite frontend plus a TypeScript Node API with a clean persistence boundary.
 
-## What it includes now
+## Architecture added
 
-- Operator overview with status cards for local posture, runtime readiness, and workspace state
-- Local-first notes panel with browser persistence via `localStorage`
-- Task execution board with status cycling, lane metadata, and owner visibility
-- Quick tools surface showing which shortcuts are ready, stubbed, or waiting on runtime wiring
-- Sub-agent role visibility panel with role purpose, load, surface ownership, and runtime state
-- Command/chat panel that stays honest about transport still being pending
-- Modular React structure (`components/`, `data.ts`, `hooks/`) so runtime integration can replace local seams cleanly
+### Frontend
+- Existing chat shell remains in React/Vite.
+- Chat now hydrates from the backend API when available.
+- Submission goes through the API first, with graceful local fallback if the server is offline.
+
+### Backend
+- `server/index.ts` boots a Node HTTP API.
+- `server/api/` contains thin routing and HTTP helpers.
+- `server/application/` contains service and repository layers.
+- `server/domain/` holds shared domain models and seed data.
+- `server/infrastructure/` currently provides file-backed persistence.
+
+## API surfaces
+- `GET /health`
+- `GET /api/bootstrap`
+- `GET /api/status`
+- `GET/POST /api/chat/messages`
+- `GET/POST /api/notes`
+- `GET/POST /api/tasks`
+- `PATCH /api/tasks/:taskId`
+
+## Nexus DB boundary
+- `.env.example` defines `NEXUS_DB_*` variables.
+- Default persistence is file-backed JSON under `.nexus-db/`.
+- `nexus.schema.sql` prepares a future relational schema path.
+- Route logic is isolated from storage so SQLite/Postgres can replace file storage later.
 
 ## Run
 
 ```bash
 npm install
+cp .env.example .env
+npm run dev:api
 npm run dev
 ```
 
-The Vite dev server is pinned to **port 3002**.
+Frontend: `http://localhost:3002`
+API: `http://localhost:4001`
 
 ## Validate
 
 ```bash
-npm run build
+npm run build:all
 npm run lint
 ```
 
-## Current integration state
+## Current blocker
 
-Working now:
-- Frontend operator workspace is functional without any backend
-- Notes and tasks persist locally in the browser
-- Quick tools and standup summary derive from local task state
-- Agent role visibility is explicit and labeled by runtime readiness
-- Build and lint pass
-
-Still needs runtime integration:
-- Live gateway/session telemetry instead of seeded operator data
-- Real command transport for chat and quick tools
-- Shared/persistent storage beyond the browser for notes/tasks
-- Real sub-agent activity feeds and event streaming
-- Auth/session identity and execution permissions
+A real Nexus database runtime is not provisioned on the host yet. The architecture is ready for it, but the active storage implementation is still the file-backed adapter until SQLite/Postgres infrastructure is attached.

@@ -34,6 +34,14 @@ export function PersonaPanel({
       </div>
 
       <div className="panel-block">
+        <p className="eyebrow">Runtime target</p>
+        <strong>{transportPreview.runtimeTarget.apiBasePath}</strong>
+        <p className="muted-copy">Session scope: {transportPreview.runtimeTarget.sessionScope}</p>
+        <p className="muted-copy">Event stream: {transportPreview.runtimeTarget.eventStreamPath}</p>
+        <p className="muted-copy">Nexus DB: {transportPreview.runtimeTarget.dbFilePath}</p>
+      </div>
+
+      <div className="panel-block">
         <p className="eyebrow">Prompt history</p>
         <strong>{historyCount.toString().padStart(2, '0')} recalled entries available</strong>
         <p className="muted-copy">The shell already supports local prompt recall so runtime-backed chat can preserve operator command cadence later.</p>
