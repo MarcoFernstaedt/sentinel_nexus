@@ -32,6 +32,13 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 - Agent cards show the active Sentinel session, host/node/persistence context, and the current stubbed reply engine.
 - Sub-agent roster visibility remains explicitly unavailable until a real runtime event/session feed exists.
 
+## Frontend polish pass
+- The chat shell now uses a clearer control-room layout with a branded left rail, overview strip, and tighter conversation hierarchy.
+- Mode routing is more legible, with each Sentinel posture showing both accent and intent instead of looking like a generic tab bar.
+- Conversation flow now feels more premium and usable through auto-scroll, denser message cards, badge markers, and normalized timestamps.
+- Composer ergonomics improved with stronger focus states, visible mode context, prompt-history guidance, and a character counter.
+- The right-side context panel now presents transport/runtime state, prompt memory, and quick injections in a cleaner, more scannable format.
+
 ## Nexus DB boundary
 - `.env.example` defines `NEXUS_DB_*` variables.
 - Default persistence is file-backed JSON under `.nexus-db/`.
