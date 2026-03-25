@@ -20,10 +20,17 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 - `GET /health`
 - `GET /api/bootstrap`
 - `GET /api/status`
+- `GET /api/runtime/context`
 - `GET/POST /api/chat/messages`
 - `GET/POST /api/notes`
 - `GET/POST /api/tasks`
 - `PATCH /api/tasks/:taskId`
+
+## Truthful info surfaces now shown
+- Server status cards now expose real API/storage/message/note/task counts from the local Nexus backend.
+- Usage cards distinguish what is truly known now (prompt history, tracked modes, persisted task counts) from what still needs runtime feeds.
+- Agent cards show the active Sentinel session, host/node/persistence context, and the current stubbed reply engine.
+- Sub-agent roster visibility remains explicitly unavailable until a real runtime event/session feed exists.
 
 ## Nexus DB boundary
 - `.env.example` defines `NEXUS_DB_*` variables.
