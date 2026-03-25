@@ -29,18 +29,24 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'GET' && url.pathname === '/api/bootstrap') {
-        const [status, messages, notes, tasks] = await Promise.all([
+        const [status, runtime, messages, notes, tasks] = await Promise.all([
           services.statusService.snapshot(),
+          services.statusService.runtimeContext(),
           services.chatService.list(),
           services.notesService.list(),
           services.tasksService.list(),
         ])
-        json(response, 200, { status, messages, notes, tasks })
+        json(response, 200, { status, runtime, messages, notes, tasks })
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/status') {
         json(response, 200, await services.statusService.snapshot())
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/runtime/context') {
+        json(response, 200, await services.statusService.runtimeContext())
         return
       }
 

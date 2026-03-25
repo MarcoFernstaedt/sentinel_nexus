@@ -30,9 +30,68 @@ export interface RuntimeTarget {
   sessionScope: string
 }
 
+export interface RuntimeContext {
+  capturedAt: string
+  session: {
+    scope: string
+    source: 'server-derived'
+    cwd: string
+    hostLabel: string
+    nodeVersion: string
+    serviceKind: string
+    transport: 'nexus-api'
+    persistenceDriver: string
+  }
+  chat: {
+    messageCount: number
+    lastMessageAt: string | null
+    lastMessageRole: ChatMessage['role'] | null
+    modes: ChatModeId[]
+    fallbackModelState: 'stubbed-server-reply'
+  }
+  surfaces: {
+    notesCount: number
+    tasksCount: number
+    taskBreakdown: {
+      Queued: number
+      'In Progress': number
+      Blocked: number
+      Done: number
+    }
+  }
+}
+
 export interface TransportPreview {
   provider: string
   state: 'local-only' | 'ready-for-runtime'
   summary: string
   runtimeTarget: RuntimeTarget
+}
+
+export interface RuntimeStatusCard {
+  id: string
+  label: string
+  value: string
+  detail: string
+  severity: 'stable' | 'watch' | 'critical' | 'placeholder'
+}
+
+export interface RuntimeStatusSnapshot {
+  capturedAt: string
+  environment: string
+  storage: {
+    driver: string
+    dataPath: string
+    schemaPath: string
+  }
+  runtime: RuntimeContext
+  cards: RuntimeStatusCard[]
+}
+
+export interface BootstrapPayload {
+  status: RuntimeStatusSnapshot
+  runtime: RuntimeContext
+  messages: ChatMessage[]
+  notes: Array<{ id: string }>
+  tasks: Array<{ id: string }>
 }

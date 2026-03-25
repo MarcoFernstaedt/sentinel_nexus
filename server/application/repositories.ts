@@ -60,12 +60,7 @@ export class TasksRepository {
 export class StatusRepository {
   constructor(private readonly store: FileBackedStore) {}
 
-  async counts(): Promise<Pick<NexusDataStore, 'chatMessages' | 'notes' | 'tasks'>> {
-    const data = await this.store.read()
-    return {
-      chatMessages: data.chatMessages,
-      notes: data.notes,
-      tasks: data.tasks,
-    }
+  snapshot(): Promise<NexusDataStore> {
+    return this.store.read()
   }
 }

@@ -6,7 +6,14 @@ import {
   suggestedPrompts,
   transportPreview as fallbackTransportPreview,
 } from '../data/mockChat'
-import { fetchMessages, fetchTransportPreview, submitMessageToApi } from '../lib/apiTransport'
+import {
+  createTransportPreview,
+  fetchBootstrap,
+  fetchMessages,
+  fetchRuntimeContext,
+  fetchStatus,
+  submitMessageToApi,
+} from '../lib/apiTransport'
 import {
   parseStoredInputHistory,
   parseStoredMessages,
@@ -15,11 +22,19 @@ import {
   pushMessage,
 } from '../lib/chatPersistence'
 import { simulateLocalReply } from '../lib/localTransport'
-import type { ChatMessage, ChatModeId, ComposerDraft, TransportPreview } from '../model/types'
+import type {
+  ChatMessage,
+  ChatModeId,
+  ComposerDraft,
+  RuntimeContext,
+  RuntimeStatusSnapshot,
+  TransportPreview,
+} from '../model/types'
 
 const CHAT_MESSAGES_KEY = 'sentinel-nexus.chat.messages'
 const CHAT_MODE_KEY = 'sentinel-nexus.chat.mode'
 const CHAT_HISTORY_KEY = 'sentinel-nexus.chat.history'
+const RUNTIME_SYNC_MS = 15000
 
 export function useLocalChat() {
   const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(CHAT_MESSAGES_KEY, initialMessages, {
@@ -34,20 +49,46 @@ export function useLocalChat() {
   })
   const [isResponding, setIsResponding] = useState(false)
   const [transportPreview, setTransportPreview] = useState<TransportPreview>(fallbackTransportPreview)
+  const [runtimeContext, setRuntimeContext] = useState<RuntimeContext | null>(null)
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusSnapshot | null>(null)
+  const [apiState, setApiState] = useState<'connected' | 'local-fallback'>('local-fallback')
 
   useEffect(() => {
     let cancelled = false
 
-    const hydrateFromApi = async () => {
+    const syncFromApi = async (preferBootstrap: boolean) => {
       try {
-        const [apiMessages, apiPreview] = await Promise.all([fetchMessages(), fetchTransportPreview()])
+        if (preferBootstrap) {
+          const bootstrap = await fetchBootstrap()
+          if (cancelled) return
+
+          if (bootstrap.messages.length > 0) {
+            setMessages(bootstrap.messages)
+          }
+
+          setRuntimeStatus(bootstrap.status)
+          setRuntimeContext(bootstrap.runtime)
+          setTransportPreview(createTransportPreview(bootstrap.status))
+          setApiState('connected')
+          return
+        }
+
+        const [apiMessages, apiStatus, apiRuntimeContext] = await Promise.all([
+          fetchMessages(),
+          fetchStatus(),
+          fetchRuntimeContext(),
+        ])
         if (cancelled) return
         if (apiMessages.length > 0) {
           setMessages(apiMessages)
         }
-        setTransportPreview(apiPreview)
+        setRuntimeStatus(apiStatus)
+        setRuntimeContext(apiRuntimeContext)
+        setTransportPreview(createTransportPreview(apiStatus))
+        setApiState('connected')
       } catch {
         if (cancelled) return
+        setApiState('local-fallback')
         setTransportPreview({
           ...fallbackTransportPreview,
           summary: `${fallbackTransportPreview.summary} Falling back to local simulator because the API is unavailable.`,
@@ -55,9 +96,14 @@ export function useLocalChat() {
       }
     }
 
-    void hydrateFromApi()
+    void syncFromApi(true)
+    const interval = window.setInterval(() => {
+      void syncFromApi(false)
+    }, RUNTIME_SYNC_MS)
+
     return () => {
       cancelled = true
+      window.clearInterval(interval)
     }
   }, [setMessages])
 
@@ -91,6 +137,7 @@ export function useLocalChat() {
       try {
         const response = await submitMessageToApi(value, activeMode)
         setMessages((current) => pushMessage(pushMessage(current, response.operatorMessage), response.sentinelMessage))
+        setApiState('connected')
         return
       } catch {
         const operatorMessage: ChatMessage = {
@@ -117,6 +164,7 @@ export function useLocalChat() {
         }
 
         setMessages((current) => pushMessage(current, sentinelMessage))
+        setApiState('local-fallback')
       }
     } finally {
       setIsResponding(false)
@@ -151,12 +199,15 @@ export function useLocalChat() {
   return {
     activeMode,
     activeModeId,
+    apiState,
     draft,
     historyCursorLabel,
     inputHistory,
     isResponding,
     messages: visibleMessages,
     modes: chatModes,
+    runtimeContext,
+    runtimeStatus,
     suggestedPrompts,
     transportPreview,
     setActiveModeId,

@@ -36,6 +36,32 @@ export interface StatusCard {
   severity: 'stable' | 'watch' | 'critical' | 'placeholder'
 }
 
+export interface RuntimeContextSnapshot {
+  capturedAt: string
+  session: {
+    scope: string
+    source: 'server-derived'
+    cwd: string
+    hostLabel: string
+    nodeVersion: string
+    serviceKind: string
+    transport: 'nexus-api'
+    persistenceDriver: string
+  }
+  chat: {
+    messageCount: number
+    lastMessageAt: string | null
+    lastMessageRole: ChatMessageRecord['role'] | null
+    modes: ChatModeId[]
+    fallbackModelState: 'stubbed-server-reply'
+  }
+  surfaces: {
+    notesCount: number
+    tasksCount: number
+    taskBreakdown: Record<TaskStatus, number>
+  }
+}
+
 export interface NexusStatusSnapshot {
   capturedAt: string
   environment: string
@@ -44,7 +70,16 @@ export interface NexusStatusSnapshot {
     dataPath: string
     schemaPath: string
   }
+  runtime: RuntimeContextSnapshot
   cards: StatusCard[]
+}
+
+export interface NexusBootstrapSnapshot {
+  status: NexusStatusSnapshot
+  runtime: RuntimeContextSnapshot
+  messages: ChatMessageRecord[]
+  notes: NoteRecord[]
+  tasks: TaskRecord[]
 }
 
 export interface NexusDatabaseConfig {

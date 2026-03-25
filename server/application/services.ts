@@ -1,4 +1,13 @@
-import type { ChatModeId, ChatMessageRecord, NexusStatusSnapshot, NoteRecord, TaskRecord } from '../domain/models.js'
+import process from 'node:process'
+import type {
+  ChatModeId,
+  ChatMessageRecord,
+  NexusStatusSnapshot,
+  NoteRecord,
+  RuntimeContextSnapshot,
+  TaskRecord,
+  TaskStatus,
+} from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
 import { ChatRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
@@ -87,8 +96,51 @@ export class StatusService {
     private readonly config: AppConfig,
   ) {}
 
+  async runtimeContext(): Promise<RuntimeContextSnapshot> {
+    const counts = await this.repository.snapshot()
+    const taskBreakdown = counts.tasks.reduce<Record<TaskStatus, number>>(
+      (accumulator, task) => {
+        accumulator[task.status] += 1
+        return accumulator
+      },
+      {
+        Queued: 0,
+        'In Progress': 0,
+        Blocked: 0,
+        Done: 0,
+      },
+    )
+    const lastMessage = counts.chatMessages.at(-1) ?? null
+
+    return {
+      capturedAt: new Date().toISOString(),
+      session: {
+        scope: 'Current Nexus API process and persisted chat/session store',
+        source: 'server-derived',
+        cwd: process.cwd(),
+        hostLabel: process.env.HOSTNAME ?? 'unknown-host',
+        nodeVersion: process.version,
+        serviceKind: process.env.OPENCLAW_SERVICE_KIND ?? 'standalone-node',
+        transport: 'nexus-api',
+        persistenceDriver: this.config.database.driver,
+      },
+      chat: {
+        messageCount: counts.chatMessages.length,
+        lastMessageAt: lastMessage?.timestamp ?? null,
+        lastMessageRole: lastMessage?.role ?? null,
+        modes: ['command', 'strategy', 'build'],
+        fallbackModelState: 'stubbed-server-reply',
+      },
+      surfaces: {
+        notesCount: counts.notes.length,
+        tasksCount: counts.tasks.length,
+        taskBreakdown,
+      },
+    }
+  }
+
   async snapshot(): Promise<NexusStatusSnapshot> {
-    const counts = await this.repository.counts()
+    const runtime = await this.runtimeContext()
 
     return {
       capturedAt: new Date().toISOString(),
@@ -98,6 +150,7 @@ export class StatusService {
         dataPath: this.config.database.dataDirectory,
         schemaPath: this.config.database.schemaPath,
       },
+      runtime,
       cards: [
         {
           id: 'api-runtime',
@@ -109,22 +162,22 @@ export class StatusService {
         {
           id: 'chat-count',
           label: 'Chat Records',
-          value: String(counts.chatMessages.length),
-          detail: 'Conversation state now lives behind the server API.',
+          value: String(runtime.chat.messageCount),
+          detail: 'Conversation state now lives behind the server API for this Nexus session.',
           severity: 'stable',
         },
         {
           id: 'notes-count',
           label: 'Notes',
-          value: String(counts.notes.length),
+          value: String(runtime.surfaces.notesCount),
           detail: 'Notes can move from file-backed storage to a real database without route rewrites.',
           severity: 'stable',
         },
         {
           id: 'tasks-count',
           label: 'Tasks',
-          value: String(counts.tasks.length),
-          detail: 'Task seams are wired server-side and ready for future auth/event streaming.',
+          value: String(runtime.surfaces.tasksCount),
+          detail: `Queued ${runtime.surfaces.taskBreakdown.Queued} · In progress ${runtime.surfaces.taskBreakdown['In Progress']} · Blocked ${runtime.surfaces.taskBreakdown.Blocked} · Done ${runtime.surfaces.taskBreakdown.Done}`,
           severity: 'watch',
         },
       ],

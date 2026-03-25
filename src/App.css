@@ -1,12 +1,17 @@
 :root {
   color: rgba(244, 247, 251, 0.96);
   background:
-    radial-gradient(circle at top, rgba(112, 129, 255, 0.24), transparent 28%),
+    radial-gradient(circle at top, rgba(112, 129, 255, 0.24), transparent 24%),
+    radial-gradient(circle at 85% 15%, rgba(72, 184, 255, 0.12), transparent 24%),
     linear-gradient(180deg, #070b16 0%, #090d18 100%);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -25,6 +30,22 @@ textarea {
 button {
   border: none;
   cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(133, 154, 255, 0.9);
+  outline-offset: 2px;
 }
 
 textarea {
@@ -37,30 +58,43 @@ textarea {
 
 h1,
 h2,
-p {
+p,
+ul {
   margin: 0;
+}
+
+ul {
+  padding-left: 1.1rem;
 }
 
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
 }
 
 .left-rail {
   padding: 2rem 1.5rem;
   border-right: 1px solid rgba(168, 180, 214, 0.12);
-  background: rgba(4, 8, 18, 0.76);
+  background: rgba(4, 8, 18, 0.72);
   backdrop-filter: blur(18px);
   display: grid;
   align-content: start;
   gap: 1rem;
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+}
+
+.brand-block {
+  display: grid;
+  gap: 0.65rem;
 }
 
 .workspace {
   padding: 1.75rem;
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.88fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -71,7 +105,10 @@ p {
 .mode-switch__item,
 .prompt-chip,
 .composer-shell,
-.status-pill {
+.status-pill,
+.overview-card,
+.rail-metric,
+.mode-switch-shell {
   border: 1px solid rgba(162, 176, 214, 0.14);
   background: rgba(12, 18, 34, 0.82);
   box-shadow: 0 18px 60px rgba(4, 9, 21, 0.34);
@@ -82,13 +119,17 @@ p {
 .composer-shell,
 .message-card,
 .mode-switch__item,
-.prompt-chip {
+.prompt-chip,
+.overview-card,
+.rail-metric,
+.mode-switch-shell {
   border-radius: 20px;
 }
 
 .panel,
 .rail-card,
-.composer-shell {
+.composer-shell,
+.mode-switch-shell {
   padding: 1rem;
 }
 
@@ -101,36 +142,101 @@ p {
 
 .muted-copy,
 .message-card p,
-.composer-shell__meta {
+.composer-shell__meta,
+.conversation-shell__meta,
+.detail-stack {
   color: #aebad8;
   line-height: 1.6;
 }
 
 .left-rail h1 {
-  font-size: clamp(1.8rem, 2.1vw, 2.5rem);
-  line-height: 1.05;
+  font-size: clamp(1.85rem, 2.2vw, 2.75rem);
+  line-height: 1.04;
 }
 
-.rail-card {
+.rail-card,
+.rail-card__header,
+.rail-grid,
+.rail-list,
+.chat-surface,
+.persona-panel,
+.panel-block,
+.prompt-stack,
+.detail-stack,
+.right-column,
+.info-panel,
+.info-stack {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.75rem;
 }
 
-.chat-surface {
-  min-height: calc(100vh - 3.5rem);
+.info-card-row {
   display: grid;
-  gap: 1rem;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
+.info-card-row__header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.rail-card--accent {
+  background:
+    linear-gradient(180deg, rgba(21, 29, 54, 0.96), rgba(12, 18, 34, 0.92)),
+    rgba(12, 18, 34, 0.82);
+}
+
+.rail-card__header,
 .surface-header,
 .message-card__header,
 .composer-shell__actions,
 .header-badges,
-.composer-shell__meta {
+.composer-shell__meta,
+.split-row,
+.mode-switch-shell__header,
+.composer-shell__footer,
+.conversation-shell__meta {
   display: flex;
   gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
+}
+
+.rail-grid,
+.overview-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rail-metric,
+.overview-card {
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.rail-metric span,
+.overview-card span,
+.rail-metric small,
+.overview-card small {
+  color: #99abd0;
+}
+
+.rail-metric strong,
+.overview-card strong {
+  font-size: 1.05rem;
+}
+
+.rail-list {
+  padding-left: 1rem;
+}
+
+.chat-surface {
+  min-height: calc(100vh - 3.5rem);
 }
 
 .surface-header {
@@ -154,6 +260,21 @@ p {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.status-pill--live {
+  background: linear-gradient(135deg, rgba(112, 129, 255, 0.32), rgba(72, 184, 255, 0.24));
+  border-color: rgba(135, 170, 255, 0.32);
+}
+
+.mode-switch-shell {
+  display: grid;
+  gap: 0.9rem;
+  background: rgba(10, 15, 29, 0.7);
+}
+
+.mode-switch-shell__header {
+  align-items: start;
+}
+
 .mode-switch {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -161,20 +282,34 @@ p {
 }
 
 .mode-switch__item {
-  padding: 0.95rem;
+  padding: 1rem;
   color: #f4f7fb;
   text-align: left;
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  background: rgba(16, 22, 40, 0.92);
+}
+
+.mode-switch__item strong {
+  color: #dce4ff;
+  font-size: 0.96rem;
 }
 
 .mode-switch__item small {
   color: #9caed6;
+  line-height: 1.5;
 }
 
 .mode-switch__item.is-active {
   background: linear-gradient(135deg, rgba(49, 62, 110, 0.98), rgba(19, 29, 56, 0.92));
   border-color: rgba(130, 146, 255, 0.4);
+  box-shadow: 0 20px 70px rgba(24, 34, 66, 0.52);
+}
+
+.conversation-shell {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 0;
 }
 
 .conversation-view {
@@ -182,12 +317,16 @@ p {
   gap: 0.85rem;
   align-content: start;
   min-height: 420px;
+  max-height: 52vh;
+  overflow: auto;
+  padding-right: 0.2rem;
 }
 
 .message-card {
   padding: 1rem;
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
 }
 
 .message-card.system {
@@ -200,6 +339,24 @@ p {
 
 .message-card.sentinel {
   background: linear-gradient(135deg, rgba(32, 41, 77, 0.96), rgba(15, 22, 43, 0.96));
+}
+
+.message-card__badge {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbe2ff;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.message-card__body {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
 .message-card__header {
@@ -224,11 +381,17 @@ p {
   margin-top: auto;
   display: grid;
   gap: 0.85rem;
+  background: rgba(11, 16, 30, 0.92);
 }
 
-.composer-shell__meta {
+.composer-shell__meta,
+.composer-shell__footer {
   font-size: 0.86rem;
   flex-wrap: wrap;
+}
+
+.composer-shell__count {
+  color: #8da4ff;
 }
 
 .composer-shell textarea {
@@ -238,6 +401,7 @@ p {
   color: #f4f7fb;
   border-radius: 16px;
   padding: 0.95rem 1rem;
+  min-height: 126px;
 }
 
 .ghost-button,
@@ -256,8 +420,13 @@ p {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.ghost-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .primary-button {
   background: linear-gradient(135deg, #7081ff, #48b8ff);
+  box-shadow: 0 14px 30px rgba(69, 109, 255, 0.24);
 }
 
 .primary-button:disabled {
@@ -266,13 +435,12 @@ p {
 }
 
 .persona-panel {
-  display: grid;
-  gap: 1rem;
+  position: sticky;
+  top: 1.75rem;
 }
 
-.panel-block {
-  display: grid;
-  gap: 0.5rem;
+.panel-block--hero {
+  padding-bottom: 0.2rem;
 }
 
 .panel-block--dense {
@@ -287,20 +455,29 @@ p {
   color: #dfe5ff;
 }
 
-.prompt-stack {
-  display: grid;
-  gap: 0.75rem;
-}
-
 .prompt-chip {
   background: rgba(99, 114, 255, 0.12);
   text-align: left;
+  display: grid;
+  gap: 0.4rem;
 }
 
-@media (max-width: 1080px) {
+.prompt-chip__index {
+  color: #8da4ff;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 1180px) {
   .app-shell,
   .workspace {
     grid-template-columns: 1fr;
+  }
+
+  .left-rail,
+  .persona-panel {
+    position: static;
+    min-height: auto;
   }
 
   .left-rail {
@@ -319,14 +496,23 @@ p {
     padding: 1rem;
   }
 
-  .mode-switch {
+  .mode-switch,
+  .overview-strip,
+  .rail-grid {
     grid-template-columns: 1fr;
   }
 
   .surface-header,
   .composer-shell__actions,
-  .message-card__header {
+  .message-card__header,
+  .mode-switch-shell__header,
+  .composer-shell__footer,
+  .conversation-shell__meta {
     flex-direction: column;
     align-items: start;
+  }
+
+  .message-card {
+    grid-template-columns: 1fr;
   }
 }

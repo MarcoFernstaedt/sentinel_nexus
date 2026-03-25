@@ -5,6 +5,7 @@ type ComposerProps = {
   draft: ComposerDraft
   historyCursorLabel: string
   isResponding: boolean
+  activeModeLabel: string
   onDraftChange: (value: string) => void
   onSubmit: () => void
   onHistory: (direction: 'older' | 'newer') => void
@@ -14,6 +15,7 @@ export function Composer({
   draft,
   historyCursorLabel,
   isResponding,
+  activeModeLabel,
   onDraftChange,
   onSubmit,
   onHistory,
@@ -41,15 +43,20 @@ export function Composer({
     <div className="composer-shell">
       <div className="composer-shell__meta">
         <span>{historyCursorLabel}</span>
-        <span>Enter to send · Shift+Enter for newline · ↑/↓ recalls prompt history</span>
+        <span>{activeModeLabel} engaged</span>
       </div>
       <textarea
         rows={4}
         value={draft.value}
         placeholder="Give Sentinel an objective, a decision, or a build constraint."
+        aria-label="Message Sentinel"
         onChange={(event) => onDraftChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
+      <div className="composer-shell__footer">
+        <span className="muted-copy">Enter to send · Shift+Enter for newline · ↑/↓ recalls prompt history</span>
+        <span className="composer-shell__count">{draft.value.length}/1200</span>
+      </div>
       <div className="composer-shell__actions">
         <button type="button" className="ghost-button" onClick={() => onHistory('older')}>
           Recall older
