@@ -161,6 +161,7 @@ export function useLocalChat() {
           timestamp: new Date().toISOString(),
           modeId: activeMode.id,
           status: 'ready',
+          source: 'runtime',
         }
 
         setMessages((current) => pushMessage(current, operatorMessage))
@@ -174,6 +175,7 @@ export function useLocalChat() {
           timestamp: new Date().toISOString(),
           modeId: activeMode.id,
           status: 'ready',
+          source: 'runtime',
         }
 
         setMessages((current) => pushMessage(current, sentinelMessage))

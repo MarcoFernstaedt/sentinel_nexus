@@ -41,6 +41,7 @@ export class ChatService {
       timestamp: new Date().toISOString(),
       modeId: input.modeId,
       status: 'ready',
+      source: 'runtime',
     }
 
     const sentinelMessage: ChatMessageRecord = {
@@ -51,6 +52,7 @@ export class ChatService {
       timestamp: new Date().toISOString(),
       modeId: input.modeId,
       status: 'ready',
+      source: 'runtime',
     }
 
     await this.repository.append([operatorMessage, sentinelMessage])
@@ -61,6 +63,7 @@ export class ChatService {
       detail: body,
       timestamp: new Date().toISOString(),
       status: 'logged',
+      source: 'runtime',
     })
 
     return { operatorMessage, sentinelMessage }
@@ -84,6 +87,7 @@ export class NotesService {
       body: input.body.trim(),
       tag: input.tag.trim() || 'general',
       updatedAt: new Date().toISOString(),
+      source: 'runtime',
     })
 
     await this.activityRepository.append({
@@ -93,6 +97,7 @@ export class NotesService {
       detail: note.tag,
       timestamp: new Date().toISOString(),
       status: 'logged',
+      source: 'runtime',
     })
 
     return note
@@ -109,10 +114,11 @@ export class TasksService {
     return this.repository.list()
   }
 
-  async create(input: Omit<TaskRecord, 'id'>) {
+  async create(input: Omit<TaskRecord, 'id' | 'source'>) {
     const task = await this.repository.create({
       ...input,
       id: `task-${crypto.randomUUID()}`,
+      source: 'runtime',
     })
 
     await this.activityRepository.append({
@@ -122,6 +128,7 @@ export class TasksService {
       detail: `${task.owner} · ${task.status}`,
       timestamp: new Date().toISOString(),
       status: task.status === 'Done' ? 'done' : 'logged',
+      source: 'runtime',
     })
 
     return task
@@ -138,6 +145,7 @@ export class TasksService {
         detail: `${updated.status} · ${updated.owner}`,
         timestamp: new Date().toISOString(),
         status: updated.status === 'Blocked' ? 'watch' : updated.status === 'Done' ? 'done' : 'logged',
+        source: 'runtime',
       })
     }
 
@@ -198,6 +206,9 @@ export class StatusService {
 
   async snapshot(): Promise<NexusStatusSnapshot> {
     const runtime = await this.runtimeContext()
+    const data = await this.repository.snapshot()
+    const runtimeActivityCount = data.activity.filter((item) => item.source === 'runtime').length
+    const seededActivityCount = data.activity.filter((item) => item.source === 'seeded-demo').length
 
     return {
       capturedAt: new Date().toISOString(),
@@ -240,11 +251,11 @@ export class StatusService {
         {
           id: 'recent-activity',
           label: 'Recent Activity',
-          value: String(runtime.surfaces.activityCount),
-          detail: runtime.surfaces.latestActivityAt
-            ? `Latest update ${new Date(runtime.surfaces.latestActivityAt).toLocaleString()}`
-            : 'No activity logged yet.',
-          severity: runtime.surfaces.activityCount > 0 ? 'stable' : 'placeholder',
+          value: `${runtimeActivityCount} runtime · ${seededActivityCount} seeded`,
+          detail: runtimeActivityCount > 0
+            ? 'Recent movement includes genuine server-recorded activity from this Nexus instance.'
+            : 'Only seeded/demo activity is present so far. UI should not present it as live execution.',
+          severity: runtimeActivityCount > 0 ? 'stable' : 'watch',
         },
       ],
     }

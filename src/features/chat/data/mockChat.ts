@@ -34,6 +34,7 @@ export const initialMessages: ChatMessage[] = [
     timestamp: '2026-03-28T02:16:00Z',
     modeId: 'command',
     status: 'ready',
+    source: 'runtime',
   },
   {
     id: 'msg-2',
@@ -43,6 +44,7 @@ export const initialMessages: ChatMessage[] = [
     timestamp: '2026-03-28T02:17:00Z',
     modeId: 'command',
     status: 'ready',
+    source: 'runtime',
   },
   {
     id: 'msg-3',
@@ -52,6 +54,7 @@ export const initialMessages: ChatMessage[] = [
     timestamp: '2026-03-28T02:18:00Z',
     modeId: 'build',
     status: 'ready',
+    source: 'runtime',
   },
   {
     id: 'msg-4',
@@ -61,6 +64,7 @@ export const initialMessages: ChatMessage[] = [
     timestamp: '2026-03-28T02:19:00Z',
     modeId: 'build',
     status: 'ready',
+    source: 'runtime',
   },
 ]
 

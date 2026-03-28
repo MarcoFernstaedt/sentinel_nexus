@@ -1,4 +1,5 @@
 export type ChatModeId = 'command' | 'strategy' | 'build'
+export type RecordSource = 'runtime' | 'seeded-demo'
 
 export interface ChatMode {
   id: ChatModeId
@@ -8,7 +9,11 @@ export interface ChatMode {
   accent: string
 }
 
-export interface ChatMessage {
+interface BaseRecordMeta {
+  source: RecordSource
+}
+
+export interface ChatMessage extends BaseRecordMeta {
   id: string
   role: 'sentinel' | 'operator' | 'system'
   author: string
@@ -23,7 +28,7 @@ export interface ComposerDraft {
   historyIndex: number | null
 }
 
-export interface ActivityItem {
+export interface ActivityItem extends BaseRecordMeta {
   id: string
   type: 'chat' | 'task' | 'note' | 'status'
   title: string
@@ -99,7 +104,7 @@ export interface RuntimeStatusSnapshot {
   cards: RuntimeStatusCard[]
 }
 
-export interface RuntimeNote {
+export interface RuntimeNote extends BaseRecordMeta {
   id: string
   title: string
   body: string
@@ -107,7 +112,7 @@ export interface RuntimeNote {
   updatedAt: string
 }
 
-export interface RuntimeTask {
+export interface RuntimeTask extends BaseRecordMeta {
   id: string
   title: string
   owner: string

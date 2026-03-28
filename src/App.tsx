@@ -18,6 +18,24 @@ function formatLastEventLabel(timestamp: string | undefined) {
   }).format(parsed)
 }
 
+function formatRelativeLabel(timestamp: string | undefined) {
+  if (!timestamp) return 'No recent signal'
+  const parsed = Date.parse(timestamp)
+  if (Number.isNaN(parsed)) return timestamp
+
+  const diffMs = Date.now() - parsed
+  const diffMinutes = Math.round(diffMs / 60000)
+
+  if (diffMinutes <= 1) return 'just now'
+  if (diffMinutes < 60) return `${diffMinutes} min ago`
+
+  const diffHours = Math.round(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours} hr ago`
+
+  const diffDays = Math.round(diffHours / 24)
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`
+}
+
 function App() {
   const {
     activeMode,
@@ -52,6 +70,12 @@ function App() {
   const lastEventLabel = formatLastEventLabel(latestMessage?.timestamp)
   const activeTasks = runtimeTasks.filter((task) => task.status !== 'Done')
   const urgentTasks = runtimeTasks.filter((task) => task.status === 'Blocked' || task.status === 'In Progress')
+  const runtimeRecentActivity = recentActivity.filter((item) => item.source === 'runtime')
+  const seededRecentActivity = recentActivity.filter((item) => item.source === 'seeded-demo')
+  const runtimeNotesLive = runtimeNotes.filter((note) => note.source === 'runtime')
+  const seededNotes = runtimeNotes.filter((note) => note.source === 'seeded-demo')
+  const runtimeTasksLive = runtimeTasks.filter((task) => task.source === 'runtime')
+  const seededTasks = runtimeTasks.filter((task) => task.source === 'seeded-demo')
   const modeCoverage = runtimeContext?.chat.modes.length ?? modes.length
   const activeModeSurface = activeMode.label
   const activeModeAccent = activeMode.accent
@@ -83,26 +107,55 @@ function App() {
     {
       id: 'agents',
       title: 'Agent activity',
-      value: `${recentActivity.length} visible signals`,
+      value: `${runtimeRecentActivity.length} live · ${seededRecentActivity.length} baseline`,
       detail:
-        recentActivity[0]?.title ?? 'Waiting on richer runtime events for deeper agent and subagent telemetry.',
+        runtimeRecentActivity[0]?.title ?? seededRecentActivity[0]?.title ?? 'Waiting on richer runtime events for deeper agent and subagent telemetry.',
     },
     {
       id: 'memory',
       title: 'Progress feed',
-      value: `${runtimeNotes.length} field notes`,
-      detail: runtimeNotes[0]?.title ?? 'Local-first notes surface stays usable even when the API is dark.',
+      value: `${runtimeNotesLive.length} live notes · ${seededNotes.length} baseline`,
+      detail: runtimeNotesLive[0]?.title ?? seededNotes[0]?.title ?? 'Local-first notes surface stays usable even when the API is dark.',
     },
   ]
 
   const executionBoard = runtimeTasks.slice(0, 5)
-  const progressFeed = [...recentActivity, ...runtimeNotes.map((note) => ({
-    id: note.id,
-    title: note.title,
-    detail: note.body,
-    status: 'logged' as const,
-    meta: `[${note.tag}] ${note.updatedAt}`,
-  }))].slice(0, 6)
+  const liveNowFeed = [
+    ...runtimeRecentActivity.map((item) => ({
+      id: item.id,
+      title: item.title,
+      detail: item.detail,
+      status: item.status,
+      meta: `${item.type} · ${formatRelativeLabel(item.timestamp)}`,
+      source: item.source,
+    })),
+    ...runtimeNotesLive.map((note) => ({
+      id: note.id,
+      title: note.title,
+      detail: note.body,
+      status: 'logged' as const,
+      meta: `[${note.tag}] ${formatRelativeLabel(note.updatedAt)}`,
+      source: note.source,
+    })),
+  ].slice(0, 6)
+  const baselineFeed = [
+    ...seededRecentActivity.map((item) => ({
+      id: item.id,
+      title: item.title,
+      detail: item.detail,
+      status: item.status,
+      meta: `seeded baseline · ${formatLastEventLabel(item.timestamp)}`,
+      source: item.source,
+    })),
+    ...seededNotes.map((note) => ({
+      id: note.id,
+      title: note.title,
+      detail: note.body,
+      status: 'logged' as const,
+      meta: `[${note.tag}] seeded baseline`,
+      source: note.source,
+    })),
+  ].slice(0, 4)
   const agentRoster = [
     {
       id: 'sentinel',
@@ -133,7 +186,7 @@ function App() {
   ]
 
   const runtimeSummary = runtimeContext
-    ? `${runtimeContext.session.hostLabel} · ${runtimeContext.chat.messageCount} persisted messages · ${runtimeContext.surfaces.tasksCount} tracked tasks · ${runtimeContext.surfaces.activityCount} visible updates`
+    ? `${runtimeContext.session.hostLabel} · ${runtimeContext.chat.messageCount} persisted messages · ${runtimeTasksLive.length} live tasks / ${seededTasks.length} seeded baseline · ${runtimeRecentActivity.length} live updates`
     : 'Server-derived session context not available yet. Local shell remains armed.'
 
   return (
@@ -235,6 +288,15 @@ function App() {
               <span className="command-ribbon__label">Active model</span>
               <strong>{modelLaneLabel}</strong>
               <small>{modelTruthLabel}</small>
+            </article>
+            <article className="command-ribbon__card">
+              <span className="command-ribbon__label">Runtime truth</span>
+              <strong>{runtimeRecentActivity.length > 0 || runtimeTasksLive.length > 0 || runtimeNotesLive.length > 0 ? 'Live signals present' : 'Baseline only'}</strong>
+              <small>
+                {runtimeRecentActivity.length > 0 || runtimeTasksLive.length > 0 || runtimeNotesLive.length > 0
+                  ? `${runtimeRecentActivity.length} recent runtime events, ${runtimeTasksLive.length} runtime tasks, ${runtimeNotesLive.length} runtime notes`
+                  : 'Current server data is seeded/demo baseline only; the UI labels it explicitly instead of implying live execution.'}
+              </small>
             </article>
             <article className="command-ribbon__card">
               <span className="command-ribbon__label">Mode coverage</span>
@@ -352,7 +414,7 @@ function App() {
                   <p className="eyebrow">Execution board</p>
                   <h2>Tracked work by lane</h2>
                 </div>
-                <span className="status-pill status-pill--subtle">{runtimeTasks.length} tasks</span>
+                <span className="status-pill status-pill--subtle">{runtimeTasksLive.length} live · {seededTasks.length} baseline</span>
               </div>
               <div className="stack-list">
                 {executionBoard.length > 0 ? (
@@ -360,7 +422,7 @@ function App() {
                     <div key={task.id} className="stack-list__item stack-list__item--compact">
                       <div className="stack-list__row">
                         <strong>{task.title}</strong>
-                        <span className="status-pill status-pill--subtle">{task.status}</span>
+                        <span className="status-pill status-pill--subtle">{task.status} · {task.source === 'runtime' ? 'live' : 'seeded'}</span>
                       </div>
                       <small>{task.lane} · {task.owner} · due {task.due}</small>
                     </div>
@@ -408,17 +470,17 @@ function App() {
               <div className="surface-header">
                 <div>
                   <p className="eyebrow">Progress feed</p>
-                  <h2>Recent movement across activity and notes</h2>
+                  <h2>What is happening now vs seeded baseline</h2>
                 </div>
-                <span className="status-pill status-pill--subtle">{progressFeed.length} entries</span>
+                <span className="status-pill status-pill--subtle">{liveNowFeed.length} live · {baselineFeed.length} baseline</span>
               </div>
               <div className="event-list muted-copy">
-                {progressFeed.length > 0 ? (
-                  progressFeed.map((item) => (
+                {liveNowFeed.length > 0 ? (
+                  liveNowFeed.map((item) => (
                     <div key={item.id} className="event-item">
                       <div className="stack-list__row">
                         <strong>{item.title}</strong>
-                        <span className={`status-dot status-dot--${item.status}`} />
+                        <span className="status-pill status-pill--subtle">live</span>
                       </div>
                       <span>{item.detail}</span>
                       {'meta' in item && item.meta ? <small>{item.meta}</small> : null}
@@ -426,10 +488,22 @@ function App() {
                   ))
                 ) : (
                   <div className="event-item">
-                    <strong>Feed is quiet</strong>
-                    <span>Activity will populate from bootstrap and future runtime events.</span>
+                    <strong>No live runtime events yet</strong>
+                    <span>The API is online, but this instance has not recorded fresh activity/notes/tasks beyond the seeded baseline.</span>
                   </div>
                 )}
+                {baselineFeed.length > 0 ? (
+                  baselineFeed.map((item) => (
+                    <div key={item.id} className="event-item">
+                      <div className="stack-list__row">
+                        <strong>{item.title}</strong>
+                        <span className="status-pill status-pill--subtle">seeded baseline</span>
+                      </div>
+                      <span>{item.detail}</span>
+                      {'meta' in item && item.meta ? <small>{item.meta}</small> : null}
+                    </div>
+                  ))
+                ) : null}
               </div>
             </article>
           </section>
@@ -469,7 +543,7 @@ function App() {
             <section className="panel tactical-panel">
               <div className="panel-block">
                 <p className="eyebrow">Task matrix</p>
-                <strong>Backend execution breakdown</strong>
+                <strong>Backend task inventory</strong>
                 <div className="task-matrix">
                   <div className="task-cell">
                     <span>Queued</span>
@@ -499,7 +573,7 @@ function App() {
                   {runtimeNotes.length > 0 ? (
                     runtimeNotes.slice(0, 3).map((note) => (
                       <span key={note.id}>
-                        [{note.tag}] {note.title} — {note.body}
+                        [{note.tag}] {note.title} — {note.body} ({note.source === 'runtime' ? 'live' : 'seeded baseline'})
                       </span>
                     ))
                   ) : (

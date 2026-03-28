@@ -1,7 +1,12 @@
 export type ChatModeId = 'command' | 'strategy' | 'build'
 export type TaskStatus = 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+export type RecordSource = 'runtime' | 'seeded-demo'
 
-export interface ChatMessageRecord {
+interface BaseRecordMeta {
+  source: RecordSource
+}
+
+export interface ChatMessageRecord extends BaseRecordMeta {
   id: string
   role: 'sentinel' | 'operator' | 'system'
   author: string
@@ -11,7 +16,7 @@ export interface ChatMessageRecord {
   status: 'ready' | 'queued'
 }
 
-export interface NoteRecord {
+export interface NoteRecord extends BaseRecordMeta {
   id: string
   title: string
   body: string
@@ -19,7 +24,7 @@ export interface NoteRecord {
   updatedAt: string
 }
 
-export interface TaskRecord {
+export interface TaskRecord extends BaseRecordMeta {
   id: string
   title: string
   owner: string
@@ -28,7 +33,7 @@ export interface TaskRecord {
   lane: string
 }
 
-export interface ActivityRecord {
+export interface ActivityRecord extends BaseRecordMeta {
   id: string
   type: 'chat' | 'task' | 'note' | 'status'
   title: string

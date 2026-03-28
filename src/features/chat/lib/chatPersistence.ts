@@ -15,6 +15,9 @@ const isMessageRole = (value: unknown): value is ChatMessage['role'] =>
 const isMessageStatus = (value: unknown): value is NonNullable<ChatMessage['status']> =>
   value === 'ready' || value === 'queued'
 
+const isRecordSource = (value: unknown): value is ChatMessage['source'] =>
+  value === 'runtime' || value === 'seeded-demo'
+
 const clampText = (value: string, maxLength: number) => value.trim().slice(0, maxLength)
 
 export function parseStoredModeId(value: unknown): ChatModeId {
@@ -65,6 +68,7 @@ export function parseStoredMessages(value: unknown): ChatMessage[] {
         timestamp: clampText(candidate.timestamp, 32),
         modeId: candidate.modeId,
         status: isMessageStatus(candidate.status) ? candidate.status : 'ready',
+        source: isRecordSource(candidate.source) ? candidate.source : 'runtime',
       }
     })
     .filter((entry): entry is ChatMessage => Boolean(entry))
