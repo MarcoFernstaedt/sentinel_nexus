@@ -1,4 +1,4 @@
-import type { ChatMode, RuntimeContext, RuntimeStatusSnapshot, TransportPreview } from '../model/types'
+import type { ActivityItem, ChatMode, RuntimeContext, RuntimeStatusSnapshot, TransportPreview } from '../model/types'
 
 type PersonaPanelProps = {
   activeMode: ChatMode
@@ -7,7 +7,21 @@ type PersonaPanelProps = {
   runtimeStatus: RuntimeStatusSnapshot | null
   suggestedPrompts: string[]
   historyCount: number
+  recentActivity: ActivityItem[]
   onPromptSelect: (prompt: string) => void
+}
+
+function formatLastSyncLabel(timestamp: string | undefined) {
+  if (!timestamp) {
+    return 'Waiting for API'
+  }
+
+  const parsed = Date.parse(timestamp)
+  if (Number.isNaN(parsed)) {
+    return timestamp
+  }
+
+  return new Date(parsed).toLocaleTimeString([], { hour12: false })
 }
 
 export function PersonaPanel({
@@ -17,15 +31,14 @@ export function PersonaPanel({
   runtimeStatus,
   suggestedPrompts,
   historyCount,
+  recentActivity,
   onPromptSelect,
 }: PersonaPanelProps) {
   const runtimeLabel = runtimeContext
     ? `${runtimeContext.session.hostLabel} · ${runtimeContext.session.serviceKind}`
     : 'Runtime context unavailable'
 
-  const lastSyncLabel = runtimeStatus
-    ? new Date(runtimeStatus.capturedAt).toLocaleTimeString([], { hour12: false })
-    : 'Waiting for API'
+  const lastSyncLabel = formatLastSyncLabel(runtimeStatus?.capturedAt)
 
   return (
     <aside className="persona-panel panel">
@@ -57,9 +70,25 @@ export function PersonaPanel({
         </div>
         <p className="muted-copy">
           {runtimeContext
-            ? `Messages ${runtimeContext.chat.messageCount} · Notes ${runtimeContext.surfaces.notesCount} · Tasks ${runtimeContext.surfaces.tasksCount}`
+            ? `Messages ${runtimeContext.chat.messageCount} · Notes ${runtimeContext.surfaces.notesCount} · Tasks ${runtimeContext.surfaces.tasksCount} · Activity ${runtimeContext.surfaces.activityCount}`
             : 'No server-derived session data yet. The shell will keep running locally.'}
         </p>
+      </div>
+
+      <div className="panel-block panel-block--dense">
+        <p className="eyebrow">Recent progress log</p>
+        <strong>{recentActivity.length.toString().padStart(2, '0')} visible updates</strong>
+        <div className="detail-stack muted-copy">
+          {recentActivity.length > 0 ? (
+            recentActivity.slice(0, 4).map((item) => (
+              <span key={item.id}>
+                [{item.type}] {item.title} — {item.detail}
+              </span>
+            ))
+          ) : (
+            <span>No activity has been logged by the backend yet.</span>
+          )}
+        </div>
       </div>
 
       <div className="panel-block">

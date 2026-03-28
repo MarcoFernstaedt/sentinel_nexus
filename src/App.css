@@ -1,9 +1,9 @@
 :root {
-  color: rgba(244, 247, 251, 0.96);
+  color: rgba(233, 255, 246, 0.96);
   background:
-    radial-gradient(circle at top, rgba(112, 129, 255, 0.24), transparent 24%),
-    radial-gradient(circle at 85% 15%, rgba(72, 184, 255, 0.12), transparent 24%),
-    linear-gradient(180deg, #070b16 0%, #090d18 100%);
+    radial-gradient(circle at top, rgba(65, 255, 165, 0.11), transparent 24%),
+    radial-gradient(circle at 85% 15%, rgba(83, 201, 255, 0.1), transparent 20%),
+    linear-gradient(180deg, #050a0d 0%, #081115 42%, #05080c 100%);
 }
 
 * {
@@ -19,7 +19,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: transparent;
-  color: #f4f7fb;
+  color: #effff7;
 }
 
 button,
@@ -44,7 +44,7 @@ button:hover {
 
 button:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid rgba(133, 154, 255, 0.9);
+  outline: 2px solid rgba(98, 255, 196, 0.9);
   outline-offset: 2px;
 }
 
@@ -68,15 +68,60 @@ ul {
 }
 
 .app-shell {
+  position: relative;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
+  isolation: isolate;
+}
+
+.shell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.shell-backdrop__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(126, 255, 210, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 255, 210, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 92%);
+}
+
+.shell-backdrop__glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(80px);
+  opacity: 0.3;
+}
+
+.shell-backdrop__glow--one {
+  width: 22rem;
+  height: 22rem;
+  top: -5rem;
+  left: -3rem;
+  background: rgba(36, 255, 156, 0.22);
+}
+
+.shell-backdrop__glow--two {
+  width: 24rem;
+  height: 24rem;
+  right: -8rem;
+  top: 10rem;
+  background: rgba(86, 175, 255, 0.18);
 }
 
 .left-rail {
   padding: 2rem 1.5rem;
-  border-right: 1px solid rgba(168, 180, 214, 0.12);
-  background: rgba(4, 8, 18, 0.72);
+  border-right: 1px solid rgba(126, 255, 210, 0.12);
+  background:
+    linear-gradient(180deg, rgba(5, 13, 17, 0.95), rgba(5, 10, 14, 0.82)),
+    rgba(6, 12, 16, 0.78);
   backdrop-filter: blur(18px);
   display: grid;
   align-content: start;
@@ -88,30 +133,48 @@ ul {
 
 .brand-block {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.7rem;
+}
+
+.left-rail h1 {
+  font-size: clamp(1.95rem, 2.4vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
 }
 
 .workspace {
   padding: 1.75rem;
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.88fr);
+  gap: 1.5rem;
+  align-content: start;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.84fr);
   gap: 1.5rem;
   align-items: start;
 }
 
+.right-stack,
 .panel,
 .rail-card,
 .message-card,
 .mode-switch__item,
 .prompt-chip,
 .composer-shell,
-.status-pill,
 .overview-card,
 .rail-metric,
-.mode-switch-shell {
-  border: 1px solid rgba(162, 176, 214, 0.14);
-  background: rgba(12, 18, 34, 0.82);
-  box-shadow: 0 18px 60px rgba(4, 9, 21, 0.34);
+.mode-switch-shell,
+.command-deck,
+.tactical-panel,
+.telemetry-card,
+.task-cell,
+.deck-banner__callout,
+.deck-banner__meta {
+  border: 1px solid rgba(119, 242, 206, 0.14);
+  background: rgba(7, 15, 19, 0.78);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
 }
 
 .panel,
@@ -122,36 +185,44 @@ ul {
 .prompt-chip,
 .overview-card,
 .rail-metric,
-.mode-switch-shell {
+.mode-switch-shell,
+.command-deck,
+.tactical-panel,
+.telemetry-card,
+.task-cell,
+.deck-banner__callout,
+.deck-banner__meta {
   border-radius: 20px;
 }
 
 .panel,
 .rail-card,
 .composer-shell,
-.mode-switch-shell {
+.mode-switch-shell,
+.command-deck,
+.tactical-panel {
   padding: 1rem;
 }
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   font-size: 0.72rem;
-  color: #8da4ff;
+  color: #7ef7cd;
 }
 
 .muted-copy,
 .message-card p,
 .composer-shell__meta,
 .conversation-shell__meta,
-.detail-stack {
-  color: #aebad8;
+.detail-stack,
+.telemetry-card p,
+.deck-banner__meta span,
+.rail-metric small,
+.overview-card small,
+.task-cell span {
+  color: #a9cabb;
   line-height: 1.6;
-}
-
-.left-rail h1 {
-  font-size: clamp(1.85rem, 2.2vw, 2.75rem);
-  line-height: 1.04;
 }
 
 .rail-card,
@@ -163,32 +234,27 @@ ul {
 .panel-block,
 .prompt-stack,
 .detail-stack,
-.right-column,
+.right-stack,
 .info-panel,
-.info-stack {
+.info-stack,
+.command-deck,
+.telemetry-grid,
+.workspace-grid,
+.tactical-panel,
+.task-matrix,
+.ops-grid,
+.ops-panel,
+.stack-list,
+.event-list,
+.event-item {
   display: grid;
   gap: 0.75rem;
-}
-
-.info-card-row {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.85rem 0.95rem;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.info-card-row__header {
-  display: flex;
-  gap: 0.75rem;
-  align-items: start;
-  justify-content: space-between;
 }
 
 .rail-card--accent {
   background:
-    linear-gradient(180deg, rgba(21, 29, 54, 0.96), rgba(12, 18, 34, 0.92)),
-    rgba(12, 18, 34, 0.82);
+    linear-gradient(180deg, rgba(10, 24, 20, 0.98), rgba(6, 15, 18, 0.95)),
+    rgba(7, 15, 19, 0.9);
 }
 
 .rail-card__header,
@@ -200,7 +266,8 @@ ul {
 .split-row,
 .mode-switch-shell__header,
 .composer-shell__footer,
-.conversation-shell__meta {
+.conversation-shell__meta,
+.telemetry-card__header {
   display: flex;
   gap: 0.75rem;
   align-items: center;
@@ -208,12 +275,56 @@ ul {
 }
 
 .rail-grid,
-.overview-strip {
+.overview-strip,
+.task-matrix,
+.telemetry-grid,
+.ops-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.command-ribbon {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.command-ribbon__card {
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(119, 242, 206, 0.14);
+  background: rgba(4, 11, 14, 0.72);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.command-ribbon__card--mode {
+  background: linear-gradient(135deg, rgba(12, 39, 28, 0.96), rgba(7, 17, 20, 0.92));
+}
+
+.command-ribbon__card--model {
+  background: linear-gradient(135deg, rgba(10, 26, 33, 0.96), rgba(7, 17, 20, 0.92));
+}
+
+.command-ribbon__label {
+  color: #7ef7cd;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+}
+
+.command-ribbon__card strong {
+  font-size: 1.2rem;
+}
+
+.command-ribbon__card small {
+  color: #b6d8cb;
+  line-height: 1.55;
+}
+
 .rail-metric,
-.overview-card {
+.overview-card,
+.task-cell {
   padding: 0.9rem;
   display: grid;
   gap: 0.3rem;
@@ -221,22 +332,114 @@ ul {
 
 .rail-metric span,
 .overview-card span,
-.rail-metric small,
-.overview-card small {
-  color: #99abd0;
+.rail-signal__label {
+  color: #87c8b2;
 }
 
 .rail-metric strong,
-.overview-card strong {
-  font-size: 1.05rem;
+.overview-card strong,
+.task-cell strong,
+.telemetry-card strong {
+  font-size: 1.12rem;
 }
 
 .rail-list {
   padding-left: 1rem;
 }
 
+.rail-signal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: #d8ffee;
+}
+
+.command-deck {
+  gap: 1rem;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 21, 0.92), rgba(7, 12, 17, 0.86)),
+    rgba(7, 15, 19, 0.82);
+}
+
+.deck-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 0.9rem;
+}
+
+.deck-banner__callout,
+.deck-banner__meta {
+  padding: 1rem;
+  background: rgba(3, 10, 12, 0.72);
+}
+
+.deck-banner__callout {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.deck-banner__label {
+  color: #7ef7cd;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+}
+
+.deck-banner__callout strong {
+  font-size: 1.3rem;
+}
+
+.deck-banner__callout small {
+  color: #d4fff0;
+}
+
+.deck-banner__meta {
+  align-content: center;
+}
+
+.overview-card {
+  background: rgba(5, 13, 17, 0.86);
+}
+
+.overview-card--hot {
+  background: linear-gradient(135deg, rgba(10, 33, 26, 0.96), rgba(8, 19, 24, 0.92));
+}
+
+.telemetry-card {
+  padding: 1rem;
+  display: grid;
+  gap: 0.45rem;
+  min-height: 10.5rem;
+  background: rgba(5, 12, 16, 0.82);
+}
+
+.telemetry-card__header span:first-child {
+  color: #dbfff2;
+}
+
+.telemetry-card__status {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  color: #8ce9c9;
+}
+
+.telemetry-card--watch {
+  border-color: rgba(255, 203, 97, 0.24);
+}
+
+.telemetry-card--critical {
+  border-color: rgba(255, 112, 112, 0.3);
+}
+
+.telemetry-card--placeholder {
+  border-style: dashed;
+}
+
 .chat-surface {
-  min-height: calc(100vh - 3.5rem);
+  min-height: calc(100vh - 14rem);
+  background: rgba(6, 13, 17, 0.86);
 }
 
 .surface-header {
@@ -250,25 +453,27 @@ ul {
 
 .status-pill {
   width: fit-content;
-  padding: 0.35rem 0.65rem;
+  padding: 0.35rem 0.7rem;
   border-radius: 999px;
-  color: #d7deff;
-  background: rgba(99, 114, 255, 0.18);
+  color: #dbfff2;
+  border: 1px solid rgba(127, 247, 205, 0.2);
+  background: rgba(19, 56, 43, 0.38);
 }
 
 .status-pill--subtle {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  color: #b6d8cb;
 }
 
 .status-pill--live {
-  background: linear-gradient(135deg, rgba(112, 129, 255, 0.32), rgba(72, 184, 255, 0.24));
-  border-color: rgba(135, 170, 255, 0.32);
+  background: linear-gradient(135deg, rgba(36, 255, 156, 0.2), rgba(83, 201, 255, 0.22));
+  border-color: rgba(98, 255, 196, 0.32);
 }
 
 .mode-switch-shell {
   display: grid;
   gap: 0.9rem;
-  background: rgba(10, 15, 29, 0.7);
+  background: rgba(6, 15, 18, 0.8);
 }
 
 .mode-switch-shell__header {
@@ -283,27 +488,27 @@ ul {
 
 .mode-switch__item {
   padding: 1rem;
-  color: #f4f7fb;
+  color: #effff7;
   text-align: left;
   display: grid;
   gap: 0.35rem;
-  background: rgba(16, 22, 40, 0.92);
+  background: rgba(8, 17, 21, 0.94);
 }
 
 .mode-switch__item strong {
-  color: #dce4ff;
+  color: #d4fff0;
   font-size: 0.96rem;
 }
 
 .mode-switch__item small {
-  color: #9caed6;
+  color: #9cc5b5;
   line-height: 1.5;
 }
 
 .mode-switch__item.is-active {
-  background: linear-gradient(135deg, rgba(49, 62, 110, 0.98), rgba(19, 29, 56, 0.92));
-  border-color: rgba(130, 146, 255, 0.4);
-  box-shadow: 0 20px 70px rgba(24, 34, 66, 0.52);
+  background: linear-gradient(135deg, rgba(14, 45, 33, 0.98), rgba(10, 22, 26, 0.95));
+  border-color: rgba(98, 255, 196, 0.42);
+  box-shadow: 0 20px 70px rgba(5, 23, 18, 0.52);
 }
 
 .conversation-shell {
@@ -327,28 +532,30 @@ ul {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.85rem;
+  background: rgba(6, 14, 18, 0.92);
 }
 
 .message-card.system {
-  background: rgba(38, 46, 70, 0.55);
+  background: rgba(28, 40, 38, 0.68);
 }
 
 .message-card.operator {
-  background: rgba(17, 26, 48, 0.94);
+  background: rgba(11, 24, 29, 0.96);
 }
 
 .message-card.sentinel {
-  background: linear-gradient(135deg, rgba(32, 41, 77, 0.96), rgba(15, 22, 43, 0.96));
+  background: linear-gradient(135deg, rgba(11, 30, 24, 0.98), rgba(8, 18, 23, 0.96));
 }
 
 .message-card__badge {
-  width: 2rem;
-  height: 2rem;
+  width: 2.1rem;
+  height: 2.1rem;
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  color: #dbe2ff;
+  border: 1px solid rgba(127, 247, 205, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: #dffef2;
   font-weight: 700;
   font-size: 0.86rem;
 }
@@ -370,7 +577,7 @@ ul {
 .message-card__header p,
 .message-card__header span {
   font-size: 0.85rem;
-  color: #8da4ff;
+  color: #7ef7cd;
 }
 
 .message-card p {
@@ -381,7 +588,7 @@ ul {
   margin-top: auto;
   display: grid;
   gap: 0.85rem;
-  background: rgba(11, 16, 30, 0.92);
+  background: rgba(5, 12, 15, 0.95);
 }
 
 .composer-shell__meta,
@@ -391,14 +598,14 @@ ul {
 }
 
 .composer-shell__count {
-  color: #8da4ff;
+  color: #7ef7cd;
 }
 
 .composer-shell textarea {
   width: 100%;
-  border: 1px solid rgba(162, 176, 214, 0.14);
-  background: rgba(9, 13, 26, 0.95);
-  color: #f4f7fb;
+  border: 1px solid rgba(119, 242, 206, 0.16);
+  background: rgba(2, 8, 10, 0.98);
+  color: #effff7;
   border-radius: 16px;
   padding: 0.95rem 1rem;
   min-height: 126px;
@@ -407,7 +614,7 @@ ul {
 .ghost-button,
 .primary-button,
 .prompt-chip {
-  color: #f4f7fb;
+  color: #effff7;
   padding: 0.8rem 1rem;
 }
 
@@ -417,16 +624,18 @@ ul {
 }
 
 .ghost-button {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .ghost-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .primary-button {
-  background: linear-gradient(135deg, #7081ff, #48b8ff);
-  box-shadow: 0 14px 30px rgba(69, 109, 255, 0.24);
+  background: linear-gradient(135deg, #14c776, #5fd7ff);
+  color: #03110d;
+  font-weight: 700;
+  box-shadow: 0 14px 30px rgba(36, 255, 156, 0.16);
 }
 
 .primary-button:disabled {
@@ -434,9 +643,29 @@ ul {
   cursor: wait;
 }
 
+.right-stack {
+  gap: 1.5rem;
+}
+
 .persona-panel {
   position: sticky;
   top: 1.75rem;
+}
+
+.tactical-panel {
+  gap: 1rem;
+}
+
+.task-cell {
+  background: rgba(5, 11, 15, 0.82);
+}
+
+.task-cell--live {
+  border-color: rgba(98, 255, 196, 0.28);
+}
+
+.task-cell--warn {
+  border-color: rgba(255, 203, 97, 0.26);
 }
 
 .panel-block--hero {
@@ -452,25 +681,92 @@ ul {
 .persona-quote {
   font-size: 1.05rem;
   line-height: 1.6;
-  color: #dfe5ff;
+  color: #d9fff0;
 }
 
 .prompt-chip {
-  background: rgba(99, 114, 255, 0.12);
+  background: rgba(19, 56, 43, 0.38);
   text-align: left;
   display: grid;
   gap: 0.4rem;
 }
 
 .prompt-chip__index {
-  color: #8da4ff;
+  color: #7ef7cd;
   font-size: 0.74rem;
   letter-spacing: 0.12em;
 }
 
-@media (max-width: 1180px) {
-  .app-shell,
-  .workspace {
+.ops-panel {
+  background: rgba(6, 14, 18, 0.86);
+}
+
+.ops-grid--command {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ops-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.rail-metric--emphasis {
+  background: linear-gradient(135deg, rgba(13, 37, 29, 0.94), rgba(8, 18, 22, 0.9));
+  border-color: rgba(98, 255, 196, 0.24);
+}
+
+.stack-list__item,
+.event-item {
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(119, 242, 206, 0.12);
+  background: rgba(4, 11, 14, 0.68);
+}
+
+.stack-list__item--compact {
+  gap: 0.4rem;
+}
+
+.stack-list__item span,
+.event-item span,
+.stack-list__item small,
+.event-item small {
+  color: #a9cabb;
+  line-height: 1.55;
+}
+
+.stack-list__row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  display: inline-block;
+  background: rgba(169, 202, 187, 0.7);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03);
+}
+
+.status-dot--logged {
+  background: #7ef7cd;
+}
+
+.status-dot--watch {
+  background: #ffcb61;
+}
+
+.status-dot--done {
+  background: #5fd7ff;
+}
+
+@media (max-width: 1240px) {
+  .workspace-grid,
+  .deck-banner,
+  .command-ribbon,
+  .app-shell {
     grid-template-columns: 1fr;
   }
 
@@ -482,7 +778,7 @@ ul {
 
   .left-rail {
     border-right: none;
-    border-bottom: 1px solid rgba(168, 180, 214, 0.12);
+    border-bottom: 1px solid rgba(126, 255, 210, 0.12);
   }
 
   .chat-surface {
@@ -498,7 +794,11 @@ ul {
 
   .mode-switch,
   .overview-strip,
-  .rail-grid {
+  .rail-grid,
+  .task-matrix,
+  .telemetry-grid,
+  .ops-grid,
+  .command-ribbon {
     grid-template-columns: 1fr;
   }
 
@@ -507,7 +807,9 @@ ul {
   .message-card__header,
   .mode-switch-shell__header,
   .composer-shell__footer,
-  .conversation-shell__meta {
+  .conversation-shell__meta,
+  .telemetry-card__header,
+  .rail-card__header {
     flex-direction: column;
     align-items: start;
   }

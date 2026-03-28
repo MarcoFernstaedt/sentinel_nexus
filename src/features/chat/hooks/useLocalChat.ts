@@ -23,11 +23,14 @@ import {
 } from '../lib/chatPersistence'
 import { simulateLocalReply } from '../lib/localTransport'
 import type {
+  ActivityItem,
   ChatMessage,
   ChatModeId,
   ComposerDraft,
   RuntimeContext,
+  RuntimeNote,
   RuntimeStatusSnapshot,
+  RuntimeTask,
   TransportPreview,
 } from '../model/types'
 
@@ -51,6 +54,9 @@ export function useLocalChat() {
   const [transportPreview, setTransportPreview] = useState<TransportPreview>(fallbackTransportPreview)
   const [runtimeContext, setRuntimeContext] = useState<RuntimeContext | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatusSnapshot | null>(null)
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([])
+  const [runtimeNotes, setRuntimeNotes] = useState<RuntimeNote[]>([])
+  const [runtimeTasks, setRuntimeTasks] = useState<RuntimeTask[]>([])
   const [apiState, setApiState] = useState<'connected' | 'local-fallback'>('local-fallback')
 
   useEffect(() => {
@@ -68,15 +74,19 @@ export function useLocalChat() {
 
           setRuntimeStatus(bootstrap.status)
           setRuntimeContext(bootstrap.runtime)
+          setRecentActivity(bootstrap.activity ?? [])
+          setRuntimeNotes(bootstrap.notes ?? [])
+          setRuntimeTasks(bootstrap.tasks ?? [])
           setTransportPreview(createTransportPreview(bootstrap.status))
           setApiState('connected')
           return
         }
 
-        const [apiMessages, apiStatus, apiRuntimeContext] = await Promise.all([
+        const [apiMessages, apiStatus, apiRuntimeContext, bootstrap] = await Promise.all([
           fetchMessages(),
           fetchStatus(),
           fetchRuntimeContext(),
+          fetchBootstrap(),
         ])
         if (cancelled) return
         if (apiMessages.length > 0) {
@@ -84,6 +94,9 @@ export function useLocalChat() {
         }
         setRuntimeStatus(apiStatus)
         setRuntimeContext(apiRuntimeContext)
+        setRecentActivity(bootstrap.activity ?? [])
+        setRuntimeNotes(bootstrap.notes ?? [])
+        setRuntimeTasks(bootstrap.tasks ?? [])
         setTransportPreview(createTransportPreview(apiStatus))
         setApiState('connected')
       } catch {
@@ -206,10 +219,14 @@ export function useLocalChat() {
     isResponding,
     messages: visibleMessages,
     modes: chatModes,
+    recentActivity,
     runtimeContext,
+    runtimeNotes,
     runtimeStatus,
+    runtimeTasks,
     suggestedPrompts,
     transportPreview,
+    rawMessages: messages,
     setActiveModeId,
     setDraft,
     submitMessage,

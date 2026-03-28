@@ -1,4 +1,4 @@
-import type { ChatMessageRecord, NexusDataStore, NoteRecord, TaskRecord } from './models.js'
+import type { ActivityRecord, ChatMessageRecord, NexusDataStore, NoteRecord, TaskRecord } from './models.js'
 
 export const seededMessages: ChatMessageRecord[] = [
   {
@@ -73,8 +73,28 @@ export const seededTasks: TaskRecord[] = [
   },
 ]
 
+export const seededActivity: ActivityRecord[] = [
+  {
+    id: 'activity-affirmations-wireup',
+    type: 'status',
+    title: 'Affirmation tracking surface requested',
+    detail: 'Command center should show visible progress around affirmations and platform work.',
+    timestamp: new Date().toISOString(),
+    status: 'watch',
+  },
+  {
+    id: 'activity-runtime-online',
+    type: 'status',
+    title: 'Nexus backend online',
+    detail: 'Bootstrap, task, note, and chat seams are active through the local API.',
+    timestamp: new Date().toISOString(),
+    status: 'done',
+  },
+]
+
 export const createSeedData = (): NexusDataStore => ({
   chatMessages: seededMessages,
   notes: seededNotes,
   tasks: seededTasks,
+  activity: seededActivity,
 })

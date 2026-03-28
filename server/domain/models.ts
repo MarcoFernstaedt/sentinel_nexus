@@ -28,6 +28,15 @@ export interface TaskRecord {
   lane: string
 }
 
+export interface ActivityRecord {
+  id: string
+  type: 'chat' | 'task' | 'note' | 'status'
+  title: string
+  detail: string
+  timestamp: string
+  status: 'logged' | 'watch' | 'done'
+}
+
 export interface StatusCard {
   id: string
   label: string
@@ -59,6 +68,8 @@ export interface RuntimeContextSnapshot {
     notesCount: number
     tasksCount: number
     taskBreakdown: Record<TaskStatus, number>
+    activityCount: number
+    latestActivityAt: string | null
   }
 }
 
@@ -80,6 +91,7 @@ export interface NexusBootstrapSnapshot {
   messages: ChatMessageRecord[]
   notes: NoteRecord[]
   tasks: TaskRecord[]
+  activity: ActivityRecord[]
 }
 
 export interface NexusDatabaseConfig {
@@ -93,4 +105,5 @@ export interface NexusDataStore {
   chatMessages: ChatMessageRecord[]
   notes: NoteRecord[]
   tasks: TaskRecord[]
+  activity: ActivityRecord[]
 }

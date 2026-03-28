@@ -23,6 +23,15 @@ export interface ComposerDraft {
   historyIndex: number | null
 }
 
+export interface ActivityItem {
+  id: string
+  type: 'chat' | 'task' | 'note' | 'status'
+  title: string
+  detail: string
+  timestamp: string
+  status: 'logged' | 'watch' | 'done'
+}
+
 export interface RuntimeTarget {
   apiBasePath: string
   eventStreamPath: string
@@ -58,6 +67,8 @@ export interface RuntimeContext {
       Blocked: number
       Done: number
     }
+    activityCount: number
+    latestActivityAt: string | null
   }
 }
 
@@ -88,10 +99,28 @@ export interface RuntimeStatusSnapshot {
   cards: RuntimeStatusCard[]
 }
 
+export interface RuntimeNote {
+  id: string
+  title: string
+  body: string
+  tag: string
+  updatedAt: string
+}
+
+export interface RuntimeTask {
+  id: string
+  title: string
+  owner: string
+  due: string
+  status: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+  lane: string
+}
+
 export interface BootstrapPayload {
   status: RuntimeStatusSnapshot
   runtime: RuntimeContext
   messages: ChatMessage[]
-  notes: Array<{ id: string }>
-  tasks: Array<{ id: string }>
+  notes: RuntimeNote[]
+  tasks: RuntimeTask[]
+  activity: ActivityItem[]
 }

@@ -1,4 +1,4 @@
-import type { ChatMessageRecord, NexusDataStore, NoteRecord, TaskRecord } from '../domain/models.js'
+import type { ActivityRecord, ChatMessageRecord, NexusDataStore, NoteRecord, TaskRecord } from '../domain/models.js'
 import { FileBackedStore } from '../infrastructure/fileStore.js'
 
 export class ChatRepository {
@@ -54,6 +54,23 @@ export class TasksRepository {
     data.tasks = updatedTasks
     await this.store.write(data)
     return updatedTasks.find((task) => task.id === taskId) ?? null
+  }
+}
+
+export class ActivityRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async list(limit?: number) {
+    const data = await this.store.read()
+    const activity = [...(data.activity ?? [])].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    return typeof limit === 'number' ? activity.slice(0, limit) : activity
+  }
+
+  async append(entry: ActivityRecord) {
+    const data = await this.store.read()
+    data.activity = [entry, ...(data.activity ?? [])].slice(0, 40)
+    await this.store.write(data)
+    return entry
   }
 }
 

@@ -9,7 +9,7 @@ import type {
   TaskStatus,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
-import { ChatRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import { ActivityRepository, ChatRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -21,18 +21,23 @@ const personaReplies: Record<ChatModeId, string> = {
 }
 
 export class ChatService {
-  constructor(private readonly repository: ChatRepository) {}
+  constructor(
+    private readonly repository: ChatRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
 
   list() {
     return this.repository.list()
   }
 
   async submit(input: { body: string; modeId: ChatModeId; author?: string }) {
+    const body = input.body.trim()
+
     const operatorMessage: ChatMessageRecord = {
       id: crypto.randomUUID(),
       role: 'operator',
       author: input.author?.trim() || 'Marco',
-      body: input.body.trim(),
+      body,
       timestamp: new Date().toISOString(),
       modeId: input.modeId,
       status: 'ready',
@@ -42,51 +47,101 @@ export class ChatService {
       id: crypto.randomUUID(),
       role: 'sentinel',
       author: 'Sentinel',
-      body: `${personaReplies[input.modeId]}\n\nCaptured request: “${input.body.trim()}”.`,
+      body: `${personaReplies[input.modeId]}\n\nCaptured request: “${body}”.`,
       timestamp: new Date().toISOString(),
       modeId: input.modeId,
       status: 'ready',
     }
 
     await this.repository.append([operatorMessage, sentinelMessage])
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'chat',
+      title: `Chat routed through ${input.modeId} mode`,
+      detail: body,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+    })
+
     return { operatorMessage, sentinelMessage }
   }
 }
 
 export class NotesService {
-  constructor(private readonly repository: NotesRepository) {}
+  constructor(
+    private readonly repository: NotesRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
 
   list() {
     return this.repository.list()
   }
 
-  create(input: Pick<NoteRecord, 'title' | 'body' | 'tag'>) {
-    return this.repository.create({
+  async create(input: Pick<NoteRecord, 'title' | 'body' | 'tag'>) {
+    const note = await this.repository.create({
       id: `note-${crypto.randomUUID()}`,
       title: input.title.trim(),
       body: input.body.trim(),
       tag: input.tag.trim() || 'general',
       updatedAt: new Date().toISOString(),
     })
+
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'note',
+      title: `Note saved: ${note.title}`,
+      detail: note.tag,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+    })
+
+    return note
   }
 }
 
 export class TasksService {
-  constructor(private readonly repository: TasksRepository) {}
+  constructor(
+    private readonly repository: TasksRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
 
   list() {
     return this.repository.list()
   }
 
-  create(input: Omit<TaskRecord, 'id'>) {
-    return this.repository.create({
+  async create(input: Omit<TaskRecord, 'id'>) {
+    const task = await this.repository.create({
       ...input,
       id: `task-${crypto.randomUUID()}`,
     })
+
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'task',
+      title: `Task created: ${task.title}`,
+      detail: `${task.owner} · ${task.status}`,
+      timestamp: new Date().toISOString(),
+      status: task.status === 'Done' ? 'done' : 'logged',
+    })
+
+    return task
   }
 
-  update(taskId: string, patch: Partial<TaskRecord>) {
-    return this.repository.update(taskId, patch)
+  async update(taskId: string, patch: Partial<TaskRecord>) {
+    const updated = await this.repository.update(taskId, patch)
+
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'task',
+        title: `Task status: ${updated.title}`,
+        detail: `${updated.status} · ${updated.owner}`,
+        timestamp: new Date().toISOString(),
+        status: updated.status === 'Blocked' ? 'watch' : updated.status === 'Done' ? 'done' : 'logged',
+      })
+    }
+
+    return updated
   }
 }
 
@@ -135,6 +190,8 @@ export class StatusService {
         notesCount: counts.notes.length,
         tasksCount: counts.tasks.length,
         taskBreakdown,
+        activityCount: counts.activity.length,
+        latestActivityAt: counts.activity[0]?.timestamp ?? null,
       },
     }
   }
@@ -179,6 +236,15 @@ export class StatusService {
           value: String(runtime.surfaces.tasksCount),
           detail: `Queued ${runtime.surfaces.taskBreakdown.Queued} · In progress ${runtime.surfaces.taskBreakdown['In Progress']} · Blocked ${runtime.surfaces.taskBreakdown.Blocked} · Done ${runtime.surfaces.taskBreakdown.Done}`,
           severity: 'watch',
+        },
+        {
+          id: 'recent-activity',
+          label: 'Recent Activity',
+          value: String(runtime.surfaces.activityCount),
+          detail: runtime.surfaces.latestActivityAt
+            ? `Latest update ${new Date(runtime.surfaces.latestActivityAt).toLocaleString()}`
+            : 'No activity logged yet.',
+          severity: runtime.surfaces.activityCount > 0 ? 'stable' : 'placeholder',
         },
       ],
     }

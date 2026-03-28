@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { ChatModeId, TaskStatus } from '../domain/models.js'
 import { HttpError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
+import { ActivityRepository } from '../application/repositories.js'
 import { ChatService, NotesService, StatusService, TasksService } from '../application/services.js'
 
 interface Services {
@@ -8,6 +9,7 @@ interface Services {
   notesService: NotesService
   tasksService: TasksService
   statusService: StatusService
+  activityRepository: ActivityRepository
 }
 
 const allowedTaskStatuses: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
@@ -29,14 +31,15 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'GET' && url.pathname === '/api/bootstrap') {
-        const [status, runtime, messages, notes, tasks] = await Promise.all([
+        const [status, runtime, messages, notes, tasks, activity] = await Promise.all([
           services.statusService.snapshot(),
           services.statusService.runtimeContext(),
           services.chatService.list(),
           services.notesService.list(),
           services.tasksService.list(),
+          services.activityRepository.list(8),
         ])
-        json(response, 200, { status, runtime, messages, notes, tasks })
+        json(response, 200, { status, runtime, messages, notes, tasks, activity })
         return
       }
 
@@ -47,6 +50,11 @@ export function createRouter(services: Services) {
 
       if (method === 'GET' && url.pathname === '/api/runtime/context') {
         json(response, 200, await services.statusService.runtimeContext())
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/activity') {
+        json(response, 200, await services.activityRepository.list(12))
         return
       }
 
