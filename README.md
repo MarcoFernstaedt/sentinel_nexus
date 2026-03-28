@@ -8,6 +8,7 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 - Existing chat shell remains in React/Vite.
 - Chat now hydrates from the backend API when available.
 - Submission goes through the API first, with graceful local fallback if the server is offline.
+- The command center now includes an operator progress board with truthful workflow stages and attention surfaces.
 
 ### Backend
 - `server/index.ts` boots a Node HTTP API.
@@ -21,29 +22,42 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 - `GET /api/bootstrap`
 - `GET /api/status`
 - `GET /api/runtime/context`
-- `GET/POST /api/chat/messages`
-- `GET/POST /api/notes`
-- `GET/POST /api/tasks`
+- `GET /api/chat/messages`
+- `POST /api/chat/messages`
+- `GET /api/notes`
+- `POST /api/notes`
+- `GET /api/tasks`
+- `POST /api/tasks`
 - `PATCH /api/tasks/:taskId`
 
 ## Truthful info surfaces now shown
 - Server status cards now expose real API/storage/message/note/task counts from the local Nexus backend.
-- Usage cards distinguish what is truly known now (prompt history, tracked modes, persisted task counts) from what still needs runtime feeds.
-- Agent cards show the active Sentinel session, host/node/persistence context, and the current stubbed reply engine.
+- Task snapshots now include both coarse task status (`Queued`, `In Progress`, `Blocked`, `Done`) and operator workflow stage (`queued`, `inspecting`, `editing`, `validating`, `committing`, `pushing`, `done`).
+- The board separates active work, waiting-on-user items, blocked items, and completed-but-not-reported items using explicit task flags instead of fake precision.
+- Runtime cards and feeds still distinguish live runtime data from seeded baseline/demo data.
 - Sub-agent roster visibility remains explicitly unavailable until a real runtime event/session feed exists.
 
 ## Frontend polish pass
 - The chat shell now uses a clearer control-room layout with a branded left rail, overview strip, and tighter conversation hierarchy.
 - Mode routing is more legible, with each Sentinel posture showing both accent and intent instead of looking like a generic tab bar.
 - Conversation flow now feels more premium and usable through auto-scroll, denser message cards, badge markers, and normalized timestamps.
-- Composer ergonomics improved with stronger focus states, visible mode context, prompt-history guidance, and a character counter.
-- The right-side context panel now presents transport/runtime state, prompt memory, and quick injections in a cleaner, more scannable format.
+- The command deck now includes a stage board plus attention columns for active, waiting, blocked, and ready-to-report work.
+- Seeded records are visibly labeled as seeded baseline so the UI stays honest when live runtime activity is sparse.
 
 ## Nexus DB boundary
 - `.env.example` defines `NEXUS_DB_*` variables.
 - Default persistence is file-backed JSON under `.nexus-db/`.
 - `nexus.schema.sql` prepares a future relational schema path.
 - Route logic is isolated from storage so SQLite/Postgres can replace file storage later.
+
+## Task model notes
+Tasks now support a few operator-safe metadata fields through the existing API and file-backed store:
+- `stage`
+- `summary`
+- `needsUserInput`
+- `readyToReport`
+
+These fields are optional and normalize safely for older stored task records.
 
 ## Run
 
@@ -82,3 +96,4 @@ A real Nexus database runtime is not provisioned on the host yet. The architectu
 
 - Frontend API calls now default to same-origin paths, so Vite proxying works cleanly in dev.
 - Set `VITE_API_BASE_URL` only when you intentionally want the frontend to talk to a different API origin.
+- Patching tasks through `/api/tasks/:taskId` is the current safe way to move work between stages or mark user/reporting attention.

@@ -6,6 +6,7 @@ import type {
   NoteRecord,
   RuntimeContextSnapshot,
   TaskRecord,
+  TaskStage,
   TaskStatus,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
@@ -18,6 +19,13 @@ const personaReplies: Record<ChatModeId, string> = {
     'Strategic posture: the route layer stays thin, the service layer owns decisions, and persistence is isolated behind the Nexus DB boundary.',
   build:
     'Build posture: this repo now has a real server spine, domain models, repositories, and a replaceable data store instead of pretending the browser is the backend.',
+}
+
+const defaultStageByStatus: Record<TaskStatus, TaskStage> = {
+  Queued: 'queued',
+  'In Progress': 'editing',
+  Blocked: 'validating',
+  Done: 'done',
 }
 
 export class ChatService {
@@ -118,6 +126,9 @@ export class TasksService {
     const task = await this.repository.create({
       ...input,
       id: `task-${crypto.randomUUID()}`,
+      stage: input.stage ?? defaultStageByStatus[input.status],
+      needsUserInput: input.needsUserInput ?? false,
+      readyToReport: input.readyToReport ?? false,
       source: 'runtime',
     })
 
@@ -125,9 +136,9 @@ export class TasksService {
       id: `activity-${crypto.randomUUID()}`,
       type: 'task',
       title: `Task created: ${task.title}`,
-      detail: `${task.owner} · ${task.status}`,
+      detail: `${task.owner} · ${task.status} · ${task.stage}`,
       timestamp: new Date().toISOString(),
-      status: task.status === 'Done' ? 'done' : 'logged',
+      status: task.status === 'Done' ? 'done' : task.status === 'Blocked' ? 'watch' : 'logged',
       source: 'runtime',
     })
 
@@ -142,7 +153,7 @@ export class TasksService {
         id: `activity-${crypto.randomUUID()}`,
         type: 'task',
         title: `Task status: ${updated.title}`,
-        detail: `${updated.status} · ${updated.owner}`,
+        detail: `${updated.status} · ${updated.stage} · ${updated.owner}`,
         timestamp: new Date().toISOString(),
         status: updated.status === 'Blocked' ? 'watch' : updated.status === 'Done' ? 'done' : 'logged',
         source: 'runtime',
@@ -173,6 +184,36 @@ export class StatusService {
         Done: 0,
       },
     )
+    const taskStageBreakdown = counts.tasks.reduce<Record<TaskStage, number>>(
+      (accumulator, task) => {
+        accumulator[task.stage] += 1
+        return accumulator
+      },
+      {
+        queued: 0,
+        inspecting: 0,
+        editing: 0,
+        validating: 0,
+        committing: 0,
+        pushing: 0,
+        done: 0,
+      },
+    )
+    const attentionCounts = counts.tasks.reduce(
+      (accumulator, task) => {
+        if (task.status !== 'Blocked' && task.status !== 'Done' && !task.needsUserInput) accumulator.active += 1
+        if (task.needsUserInput && task.status !== 'Done') accumulator.waitingOnUser += 1
+        if (task.status === 'Blocked') accumulator.blocked += 1
+        if (task.readyToReport) accumulator.readyToReport += 1
+        return accumulator
+      },
+      {
+        active: 0,
+        waitingOnUser: 0,
+        blocked: 0,
+        readyToReport: 0,
+      },
+    )
     const lastMessage = counts.chatMessages.at(-1) ?? null
 
     return {
@@ -198,6 +239,8 @@ export class StatusService {
         notesCount: counts.notes.length,
         tasksCount: counts.tasks.length,
         taskBreakdown,
+        taskStageBreakdown,
+        attentionCounts,
         activityCount: counts.activity.length,
         latestActivityAt: counts.activity[0]?.timestamp ?? null,
       },
@@ -243,10 +286,10 @@ export class StatusService {
         },
         {
           id: 'tasks-count',
-          label: 'Tasks',
-          value: String(runtime.surfaces.tasksCount),
-          detail: `Queued ${runtime.surfaces.taskBreakdown.Queued} · In progress ${runtime.surfaces.taskBreakdown['In Progress']} · Blocked ${runtime.surfaces.taskBreakdown.Blocked} · Done ${runtime.surfaces.taskBreakdown.Done}`,
-          severity: 'watch',
+          label: 'Task Board',
+          value: `${runtime.surfaces.attentionCounts.active} active · ${runtime.surfaces.attentionCounts.waitingOnUser} waiting`,
+          detail: `Stages: queued ${runtime.surfaces.taskStageBreakdown.queued} · inspecting ${runtime.surfaces.taskStageBreakdown.inspecting} · editing ${runtime.surfaces.taskStageBreakdown.editing} · validating ${runtime.surfaces.taskStageBreakdown.validating} · committing ${runtime.surfaces.taskStageBreakdown.committing} · pushing ${runtime.surfaces.taskStageBreakdown.pushing} · done ${runtime.surfaces.taskStageBreakdown.done}`,
+          severity: runtime.surfaces.attentionCounts.blocked > 0 ? 'watch' : 'stable',
         },
         {
           id: 'recent-activity',

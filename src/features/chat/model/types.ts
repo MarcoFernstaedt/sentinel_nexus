@@ -1,5 +1,6 @@
 export type ChatModeId = 'command' | 'strategy' | 'build'
 export type RecordSource = 'runtime' | 'seeded-demo'
+export type TaskStage = 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
 
 export interface ChatMode {
   id: ChatModeId
@@ -72,6 +73,13 @@ export interface RuntimeContext {
       Blocked: number
       Done: number
     }
+    taskStageBreakdown: Record<TaskStage, number>
+    attentionCounts: {
+      active: number
+      waitingOnUser: number
+      blocked: number
+      readyToReport: number
+    }
     activityCount: number
     latestActivityAt: string | null
   }
@@ -118,7 +126,11 @@ export interface RuntimeTask extends BaseRecordMeta {
   owner: string
   due: string
   status: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+  stage: TaskStage
   lane: string
+  summary?: string
+  needsUserInput?: boolean
+  readyToReport?: boolean
 }
 
 export interface BootstrapPayload {

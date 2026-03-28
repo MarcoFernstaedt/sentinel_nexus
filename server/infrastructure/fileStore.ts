@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createSeedData } from '../domain/seeds.js'
-import type { NexusDataStore, RecordSource } from '../domain/models.js'
+import type { NexusDataStore, RecordSource, TaskRecord, TaskStage } from '../domain/models.js'
 
 const seedData = createSeedData()
 const seededIds = {
@@ -9,6 +9,13 @@ const seededIds = {
   notes: new Set(seedData.notes.map((item) => item.id)),
   tasks: new Set(seedData.tasks.map((item) => item.id)),
   activity: new Set(seedData.activity.map((item) => item.id)),
+}
+
+const statusToStage: Record<TaskRecord['status'], TaskStage> = {
+  Queued: 'queued',
+  'In Progress': 'editing',
+  Blocked: 'validating',
+  Done: 'done',
 }
 
 function normalizeSource<T extends { id: string; source?: RecordSource }>(
@@ -25,11 +32,20 @@ function normalizeSource<T extends { id: string; source?: RecordSource }>(
   }
 }
 
+function normalizeTask(task: TaskRecord): TaskRecord {
+  return {
+    ...task,
+    stage: task.stage ?? statusToStage[task.status],
+    needsUserInput: task.needsUserInput ?? false,
+    readyToReport: task.readyToReport ?? false,
+  }
+}
+
 function normalizeStore(store: NexusDataStore): NexusDataStore {
   return {
     chatMessages: store.chatMessages.map((item) => normalizeSource(item, seededIds.chatMessages)),
     notes: store.notes.map((item) => normalizeSource(item, seededIds.notes)),
-    tasks: store.tasks.map((item) => normalizeSource(item, seededIds.tasks)),
+    tasks: store.tasks.map((item) => normalizeTask(normalizeSource(item, seededIds.tasks))),
     activity: (store.activity ?? []).map((item) => normalizeSource(item, seededIds.activity)),
   }
 }

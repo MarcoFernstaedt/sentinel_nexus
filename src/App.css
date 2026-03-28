@@ -709,6 +709,75 @@ ul {
   grid-column: 1 / -1;
 }
 
+.stage-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.stage-chip,
+.task-board-card {
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(119, 242, 206, 0.12);
+  background: rgba(4, 11, 14, 0.68);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.stage-chip span,
+.task-board-card small,
+.task-board-card p {
+  color: #a9cabb;
+  line-height: 1.55;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.board-column {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(119, 242, 206, 0.12);
+  background: rgba(5, 12, 16, 0.72);
+}
+
+.board-column--live {
+  border-color: rgba(98, 255, 196, 0.24);
+}
+
+.board-column--warn {
+  border-color: rgba(255, 203, 97, 0.26);
+}
+
+.board-column__header,
+.task-board-card__footer {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: start;
+  flex-wrap: wrap;
+}
+
+.board-column__header small {
+  color: #a9cabb;
+  line-height: 1.55;
+}
+
+.board-column__body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-board-card--empty {
+  border-style: dashed;
+}
+
 .rail-metric--emphasis {
   background: linear-gradient(135deg, rgba(13, 37, 29, 0.94), rgba(8, 18, 22, 0.9));
   border-color: rgba(98, 255, 196, 0.24);
@@ -798,7 +867,8 @@ ul {
   .task-matrix,
   .telemetry-grid,
   .ops-grid,
-  .command-ribbon {
+  .command-ribbon,
+  .board-grid {
     grid-template-columns: 1fr;
   }
 

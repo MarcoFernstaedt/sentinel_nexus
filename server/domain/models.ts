@@ -1,5 +1,6 @@
 export type ChatModeId = 'command' | 'strategy' | 'build'
 export type TaskStatus = 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+export type TaskStage = 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
 export type RecordSource = 'runtime' | 'seeded-demo'
 
 interface BaseRecordMeta {
@@ -30,7 +31,11 @@ export interface TaskRecord extends BaseRecordMeta {
   owner: string
   due: string
   status: TaskStatus
+  stage: TaskStage
   lane: string
+  summary?: string
+  needsUserInput?: boolean
+  readyToReport?: boolean
 }
 
 export interface ActivityRecord extends BaseRecordMeta {
@@ -73,6 +78,13 @@ export interface RuntimeContextSnapshot {
     notesCount: number
     tasksCount: number
     taskBreakdown: Record<TaskStatus, number>
+    taskStageBreakdown: Record<TaskStage, number>
+    attentionCounts: {
+      active: number
+      waitingOnUser: number
+      blocked: number
+      readyToReport: number
+    }
     activityCount: number
     latestActivityAt: string | null
   }

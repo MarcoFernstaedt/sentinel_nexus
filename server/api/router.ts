@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { ChatModeId, TaskStatus } from '../domain/models.js'
+import type { ChatModeId, TaskStage, TaskStatus } from '../domain/models.js'
 import { HttpError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
 import { ChatService, NotesService, StatusService, TasksService } from '../application/services.js'
@@ -13,6 +13,7 @@ interface Services {
 }
 
 const allowedTaskStatuses: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
+const allowedTaskStages: TaskStage[] = ['queued', 'inspecting', 'editing', 'validating', 'committing', 'pushing', 'done']
 
 export function createRouter(services: Services) {
   return async function route(request: IncomingMessage, response: ServerResponse) {
@@ -89,23 +90,85 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'POST' && url.pathname === '/api/tasks') {
-        const body = await readJson<{ title?: string; owner?: string; due?: string; status?: TaskStatus; lane?: string }>(request)
+        const body = await readJson<{
+          title?: string
+          owner?: string
+          due?: string
+          status?: TaskStatus
+          stage?: TaskStage
+          lane?: string
+          summary?: string
+          needsUserInput?: boolean
+          readyToReport?: boolean
+        }>(request)
         if (!body.title?.trim() || !body.owner?.trim() || !body.due?.trim() || !body.lane?.trim()) {
           return badRequest(response, 'title, owner, due, and lane are required')
         }
         const status = body.status && allowedTaskStatuses.includes(body.status) ? body.status : 'Queued'
-        json(response, 201, await services.tasksService.create({ title: body.title, owner: body.owner, due: body.due, status, lane: body.lane }))
+        const stage = body.stage && allowedTaskStages.includes(body.stage) ? body.stage : undefined
+        json(
+          response,
+          201,
+          await services.tasksService.create({
+            title: body.title,
+            owner: body.owner,
+            due: body.due,
+            status,
+            stage,
+            lane: body.lane,
+            summary: body.summary?.trim() || undefined,
+            needsUserInput: body.needsUserInput === true,
+            readyToReport: body.readyToReport === true,
+          }),
+        )
         return
       }
 
       if (method === 'PATCH' && url.pathname.startsWith('/api/tasks/')) {
         const taskId = url.pathname.split('/').at(-1)
         if (!taskId) return badRequest(response, 'taskId is required')
-        const body = await readJson<{ status?: TaskStatus }>(request)
-        if (!body.status || !allowedTaskStatuses.includes(body.status)) {
-          return badRequest(response, 'valid status is required')
+        const body = await readJson<{
+          status?: TaskStatus
+          stage?: TaskStage
+          summary?: string
+          needsUserInput?: boolean
+          readyToReport?: boolean
+        }>(request)
+        const patch: {
+          status?: TaskStatus
+          stage?: TaskStage
+          summary?: string
+          needsUserInput?: boolean
+          readyToReport?: boolean
+        } = {}
+
+        if (body.status !== undefined) {
+          if (!allowedTaskStatuses.includes(body.status)) return badRequest(response, 'valid status is required')
+          patch.status = body.status
         }
-        const updated = await services.tasksService.update(taskId, { status: body.status })
+
+        if (body.stage !== undefined) {
+          if (!allowedTaskStages.includes(body.stage)) return badRequest(response, 'valid stage is required')
+          patch.stage = body.stage
+        }
+
+        if (body.summary !== undefined) {
+          patch.summary = body.summary.trim() || undefined
+        }
+
+        if (body.needsUserInput !== undefined) {
+          patch.needsUserInput = body.needsUserInput === true
+        }
+
+        if (body.readyToReport !== undefined) {
+          patch.readyToReport = body.readyToReport === true
+        }
+
+        if (Object.keys(patch).length === 0) {
+          return badRequest(response, 'at least one valid task field is required')
+        }
+
+        const updated = await services.tasksService.update(taskId, patch)
         if (!updated) return notFound(response)
         json(response, 200, updated)
         return
