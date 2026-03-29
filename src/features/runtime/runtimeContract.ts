@@ -1,43 +1,43 @@
 export const nexusRuntimeContract = {
-  apiBasePath: '/api/nexus',
-  eventStreamPath: '/api/nexus/events',
+  apiBasePath: '/api',
+  eventStreamPath: 'not-wired-yet (polling bootstrap/status endpoints)',
   db: {
     owner: 'Nexus only',
-    engine: 'SQLite',
-    filePath: '~/.openclaw/data/nexus/nexus.sqlite',
+    engine: 'file-json (current) -> SQLite/Postgres later',
+    filePath: '~/.openclaw/data/nexus/nexus-data.json',
     rationale:
       'Keep Nexus state separate from gateway/runtime internals so product data can evolve without coupling to OpenClaw operational storage.',
   },
   surfaces: {
     chat: {
-      status: 'local-shell-live',
-      nextEndpoint: 'POST /api/nexus/chat/messages',
+      status: 'backend-live',
+      nextEndpoint: 'GET|POST /api/chat/messages',
       scope: 'Current runtime/session only until cross-session memory is intentionally designed.',
     },
     systemStatus: {
-      status: 'browser-derived-live',
-      nextEndpoint: 'GET /api/nexus/system/status',
-      scope: 'Gateway reachability, host posture, queue depth, session identity, runtime budget.',
+      status: 'backend-live',
+      nextEndpoint: 'GET /api/status',
+      scope: 'Current API runtime status, storage driver, task/notes/chat counts, and truthful server-derived cards.',
     },
     notes: {
-      status: 'backend-needed',
-      nextEndpoint: 'GET|POST|PATCH /api/nexus/notes',
+      status: 'backend-live',
+      nextEndpoint: 'GET|POST /api/notes',
       scope: 'Operator notes with Nexus-owned persistence.',
     },
     tasks: {
-      status: 'backend-needed',
-      nextEndpoint: 'GET|POST|PATCH /api/nexus/tasks',
-      scope: 'Task board, state transitions, ownership, due metadata.',
+      status: 'backend-live',
+      nextEndpoint: 'GET|POST|PATCH /api/tasks',
+      scope: 'Task board, state transitions, ownership, due metadata, and attention-routing flags.',
     },
     tools: {
-      status: 'backend-needed',
-      nextEndpoint: 'POST /api/nexus/tools/:toolId/execute',
-      scope: 'Explicit, auditable tool execution via runtime adapter.',
+      status: 'not-wired-yet',
+      nextEndpoint: 'not exposed yet',
+      scope: 'Explicit, auditable tool execution via a future runtime adapter.',
     },
     modeAndAgentVisibility: {
-      status: 'mixed',
-      nextEndpoint: 'GET /api/nexus/runtime/context',
-      scope: 'Mode, active agent/session, visibility, and runtime source-of-truth.',
+      status: 'backend-live',
+      nextEndpoint: 'GET /api/runtime/context',
+      scope: 'Mode, active agent/session, task-derived workstreams, and runtime source-of-truth.',
     },
   },
 } as const
