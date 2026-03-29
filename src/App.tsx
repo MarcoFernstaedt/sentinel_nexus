@@ -117,29 +117,25 @@ function App() {
       id: 'delivery',
       title: 'Active execution',
       value: `${activeExecutionTasks.length} tasks`,
-      detail:
-        activeExecutionTasks[0]?.title ?? 'No active runtime tasks yet. The board is ready when real task state appears.',
+      detail: activeExecutionTasks[0]?.title ?? 'No active live tasks yet.',
     },
     {
       id: 'waiting',
       title: 'Waiting on user',
       value: `${waitingOnUserTasks.length} items`,
-      detail:
-        waitingOnUserTasks[0]?.title ?? 'Nothing is currently marked as needing operator input.',
+      detail: waitingOnUserTasks[0]?.title ?? 'No operator decisions are blocking work right now.',
     },
     {
       id: 'blocked',
       title: 'Blocked work',
       value: `${blockedTasks.length} items`,
-      detail:
-        blockedTasks[0]?.title ?? 'No blocked tasks are exposed right now.',
+      detail: blockedTasks[0]?.title ?? 'No blocked work is exposed right now.',
     },
     {
       id: 'reporting',
       title: 'Ready to report',
       value: `${readyToReportTasks.length} items`,
-      detail:
-        readyToReportTasks[0]?.title ?? 'Nothing completed is waiting for operator reporting.',
+      detail: readyToReportTasks[0]?.title ?? 'No completed work is waiting for reporting.',
     },
   ]
 
@@ -201,8 +197,8 @@ function App() {
   ]
 
   const runtimeSummary = runtimeContext
-    ? `${runtimeContext.session.hostLabel} · ${runtimeContext.chat.messageCount} persisted messages · ${runtimeTasksLive.length} live tasks / ${seededTasks.length} seeded baseline · ${runtimeRecentActivity.length} live updates`
-    : 'Server-derived session context not available yet. Local shell remains armed.'
+    ? `${runtimeContext.session.hostLabel} · ${runtimeContext.chat.messageCount} persisted messages · ${runtimeTasksLive.length} live tasks / ${seededTasks.length} baseline · ${runtimeRecentActivity.length} live updates`
+    : 'Server context is not available yet. Local shell remains ready.'
 
   const boardGroups = [
     {
@@ -256,6 +252,13 @@ function App() {
     `Latest event ${latestMessage?.author ?? 'waiting'} at ${lastEventLabel}`,
   ].join('. ')
 
+  const commandStatusItems = [
+    { id: 'mode', label: 'Mode', value: activeMode.label, detail: activeMode.accent },
+    { id: 'lane', label: 'Model lane', value: modelLaneLabel, detail: apiState === 'connected' ? 'backend seam visible' : 'local simulator' },
+    { id: 'truth', label: 'Truth state', value: runtimeTruthIsLive ? 'Live + baseline' : 'Baseline only', detail: runtimeTruthIsLive ? 'real runtime signals exposed' : 'seeded demo data clearly labeled' },
+    { id: 'last', label: 'Last event', value: lastEventLabel, detail: latestMessage?.author ?? 'Awaiting first packet' },
+  ]
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#primary-workspace">Skip to main workspace</a>
@@ -273,7 +276,7 @@ function App() {
           <p className="eyebrow">Sentinel Nexus // Command Center</p>
           <h1 id="site-title">Operator shell for decisive work, runtime visibility, and controlled execution.</h1>
           <p className="muted-copy">
-            A cinematic local-first command surface with live backend truth when available and explicit seams where it is not.
+            A local-first operator console with live backend truth when available and explicit seams when it is not.
           </p>
         </div>
 
@@ -344,12 +347,43 @@ function App() {
           {globalStatusSummary}
         </p>
 
+        <section className="workspace-topbar panel" aria-label="Global command status">
+          <div>
+            <p className="eyebrow">Operator overview</p>
+            <h2 className="workspace-topbar__title">Command state at a glance</h2>
+          </div>
+          <div className="workspace-topbar__grid" role="list" aria-label="Global status summaries">
+            {commandStatusItems.map((item) => (
+              <article key={item.id} className="workspace-topbar__card" role="listitem" aria-label={`${item.label}: ${item.value}. ${item.detail}`}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="truth-note" aria-labelledby="truth-note-heading">
+          <div className="stack-list__row">
+            <div>
+              <p className="eyebrow">Truth boundary</p>
+              <strong id="truth-note-heading">No fake live state</strong>
+            </div>
+            <span className="status-pill status-pill--subtle">{runtimeTruthIsLive ? 'live runtime present' : 'seeded baseline only'}</span>
+          </div>
+          <small>
+            {runtimeTruthIsLive
+              ? 'Runtime activity, notes, and tasks are showing alongside seeded baseline surfaces. Each record keeps its source label.'
+              : 'This shell is still visually complete while the backend remains quiet, but the surfaces explicitly mark seeded demo baseline instead of implying real execution.'}
+          </small>
+        </section>
+
         <section className="command-deck panel" aria-labelledby="runtime-monitor-heading">
           <div>
             <p className="eyebrow">Command deck</p>
             <h2 id="runtime-monitor-heading">Sentinel runtime monitor</h2>
             <p className="muted-copy">
-              Real storage, message, task, and activity surfaces route in from the Nexus API when online. Offline, the shell keeps local composure and advertises the seam.
+              Storage, message, task, and activity surfaces route in from the Nexus API when online. Offline, the shell stays usable and labels the seam clearly.
             </p>
           </div>
 
@@ -370,7 +404,7 @@ function App() {
               <small>
                 {runtimeTruthIsLive
                   ? `${runtimeRecentActivity.length} recent runtime events, ${runtimeTasksLive.length} runtime tasks, ${runtimeNotesLive.length} runtime notes`
-                  : 'Current server data is seeded/demo baseline only; the UI labels it explicitly instead of implying live execution.'}
+                  : 'Current server data is seeded baseline only; the UI labels it explicitly instead of implying live execution.'}
               </small>
             </article>
             <article className="command-ribbon__card">
@@ -606,7 +640,7 @@ function App() {
                 <p className="eyebrow">Primary channel</p>
                 <h2 id="conversation-heading">Operator and Sentinel conversation</h2>
                 <p className="muted-copy">
-                  Terminal-weight composition, mode-specific replies, and visible transport state for every exchange.
+                  Terminal-weight composition, mode-specific replies, and clear transport state for every exchange.
                 </p>
               </div>
               <div className="header-badges" aria-label="Conversation state badges">
