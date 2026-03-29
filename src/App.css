@@ -1160,9 +1160,63 @@ ul {
   gap: 0.5rem 0.8rem;
 }
 
+.tracker-list,
+.tracker-item,
+.tracker-item__body,
+.control-surface-grid,
+.control-card {
+  display: grid;
+}
+
+.tracker-list {
+  gap: 0.85rem;
+}
+
+.tracker-item {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.tracker-item__rail {
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(126, 255, 210, 0.82), rgba(113, 203, 255, 0.52));
+}
+
+.tracker-item__body,
+.control-card {
+  gap: 0.45rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(119, 242, 206, 0.12);
+  background: rgba(4, 11, 14, 0.6);
+}
+
+.tracker-item__body span,
+.tracker-item__body small,
+.control-card p {
+  color: #a9cabb;
+  line-height: 1.6;
+}
+
+.tracker-item--empty {
+  grid-template-columns: 1fr;
+}
+
+.control-surface-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.control-card--warn {
+  border-color: rgba(255, 203, 97, 0.26);
+}
+
 @media (max-width: 980px) {
   .workstream-grid,
-  .workspace-topbar__grid {
+  .workspace-topbar__grid,
+  .control-surface-grid {
     grid-template-columns: 1fr;
   }
 }
