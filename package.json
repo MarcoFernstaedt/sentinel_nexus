@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node scripts/start.mjs",
-    "start:web": "vite preview --host 0.0.0.0 --port 3002",
+    "start:web": "vite preview --host 0.0.0.0 --port 3000",
     "start:api": "node --env-file-if-exists=.env --env-file-if-exists=.env.example dist-server/index.js"
   },
   "dependencies": {
