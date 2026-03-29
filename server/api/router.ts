@@ -100,6 +100,8 @@ export function createRouter(services: Services) {
           summary?: string
           needsUserInput?: boolean
           readyToReport?: boolean
+          blockedReason?: string
+          waitingFor?: string
         }>(request)
         if (!body.title?.trim() || !body.owner?.trim() || !body.due?.trim() || !body.lane?.trim()) {
           return badRequest(response, 'title, owner, due, and lane are required')
@@ -119,6 +121,8 @@ export function createRouter(services: Services) {
             summary: body.summary?.trim() || undefined,
             needsUserInput: body.needsUserInput === true,
             readyToReport: body.readyToReport === true,
+            blockedReason: body.blockedReason?.trim() || undefined,
+            waitingFor: body.waitingFor?.trim() || undefined,
           }),
         )
         return
@@ -133,6 +137,8 @@ export function createRouter(services: Services) {
           summary?: string
           needsUserInput?: boolean
           readyToReport?: boolean
+          blockedReason?: string
+          waitingFor?: string
         }>(request)
         const patch: {
           status?: TaskStatus
@@ -140,6 +146,8 @@ export function createRouter(services: Services) {
           summary?: string
           needsUserInput?: boolean
           readyToReport?: boolean
+          blockedReason?: string
+          waitingFor?: string
         } = {}
 
         if (body.status !== undefined) {
@@ -162,6 +170,14 @@ export function createRouter(services: Services) {
 
         if (body.readyToReport !== undefined) {
           patch.readyToReport = body.readyToReport === true
+        }
+
+        if (body.blockedReason !== undefined) {
+          patch.blockedReason = body.blockedReason.trim() || undefined
+        }
+
+        if (body.waitingFor !== undefined) {
+          patch.waitingFor = body.waitingFor.trim() || undefined
         }
 
         if (Object.keys(patch).length === 0) {

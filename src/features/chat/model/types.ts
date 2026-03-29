@@ -45,6 +45,21 @@ export interface RuntimeTarget {
   sessionScope: string
 }
 
+export interface RuntimeWorkstream {
+  id: string
+  owner: string
+  lane: string
+  taskCount: number
+  activeCount: number
+  waitingCount: number
+  blockedCount: number
+  completedCount: number
+  readyToReportCount: number
+  latestTaskTitle: string | null
+  latestUpdateAt: string | null
+  truthLabel: 'task-derived'
+}
+
 export interface RuntimeContext {
   capturedAt: string
   session: {
@@ -82,6 +97,7 @@ export interface RuntimeContext {
     }
     activityCount: number
     latestActivityAt: string | null
+    workstreams: RuntimeWorkstream[]
   }
 }
 
@@ -131,6 +147,10 @@ export interface RuntimeTask extends BaseRecordMeta {
   summary?: string
   needsUserInput?: boolean
   readyToReport?: boolean
+  blockedReason?: string
+  waitingFor?: string
+  lastUpdatedAt?: string
+  completedAt?: string
 }
 
 export interface BootstrapPayload {

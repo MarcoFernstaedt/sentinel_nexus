@@ -36,6 +36,10 @@ export interface TaskRecord extends BaseRecordMeta {
   summary?: string
   needsUserInput?: boolean
   readyToReport?: boolean
+  blockedReason?: string
+  waitingFor?: string
+  lastUpdatedAt?: string
+  completedAt?: string
 }
 
 export interface ActivityRecord extends BaseRecordMeta {
@@ -53,6 +57,21 @@ export interface StatusCard {
   value: string
   detail: string
   severity: 'stable' | 'watch' | 'critical' | 'placeholder'
+}
+
+export interface RuntimeWorkstreamSnapshot {
+  id: string
+  owner: string
+  lane: string
+  taskCount: number
+  activeCount: number
+  waitingCount: number
+  blockedCount: number
+  completedCount: number
+  readyToReportCount: number
+  latestTaskTitle: string | null
+  latestUpdateAt: string | null
+  truthLabel: 'task-derived'
 }
 
 export interface RuntimeContextSnapshot {
@@ -87,6 +106,7 @@ export interface RuntimeContextSnapshot {
     }
     activityCount: number
     latestActivityAt: string | null
+    workstreams: RuntimeWorkstreamSnapshot[]
   }
 }
 

@@ -55,6 +55,8 @@ export const seededTasks: TaskRecord[] = [
     lane: 'Ops',
     summary: 'Status and bootstrap payloads are already visible through the API.',
     readyToReport: true,
+    completedAt: seededAt,
+    lastUpdatedAt: seededAt,
     source: 'seeded-demo',
   },
   {
@@ -67,6 +69,8 @@ export const seededTasks: TaskRecord[] = [
     lane: 'Build',
     summary: 'Chat now routes through the server first and falls back locally when needed.',
     readyToReport: true,
+    completedAt: seededAt,
+    lastUpdatedAt: seededAt,
     source: 'seeded-demo',
   },
   {
@@ -78,6 +82,7 @@ export const seededTasks: TaskRecord[] = [
     stage: 'editing',
     lane: 'Build',
     summary: 'Add workflow-stage visibility and attention surfaces without fake precision.',
+    lastUpdatedAt: seededAt,
     source: 'seeded-demo',
   },
   {
@@ -90,6 +95,8 @@ export const seededTasks: TaskRecord[] = [
     lane: 'Ops',
     summary: 'Only ask for naming or workflow clarifications if the runtime model truly needs them.',
     needsUserInput: true,
+    waitingFor: 'Naming/input only if the runtime model becomes ambiguous.',
+    lastUpdatedAt: seededAt,
     source: 'seeded-demo',
   },
   {
@@ -101,6 +108,8 @@ export const seededTasks: TaskRecord[] = [
     stage: 'validating',
     lane: 'Ops',
     summary: 'Architecture is ready, but the host still lacks the chosen SQLite/Postgres runtime attachment.',
+    blockedReason: 'No real runtime database has been attached yet.',
+    lastUpdatedAt: seededAt,
     source: 'seeded-demo',
   },
 ]

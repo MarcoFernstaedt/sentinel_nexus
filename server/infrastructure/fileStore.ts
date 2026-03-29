@@ -33,11 +33,17 @@ function normalizeSource<T extends { id: string; source?: RecordSource }>(
 }
 
 function normalizeTask(task: TaskRecord): TaskRecord {
+  const inferredUpdatedAt = task.lastUpdatedAt ?? task.completedAt
+
   return {
     ...task,
     stage: task.stage ?? statusToStage[task.status],
     needsUserInput: task.needsUserInput ?? false,
     readyToReport: task.readyToReport ?? false,
+    blockedReason: task.blockedReason?.trim() || undefined,
+    waitingFor: task.waitingFor?.trim() || undefined,
+    completedAt: task.completedAt ?? (task.status === 'Done' ? inferredUpdatedAt : undefined),
+    lastUpdatedAt: inferredUpdatedAt,
   }
 }
 
