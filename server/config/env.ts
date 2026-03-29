@@ -6,6 +6,7 @@ import type { NexusDatabaseConfig } from '../domain/models.js'
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const homeDir = process.env.HOME ?? rootDir
 const defaultDbDir = path.join(homeDir, '.openclaw', 'data', 'nexus')
+const defaultWorkspaceRoot = path.join(homeDir, '.openclaw', 'workspace')
 const defaultSchemaPath = path.join(rootDir, 'nexus.schema.sql')
 
 function expandHomePath(value: string): string {
@@ -18,6 +19,7 @@ export interface AppConfig {
   port: number
   nodeEnv: string
   database: NexusDatabaseConfig
+  workspaceRoot: string
 }
 
 export function getAppConfig(): AppConfig {
@@ -30,6 +32,10 @@ export function getAppConfig(): AppConfig {
     ? path.resolve(expandHomePath(process.env.NEXUS_DB_SCHEMA_PATH))
     : defaultSchemaPath
 
+  const workspaceRoot = process.env.NEXUS_WORKSPACE_DIR
+    ? path.resolve(expandHomePath(process.env.NEXUS_WORKSPACE_DIR))
+    : defaultWorkspaceRoot
+
   return {
     port: Number(process.env.NEXUS_API_PORT ?? 4001),
     nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -39,5 +45,6 @@ export function getAppConfig(): AppConfig {
       schemaPath,
       connectionUrl: process.env.NEXUS_DB_URL,
     },
+    workspaceRoot,
   }
 }

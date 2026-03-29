@@ -9,6 +9,14 @@ const seededIds = {
   notes: new Set(seedData.notes.map((item) => item.id)),
   tasks: new Set(seedData.tasks.map((item) => item.id)),
   activity: new Set(seedData.activity.map((item) => item.id)),
+  goals: new Set(seedData.missionCommand.goals.map((item) => item.id)),
+  projects: new Set(seedData.missionCommand.projects.map((item) => item.id)),
+  calendar: new Set(seedData.missionCommand.calendar.map((item) => item.id)),
+  memories: new Set(seedData.missionCommand.memories.map((item) => item.id)),
+  artifacts: new Set(seedData.missionCommand.artifacts.map((item) => item.id)),
+  team: new Set(seedData.missionCommand.team.map((item) => item.id)),
+  office: new Set(seedData.missionCommand.office.map((item) => item.id)),
+  searchIndex: new Set(seedData.missionCommand.searchIndex.map((item) => item.id)),
 }
 
 const statusToStage: Record<TaskRecord['status'], TaskStage> = {
@@ -48,11 +56,24 @@ function normalizeTask(task: TaskRecord): TaskRecord {
 }
 
 function normalizeStore(store: NexusDataStore): NexusDataStore {
+  const missionCommand = store.missionCommand ?? seedData.missionCommand
+
   return {
     chatMessages: store.chatMessages.map((item) => normalizeSource(item, seededIds.chatMessages)),
     notes: store.notes.map((item) => normalizeSource(item, seededIds.notes)),
     tasks: store.tasks.map((item) => normalizeTask(normalizeSource(item, seededIds.tasks))),
     activity: (store.activity ?? []).map((item) => normalizeSource(item, seededIds.activity)),
+    missionCommand: {
+      mission: normalizeSource(missionCommand.mission, new Set([seedData.missionCommand.mission.id])),
+      goals: missionCommand.goals.map((item) => normalizeSource(item, seededIds.goals)),
+      projects: missionCommand.projects.map((item) => normalizeSource(item, seededIds.projects)),
+      calendar: missionCommand.calendar.map((item) => normalizeSource(item, seededIds.calendar)),
+      memories: missionCommand.memories.map((item) => normalizeSource(item, seededIds.memories)),
+      artifacts: missionCommand.artifacts.map((item) => normalizeSource(item, seededIds.artifacts)),
+      team: missionCommand.team.map((item) => normalizeSource(item, seededIds.team)),
+      office: missionCommand.office.map((item) => normalizeSource(item, seededIds.office)),
+      searchIndex: missionCommand.searchIndex.map((item) => normalizeSource(item, seededIds.searchIndex)),
+    },
   }
 }
 

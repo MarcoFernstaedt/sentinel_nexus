@@ -28,9 +28,11 @@ import {
 import { simulateLocalReply } from '../lib/localTransport'
 import type {
   ActivityItem,
+  BootstrapPayload,
   ChatMessage,
   ChatModeId,
   ComposerDraft,
+  MissionCommandSnapshot,
   RuntimeContext,
   RuntimeNote,
   RuntimeStatusSnapshot,
@@ -42,6 +44,27 @@ const CHAT_MESSAGES_KEY = 'sentinel-nexus.chat.messages'
 const CHAT_MODE_KEY = 'sentinel-nexus.chat.mode'
 const CHAT_HISTORY_KEY = 'sentinel-nexus.chat.history'
 const RUNTIME_SYNC_MS = 15000
+
+const emptyMissionCommand: MissionCommandSnapshot = {
+  mission: {
+    id: 'mission-offline',
+    title: 'Mission command offline',
+    statement: 'Backend mission snapshot is unavailable.',
+    commandIntent: 'Reconnect the Nexus API to restore mission-command truth.',
+    progressPercent: 0,
+    targetDate: 'Pending',
+    activeModeId: 'command',
+    source: 'runtime',
+  },
+  goals: [],
+  projects: [],
+  calendar: [],
+  memories: [],
+  artifacts: [],
+  team: [],
+  office: [],
+  searchIndex: [],
+}
 
 export function useLocalChat() {
   const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(CHAT_MESSAGES_KEY, initialMessages, {
@@ -61,11 +84,27 @@ export function useLocalChat() {
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([])
   const [runtimeNotes, setRuntimeNotes] = useState<RuntimeNote[]>([])
   const [runtimeTasks, setRuntimeTasks] = useState<RuntimeTask[]>([])
+  const [missionCommand, setMissionCommand] = useState<MissionCommandSnapshot>(emptyMissionCommand)
   const [apiState, setApiState] = useState<'connected' | 'local-fallback'>('local-fallback')
   const [isSyncingRuntime, setIsSyncingRuntime] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+
+    const applyBootstrap = (bootstrap: BootstrapPayload) => {
+      if (bootstrap.messages.length > 0) {
+        setMessages(bootstrap.messages)
+      }
+
+      setRuntimeStatus(bootstrap.status)
+      setRuntimeContext(bootstrap.runtime)
+      setRecentActivity(bootstrap.activity ?? [])
+      setRuntimeNotes(bootstrap.notes ?? [])
+      setRuntimeTasks(bootstrap.tasks ?? [])
+      setMissionCommand(bootstrap.missionCommand ?? emptyMissionCommand)
+      setTransportPreview(createTransportPreview(bootstrap.status))
+      setApiState('connected')
+    }
 
     const syncFromApi = async (preferBootstrap: boolean) => {
       setIsSyncingRuntime(true)
@@ -74,18 +113,7 @@ export function useLocalChat() {
         if (preferBootstrap) {
           const bootstrap = await fetchBootstrap()
           if (cancelled) return
-
-          if (bootstrap.messages.length > 0) {
-            setMessages(bootstrap.messages)
-          }
-
-          setRuntimeStatus(bootstrap.status)
-          setRuntimeContext(bootstrap.runtime)
-          setRecentActivity(bootstrap.activity ?? [])
-          setRuntimeNotes(bootstrap.notes ?? [])
-          setRuntimeTasks(bootstrap.tasks ?? [])
-          setTransportPreview(createTransportPreview(bootstrap.status))
-          setApiState('connected')
+          applyBootstrap(bootstrap)
           return
         }
 
@@ -105,11 +133,13 @@ export function useLocalChat() {
         setRecentActivity(apiActivity ?? bootstrap.activity ?? [])
         setRuntimeNotes(bootstrap.notes ?? [])
         setRuntimeTasks(bootstrap.tasks ?? [])
+        setMissionCommand(bootstrap.missionCommand ?? emptyMissionCommand)
         setTransportPreview(createTransportPreview(apiStatus))
         setApiState('connected')
       } catch {
         if (cancelled) return
         setApiState('local-fallback')
+        setMissionCommand(emptyMissionCommand)
         setTransportPreview({
           ...fallbackTransportPreview,
           summary: `${fallbackTransportPreview.summary} Falling back to local simulator because the API is unavailable.`,
@@ -210,6 +240,7 @@ export function useLocalChat() {
       setRecentActivity(bootstrap.activity ?? [])
       setRuntimeNotes(bootstrap.notes ?? [])
       setRuntimeTasks(bootstrap.tasks ?? [])
+      setMissionCommand(bootstrap.missionCommand ?? emptyMissionCommand)
       setTransportPreview(createTransportPreview(bootstrap.status))
       setApiState('connected')
       return true
@@ -292,6 +323,7 @@ export function useLocalChat() {
     isResponding,
     isSyncingRuntime,
     messages: visibleMessages,
+    missionCommand,
     modes: chatModes,
     recentActivity,
     refreshRuntime,

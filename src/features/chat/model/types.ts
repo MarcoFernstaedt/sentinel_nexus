@@ -60,6 +60,37 @@ export interface RuntimeWorkstream {
   truthLabel: 'task-derived'
 }
 
+export interface RuntimeVisibilitySurface {
+  id: string
+  label: string
+  state: 'live' | 'derived' | 'available' | 'unavailable'
+  summary: string
+  detail: string
+}
+
+export interface RuntimeDocumentSurface {
+  id: string
+  label: string
+  path: string
+  exists: boolean
+  updatedAt: string | null
+  source: 'workspace-file'
+  summary: string
+}
+
+export interface RuntimeMissionAlignment {
+  sourceDocument: string
+  priorities: string[]
+  executionBias: string[]
+  caution: string | null
+}
+
+export interface RuntimeScheduleVisibility {
+  calendar: RuntimeVisibilitySurface
+  scheduledAutomation: RuntimeVisibilitySurface
+  meetings: RuntimeVisibilitySurface
+}
+
 export interface RuntimeContext {
   capturedAt: string
   session: {
@@ -98,6 +129,11 @@ export interface RuntimeContext {
     activityCount: number
     latestActivityAt: string | null
     workstreams: RuntimeWorkstream[]
+    visibility: RuntimeVisibilitySurface[]
+    documents: RuntimeDocumentSurface[]
+    schedule: RuntimeScheduleVisibility
+    missionAlignment: RuntimeMissionAlignment
+    suggestions: string[]
   }
 }
 
@@ -144,6 +180,7 @@ export interface RuntimeTask extends BaseRecordMeta {
   status: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
   stage: TaskStage
   lane: string
+  projectId?: string
   summary?: string
   needsUserInput?: boolean
   readyToReport?: boolean
@@ -153,6 +190,106 @@ export interface RuntimeTask extends BaseRecordMeta {
   completedAt?: string
 }
 
+export interface MissionRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  statement: string
+  commandIntent: string
+  progressPercent: number
+  targetDate: string
+  activeModeId: ChatModeId
+}
+
+export interface GoalRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  category: 'income' | 'career' | 'acquisition' | 'fitness' | 'execution'
+  status: 'on-track' | 'at-risk' | 'blocked'
+  progressPercent: number
+  targetDate: string
+  summary: string
+}
+
+export interface ProjectRecord extends BaseRecordMeta {
+  id: string
+  name: string
+  area: string
+  status: 'active' | 'watch' | 'blocked' | 'parked' | 'done'
+  objective: string
+  missionAlignment: string
+  goalIds: string[]
+  progressPercent: number
+  targetDate?: string
+  owner: string
+}
+
+export interface CalendarEventRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  type: 'task' | 'meeting' | 'deadline' | 'routine'
+  startsAt: string
+  endsAt?: string
+  owner: string
+  relatedProjectId?: string
+  status: 'scheduled' | 'next-up' | 'done'
+  detail: string
+}
+
+export interface MemoryRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  kind: 'working-memory' | 'long-term-memory'
+  updatedAt: string
+  summary: string
+  tags: string[]
+}
+
+export interface ArtifactRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  type: 'doc' | 'artifact' | 'reference'
+  location: string
+  updatedAt: string
+  summary: string
+  relatedProjectId?: string
+}
+
+export interface TeamMemberRecord extends BaseRecordMeta {
+  id: string
+  name: string
+  role: string
+  status: 'active' | 'limited-visibility' | 'offline'
+  focus: string
+}
+
+export interface OfficeRecord extends BaseRecordMeta {
+  id: string
+  label: string
+  value: string
+  detail: string
+}
+
+export interface SearchEntryRecord extends BaseRecordMeta {
+  id: string
+  entityType: 'mission' | 'goal' | 'project' | 'task' | 'calendar' | 'memory' | 'artifact' | 'team' | 'office'
+  title: string
+  summary: string
+  relatedId: string
+  updatedAt?: string
+}
+
+export interface MissionCommandSnapshot {
+  mission: MissionRecord
+  goals: GoalRecord[]
+  projects: ProjectRecord[]
+  calendar: CalendarEventRecord[]
+  memories: MemoryRecord[]
+  artifacts: ArtifactRecord[]
+  team: TeamMemberRecord[]
+  office: OfficeRecord[]
+  searchIndex: SearchEntryRecord[]
+}
+
 export interface BootstrapPayload {
   status: RuntimeStatusSnapshot
   runtime: RuntimeContext
@@ -160,4 +297,5 @@ export interface BootstrapPayload {
   notes: RuntimeNote[]
   tasks: RuntimeTask[]
   activity: ActivityItem[]
+  missionCommand: MissionCommandSnapshot
 }

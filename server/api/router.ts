@@ -32,15 +32,16 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'GET' && url.pathname === '/api/bootstrap') {
-        const [status, runtime, messages, notes, tasks, activity] = await Promise.all([
+        const [status, runtime, messages, notes, tasks, activity, missionCommand] = await Promise.all([
           services.statusService.snapshot(),
           services.statusService.runtimeContext(),
           services.chatService.list(),
           services.notesService.list(),
           services.tasksService.list(),
           services.activityRepository.list(8),
+          services.statusService.missionCommand(),
         ])
-        json(response, 200, { status, runtime, messages, notes, tasks, activity })
+        json(response, 200, { status, runtime, messages, notes, tasks, activity, missionCommand })
         return
       }
 
