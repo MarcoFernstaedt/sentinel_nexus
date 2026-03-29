@@ -117,25 +117,29 @@ function App() {
       id: 'delivery',
       title: 'Active execution',
       value: `${activeExecutionTasks.length} tasks`,
-      detail: activeExecutionTasks[0]?.title ?? 'No active live tasks yet.',
+      detail:
+        activeExecutionTasks[0]?.title ?? 'No active runtime tasks yet. The board is ready when real task state appears.',
     },
     {
       id: 'waiting',
       title: 'Waiting on user',
       value: `${waitingOnUserTasks.length} items`,
-      detail: waitingOnUserTasks[0]?.title ?? 'No operator decisions are blocking work right now.',
+      detail:
+        waitingOnUserTasks[0]?.title ?? 'Nothing is currently marked as needing operator input.',
     },
     {
       id: 'blocked',
       title: 'Blocked work',
       value: `${blockedTasks.length} items`,
-      detail: blockedTasks[0]?.title ?? 'No blocked work is exposed right now.',
+      detail:
+        blockedTasks[0]?.title ?? 'No blocked tasks are exposed right now.',
     },
     {
       id: 'reporting',
       title: 'Ready to report',
       value: `${readyToReportTasks.length} items`,
-      detail: readyToReportTasks[0]?.title ?? 'No completed work is waiting for reporting.',
+      detail:
+        readyToReportTasks[0]?.title ?? 'Nothing completed is waiting for operator reporting.',
     },
   ]
 
