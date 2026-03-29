@@ -40,31 +40,34 @@ export function Composer({
   }
 
   return (
-    <div className="composer-shell">
-      <div className="composer-shell__meta">
+    <section className="composer-shell" aria-labelledby="composer-heading">
+      <h3 id="composer-heading">Message Sentinel</h3>
+      <div className="composer-shell__meta" aria-live="polite">
         <span>{historyCursorLabel}</span>
         <span>{activeModeLabel} engaged</span>
       </div>
+      <label className="sr-only" htmlFor="sentinel-composer-input">Message input</label>
       <textarea
+        id="sentinel-composer-input"
         rows={4}
         value={draft.value}
         placeholder="Give Sentinel an objective, a decision, or a build constraint."
-        aria-label="Message Sentinel"
+        aria-describedby="composer-help composer-count"
         onChange={(event) => onDraftChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
       <div className="composer-shell__footer">
-        <span className="muted-copy">Enter to send · Shift+Enter for newline · ↑/↓ recalls prompt history</span>
-        <span className="composer-shell__count">{draft.value.length}/1200</span>
+        <span id="composer-help" className="muted-copy">Enter to send · Shift+Enter for newline · Up and down arrows recall prompt history</span>
+        <span id="composer-count" className="composer-shell__count" aria-live="polite">{draft.value.length}/1200</span>
       </div>
       <div className="composer-shell__actions">
-        <button type="button" className="ghost-button" onClick={() => onHistory('older')}>
+        <button type="button" className="ghost-button" onClick={() => onHistory('older')} aria-describedby="composer-help">
           Recall older
         </button>
-        <button type="button" className="primary-button" onClick={onSubmit} disabled={isResponding}>
+        <button type="button" className="primary-button" onClick={onSubmit} disabled={isResponding} aria-live="polite">
           {isResponding ? 'Sentinel is thinking…' : 'Send to Sentinel'}
         </button>
       </div>
-    </div>
+    </section>
   )
 }

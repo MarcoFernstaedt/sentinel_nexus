@@ -5,6 +5,7 @@ import type {
   NexusStatusSnapshot,
   NoteRecord,
   RuntimeContextSnapshot,
+  RuntimeWorkstreamSnapshot,
   TaskRecord,
   TaskStage,
   TaskStatus,
@@ -28,6 +29,61 @@ const defaultStageByStatus: Record<TaskStatus, TaskStage> = {
   Done: 'done',
 }
 
+function timestampNow() {
+  return new Date().toISOString()
+}
+
+function describeTaskState(task: TaskRecord) {
+  if (task.status === 'Blocked') return task.blockedReason?.trim() || 'Blocked without a recorded reason yet.'
+  if (task.needsUserInput) return task.waitingFor?.trim() || 'Waiting on operator input.'
+  if (task.status === 'Done') return task.readyToReport ? 'Completed and marked ready to report.' : 'Completed.'
+  return task.summary?.trim() || `${task.stage} stage in ${task.lane}.`
+}
+
+function createWorkstreams(tasks: TaskRecord[]): RuntimeWorkstreamSnapshot[] {
+  const grouped = new Map<string, RuntimeWorkstreamSnapshot>()
+
+  for (const task of tasks) {
+    const key = `${task.owner}::${task.lane}`
+    const current = grouped.get(key) ?? {
+      id: `workstream-${task.owner.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${task.lane.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      owner: task.owner,
+      lane: task.lane,
+      taskCount: 0,
+      activeCount: 0,
+      waitingCount: 0,
+      blockedCount: 0,
+      completedCount: 0,
+      readyToReportCount: 0,
+      latestTaskTitle: null,
+      latestUpdateAt: null,
+      truthLabel: 'task-derived' as const,
+    }
+
+    current.taskCount += 1
+    if (task.status !== 'Blocked' && task.status !== 'Done' && !task.needsUserInput) current.activeCount += 1
+    if (task.needsUserInput && task.status !== 'Done') current.waitingCount += 1
+    if (task.status === 'Blocked') current.blockedCount += 1
+    if (task.status === 'Done') current.completedCount += 1
+    if (task.readyToReport) current.readyToReportCount += 1
+
+    const candidateTimestamp = task.lastUpdatedAt ?? task.completedAt ?? null
+    if (!current.latestUpdateAt || (candidateTimestamp && candidateTimestamp > current.latestUpdateAt)) {
+      current.latestUpdateAt = candidateTimestamp
+      current.latestTaskTitle = task.title
+    }
+
+    grouped.set(key, current)
+  }
+
+  return [...grouped.values()].sort((left, right) => {
+    const score = (item: RuntimeWorkstreamSnapshot) => item.blockedCount * 4 + item.waitingCount * 3 + item.activeCount * 2 + item.readyToReportCount
+    const scoreDiff = score(right) - score(left)
+    if (scoreDiff !== 0) return scoreDiff
+    return (right.latestUpdateAt ?? '').localeCompare(left.latestUpdateAt ?? '')
+  })
+}
+
 export class ChatService {
   constructor(
     private readonly repository: ChatRepository,
@@ -46,7 +102,7 @@ export class ChatService {
       role: 'operator',
       author: input.author?.trim() || 'Marco',
       body,
-      timestamp: new Date().toISOString(),
+      timestamp: timestampNow(),
       modeId: input.modeId,
       status: 'ready',
       source: 'runtime',
@@ -57,7 +113,7 @@ export class ChatService {
       role: 'sentinel',
       author: 'Sentinel',
       body: `${personaReplies[input.modeId]}\n\nCaptured request: “${body}”.`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestampNow(),
       modeId: input.modeId,
       status: 'ready',
       source: 'runtime',
@@ -69,7 +125,7 @@ export class ChatService {
       type: 'chat',
       title: `Chat routed through ${input.modeId} mode`,
       detail: body,
-      timestamp: new Date().toISOString(),
+      timestamp: timestampNow(),
       status: 'logged',
       source: 'runtime',
     })
@@ -94,7 +150,7 @@ export class NotesService {
       title: input.title.trim(),
       body: input.body.trim(),
       tag: input.tag.trim() || 'general',
-      updatedAt: new Date().toISOString(),
+      updatedAt: timestampNow(),
       source: 'runtime',
     })
 
@@ -103,7 +159,7 @@ export class NotesService {
       type: 'note',
       title: `Note saved: ${note.title}`,
       detail: note.tag,
-      timestamp: new Date().toISOString(),
+      timestamp: timestampNow(),
       status: 'logged',
       source: 'runtime',
     })
@@ -123,12 +179,17 @@ export class TasksService {
   }
 
   async create(input: Omit<TaskRecord, 'id' | 'source'>) {
+    const now = timestampNow()
     const task = await this.repository.create({
       ...input,
       id: `task-${crypto.randomUUID()}`,
       stage: input.stage ?? defaultStageByStatus[input.status],
       needsUserInput: input.needsUserInput ?? false,
       readyToReport: input.readyToReport ?? false,
+      blockedReason: input.blockedReason?.trim() || undefined,
+      waitingFor: input.waitingFor?.trim() || undefined,
+      lastUpdatedAt: now,
+      completedAt: input.status === 'Done' ? now : undefined,
       source: 'runtime',
     })
 
@@ -136,8 +197,8 @@ export class TasksService {
       id: `activity-${crypto.randomUUID()}`,
       type: 'task',
       title: `Task created: ${task.title}`,
-      detail: `${task.owner} · ${task.status} · ${task.stage}`,
-      timestamp: new Date().toISOString(),
+      detail: describeTaskState(task),
+      timestamp: now,
       status: task.status === 'Done' ? 'done' : task.status === 'Blocked' ? 'watch' : 'logged',
       source: 'runtime',
     })
@@ -146,15 +207,30 @@ export class TasksService {
   }
 
   async update(taskId: string, patch: Partial<TaskRecord>) {
-    const updated = await this.repository.update(taskId, patch)
+    const now = timestampNow()
+    const normalizedPatch: Partial<TaskRecord> = {
+      ...patch,
+      blockedReason: patch.blockedReason?.trim() || undefined,
+      waitingFor: patch.waitingFor?.trim() || undefined,
+      summary: patch.summary?.trim() || undefined,
+      lastUpdatedAt: now,
+    }
+
+    if (patch.status === 'Done') {
+      normalizedPatch.completedAt = patch.completedAt ?? now
+    } else if (patch.status) {
+      normalizedPatch.completedAt = undefined
+    }
+
+    const updated = await this.repository.update(taskId, normalizedPatch)
 
     if (updated) {
       await this.activityRepository.append({
         id: `activity-${crypto.randomUUID()}`,
         type: 'task',
-        title: `Task status: ${updated.title}`,
-        detail: `${updated.status} · ${updated.stage} · ${updated.owner}`,
-        timestamp: new Date().toISOString(),
+        title: `Task state: ${updated.title}`,
+        detail: describeTaskState(updated),
+        timestamp: now,
         status: updated.status === 'Blocked' ? 'watch' : updated.status === 'Done' ? 'done' : 'logged',
         source: 'runtime',
       })
@@ -217,7 +293,7 @@ export class StatusService {
     const lastMessage = counts.chatMessages.at(-1) ?? null
 
     return {
-      capturedAt: new Date().toISOString(),
+      capturedAt: timestampNow(),
       session: {
         scope: 'Current Nexus API process and persisted chat/session store',
         source: 'server-derived',
@@ -243,6 +319,7 @@ export class StatusService {
         attentionCounts,
         activityCount: counts.activity.length,
         latestActivityAt: counts.activity[0]?.timestamp ?? null,
+        workstreams: createWorkstreams(counts.tasks),
       },
     }
   }
@@ -254,7 +331,7 @@ export class StatusService {
     const seededActivityCount = data.activity.filter((item) => item.source === 'seeded-demo').length
 
     return {
-      capturedAt: new Date().toISOString(),
+      capturedAt: timestampNow(),
       environment: this.config.nodeEnv,
       storage: {
         driver: this.config.database.driver,
@@ -292,12 +369,23 @@ export class StatusService {
           severity: runtime.surfaces.attentionCounts.blocked > 0 ? 'watch' : 'stable',
         },
         {
+          id: 'workstream-count',
+          label: 'Visible work cells',
+          value: `${runtime.surfaces.workstreams.length} task-derived`,
+          detail:
+            runtime.surfaces.workstreams.length > 0
+              ? 'These are derived from real task ownership/lane metadata, not inferred subagent processes.'
+              : 'No task-derived work cells are visible yet.',
+          severity: runtime.surfaces.workstreams.length > 0 ? 'stable' : 'placeholder',
+        },
+        {
           id: 'recent-activity',
           label: 'Recent Activity',
           value: `${runtimeActivityCount} runtime · ${seededActivityCount} seeded`,
-          detail: runtimeActivityCount > 0
-            ? 'Recent movement includes genuine server-recorded activity from this Nexus instance.'
-            : 'Only seeded/demo activity is present so far. UI should not present it as live execution.',
+          detail:
+            runtimeActivityCount > 0
+              ? 'Recent movement includes genuine server-recorded activity from this Nexus instance.'
+              : 'Only seeded/demo activity is present so far. UI should not present it as live execution.',
           severity: runtimeActivityCount > 0 ? 'stable' : 'watch',
         },
       ],

@@ -999,3 +999,63 @@ ul {
     flex-direction: column;
   }
 }
+
+.truth-note {
+  padding: 0.9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(119, 242, 206, 0.14);
+  background: rgba(4, 11, 14, 0.62);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.truth-note small {
+  color: #a9cabb;
+  line-height: 1.6;
+}
+
+.workstream-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.workstream-card {
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(119, 242, 206, 0.14);
+  background: rgba(5, 12, 15, 0.74);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.workstream-card--active {
+  border-color: rgba(73, 235, 176, 0.28);
+}
+
+.workstream-card--waiting,
+.workstream-card--queued,
+.workstream-card--ready,
+.workstream-card--completed {
+  border-color: rgba(119, 242, 206, 0.16);
+}
+
+.workstream-card--blocked {
+  border-color: rgba(255, 173, 92, 0.28);
+}
+
+.workstream-card--empty {
+  grid-column: 1 / -1;
+}
+
+.workstream-card__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.8rem;
+}
+
+@media (max-width: 980px) {
+  .workstream-grid {
+    grid-template-columns: 1fr;
+  }
+}

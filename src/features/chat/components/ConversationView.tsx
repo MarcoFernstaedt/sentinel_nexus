@@ -41,15 +41,23 @@ export function ConversationView({ messages }: ConversationViewProps) {
   )
 
   return (
-    <section className="conversation-shell">
-      <div className="conversation-shell__meta muted-copy">
+    <section className="conversation-shell" aria-labelledby="conversation-log-heading">
+      <h3 id="conversation-log-heading" className="sr-only">Conversation log</h3>
+      <div className="conversation-shell__meta muted-copy" aria-label="Conversation totals">
         <span>{groupedCount.operator} operator inputs</span>
         <span>{groupedCount.sentinel} Sentinel replies</span>
         <span>{groupedCount.system} runtime notices</span>
       </div>
-      <div ref={scrollRef} className="conversation-view" aria-live="polite">
+      <div
+        ref={scrollRef}
+        className="conversation-view"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-label="Conversation messages"
+      >
         {messages.map((message) => (
-          <article key={message.id} className={`message-card ${message.role}`}>
+          <article key={message.id} className={`message-card ${message.role}`} aria-label={`${message.author}. ${message.role === 'system' ? 'Runtime notice' : message.role === 'sentinel' ? 'Sentinel reply' : 'Operator input'}. ${formatTimestamp(message.timestamp)}.`}>
             <div className="message-card__badge" aria-hidden="true">
               {message.role === 'operator' ? 'M' : message.role === 'sentinel' ? 'S' : 'R'}
             </div>
@@ -65,7 +73,7 @@ export function ConversationView({ messages }: ConversationViewProps) {
                         : 'Operator input'}
                   </p>
                 </div>
-                <span>{formatTimestamp(message.timestamp)}</span>
+                <time dateTime={message.timestamp}>{formatTimestamp(message.timestamp)}</time>
               </header>
               <p>{message.body}</p>
             </div>
