@@ -1,10 +1,16 @@
+import { existsSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import process from 'node:process'
 import type {
   ChatModeId,
   ChatMessageRecord,
+  MissionCommandSnapshot,
   NexusStatusSnapshot,
   NoteRecord,
   RuntimeContextSnapshot,
+  RuntimeDocumentSurface,
+  RuntimeScheduleVisibility,
+  RuntimeVisibilitySurface,
   RuntimeWorkstreamSnapshot,
   TaskRecord,
   TaskStage,
@@ -38,6 +44,142 @@ function describeTaskState(task: TaskRecord) {
   if (task.needsUserInput) return task.waitingFor?.trim() || 'Waiting on operator input.'
   if (task.status === 'Done') return task.readyToReport ? 'Completed and marked ready to report.' : 'Completed.'
   return task.summary?.trim() || `${task.stage} stage in ${task.lane}.`
+}
+
+function createDocumentSurface(path: string, label: string, summary: string): RuntimeDocumentSurface {
+  const exists = existsSync(path)
+  const updatedAt = exists ? statSync(path).mtime.toISOString() : null
+
+  return {
+    id: `document-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    label,
+    path,
+    exists,
+    summary,
+    updatedAt,
+  }
+}
+
+function createScheduleVisibility(mission: MissionCommandSnapshot, documents: RuntimeDocumentSurface[]): RuntimeScheduleVisibility {
+  const upcoming = mission.calendar.filter((item) => item.status !== 'done')
+  const meetings = upcoming.filter((item) => item.type === 'meeting')
+  const heartbeatVisible = documents.some((document) => document.path.endsWith('HEARTBEAT.md') && document.exists)
+
+  return {
+    calendar: {
+      id: 'calendar',
+      label: 'Calendar visibility',
+      state: upcoming.length > 0 ? 'derived' : 'not-connected',
+      summary: upcoming.length > 0 ? `${upcoming.length} scheduled items in mission memory` : 'No upcoming calendar records are stored in Nexus mission memory.',
+      detail: upcoming[0]?.detail ?? 'Direct external calendar integration is not connected yet.',
+    },
+    scheduledAutomation: {
+      id: 'scheduled-automation',
+      label: 'Scheduled automation',
+      state: heartbeatVisible ? 'derived' : 'not-connected',
+      summary: heartbeatVisible
+        ? 'Workspace heartbeat instructions are visible, but host cron/job inventory is not.'
+        : 'No heartbeat file is visible, and host cron/job inventory is not attached.',
+      detail: 'Nexus can see HEARTBEAT.md presence in the workspace, but it cannot yet enumerate OpenClaw cron jobs or host schedulers truthfully.',
+    },
+    meetings: {
+      id: 'meetings',
+      label: 'Meeting readiness',
+      state: meetings.length > 0 ? 'derived' : 'not-connected',
+      summary: meetings.length > 0 ? `${meetings.length} meeting records are present in mission memory.` : 'No meeting feed is connected right now.',
+      detail: meetings[0]?.title ?? 'Meeting telemetry must come from a real calendar integration before this becomes live.',
+    },
+  }
+}
+
+async function collectWorkspaceDocuments(workspaceRoot: string): Promise<RuntimeDocumentSurface[]> {
+  return [
+    createDocumentSurface(join(workspaceRoot, 'README.md'), 'README', 'Primary repo readme and operator-facing overview.'),
+    createDocumentSurface(join(workspaceRoot, 'docs', 'ui-architecture-roadmap.md'), 'UI roadmap', 'Transitional direction toward a future Next.js + Tailwind + shadcn-style shell.'),
+    createDocumentSurface(join(workspaceRoot, 'HEARTBEAT.md'), 'Heartbeat', 'Workspace heartbeat checklist and proactive operating instructions.'),
+    createDocumentSurface(join(workspaceRoot, 'USER.md'), 'User context', 'Operator priorities, constraints, and execution bias.'),
+  ]
+}
+
+function buildVisibilitySurfaces(
+  tasks: TaskRecord[],
+  workstreams: RuntimeWorkstreamSnapshot[],
+  documents: RuntimeDocumentSurface[],
+): RuntimeVisibilitySurface[] {
+  const runtimeTasks = tasks.filter((task) => task.source === 'runtime').length
+  const seededTasks = tasks.filter((task) => task.source === 'seeded-demo').length
+  const visibleDocuments = documents.filter((document) => document.exists).length
+
+  return [
+    {
+      id: 'sentinel',
+      label: 'Sentinel',
+      state: runtimeTasks > 0 ? 'live' : 'baseline-only',
+      detail: runtimeTasks > 0 ? 'Runtime task truth is reaching the shell.' : 'Shell is active but currently leaning on seeded/baseline task truth.',
+    },
+    {
+      id: 'task-visibility',
+      label: 'Task visibility',
+      state: runtimeTasks > 0 ? 'live' : seededTasks > 0 ? 'baseline-only' : 'quiet',
+      detail: `${tasks.length} tracked tasks across ${workstreams.length} task-derived work cells.`,
+    },
+    {
+      id: 'workspace-documents',
+      label: 'Workspace documents',
+      state: visibleDocuments > 0 ? 'partial' : 'not-exposed',
+      detail: `${visibleDocuments} of ${documents.length} continuity surfaces are visible from the workspace root.`,
+    },
+    {
+      id: 'agent-roster',
+      label: 'Sub-agent roster',
+      state: 'not-exposed',
+      detail: 'No runtime event/session feed exists yet, so Nexus does not invent sub-agent presence.',
+    },
+  ]
+}
+
+async function buildMissionAlignment(workspaceRoot: string) {
+  const userPath = join(workspaceRoot, 'USER.md')
+  const userVisible = existsSync(userPath)
+
+  return {
+    sourceDocument: userVisible ? 'USER.md' : 'not exposed',
+    priorities: [
+      'Increase income fast',
+      'Ship stronger software systems',
+      'Improve execution discipline',
+    ],
+    executionBias: [
+      'Action first',
+      'Low clutter',
+      'Truthful runtime state',
+      'Accessibility-aware surfaces',
+    ],
+    caution: userVisible ? 'Do not present fake certainty or clutter-heavy UI.' : 'Mission source file is not visible from the current workspace root.',
+  }
+}
+
+function buildSuggestions(
+  tasks: TaskRecord[],
+  documents: RuntimeDocumentSurface[],
+  workstreams: RuntimeWorkstreamSnapshot[],
+): string[] {
+  const suggestions: string[] = []
+
+  if (!documents.some((document) => document.path.endsWith('docs/ui-architecture-roadmap.md') && document.exists)) {
+    suggestions.push('Publish a UI architecture roadmap before attempting a framework migration.')
+  }
+  if (tasks.some((task) => task.status === 'Blocked')) {
+    suggestions.push('Expose blocked-task reasons higher in the command deck to reduce operator scanning cost.')
+  }
+  if (workstreams.length > 4) {
+    suggestions.push('Add workstream filtering and density controls before increasing dashboard surface area further.')
+  }
+  if (suggestions.length === 0) {
+    suggestions.push('Decompose App.tsx into command-center sections before adding more visual complexity.')
+  }
+
+  return suggestions.slice(0, 3)
 }
 
 function createWorkstreams(tasks: TaskRecord[]): RuntimeWorkstreamSnapshot[] {
@@ -82,6 +224,31 @@ function createWorkstreams(tasks: TaskRecord[]): RuntimeWorkstreamSnapshot[] {
     if (scoreDiff !== 0) return scoreDiff
     return (right.latestUpdateAt ?? '').localeCompare(left.latestUpdateAt ?? '')
   })
+}
+
+function countBySource(missionCommand: MissionCommandSnapshot) {
+  const collections = [
+    missionCommand.goals,
+    missionCommand.projects,
+    missionCommand.calendar,
+    missionCommand.memories,
+    missionCommand.artifacts,
+    missionCommand.team,
+    missionCommand.office,
+    missionCommand.searchIndex,
+  ]
+
+  let runtime = missionCommand.mission.source === 'runtime' ? 1 : 0
+  let seeded = missionCommand.mission.source === 'seeded-demo' ? 1 : 0
+
+  for (const collection of collections) {
+    for (const item of collection) {
+      if (item.source === 'runtime') runtime += 1
+      if (item.source === 'seeded-demo') seeded += 1
+    }
+  }
+
+  return { runtime, seeded }
 }
 
 export class ChatService {
@@ -291,6 +458,11 @@ export class StatusService {
       },
     )
     const lastMessage = counts.chatMessages.at(-1) ?? null
+    const workstreams = createWorkstreams(counts.tasks)
+    const documents = await collectWorkspaceDocuments(this.config.workspaceRoot)
+    const visibility = buildVisibilitySurfaces(counts.tasks, workstreams, documents)
+    const missionAlignment = await buildMissionAlignment(this.config.workspaceRoot)
+    const schedule = createScheduleVisibility(counts.missionCommand, documents)
 
     return {
       capturedAt: timestampNow(),
@@ -319,9 +491,19 @@ export class StatusService {
         attentionCounts,
         activityCount: counts.activity.length,
         latestActivityAt: counts.activity[0]?.timestamp ?? null,
-        workstreams: createWorkstreams(counts.tasks),
+        workstreams,
+        visibility,
+        documents,
+        schedule,
+        missionAlignment,
+        suggestions: buildSuggestions(counts.tasks, documents, workstreams),
       },
     }
+  }
+
+  async missionCommand() {
+    const data = await this.repository.snapshot()
+    return data.missionCommand
   }
 
   async snapshot(): Promise<NexusStatusSnapshot> {
@@ -329,6 +511,7 @@ export class StatusService {
     const data = await this.repository.snapshot()
     const runtimeActivityCount = data.activity.filter((item) => item.source === 'runtime').length
     const seededActivityCount = data.activity.filter((item) => item.source === 'seeded-demo').length
+    const missionEntityCounts = countBySource(data.missionCommand)
 
     return {
       capturedAt: timestampNow(),
@@ -348,17 +531,17 @@ export class StatusService {
           severity: 'stable',
         },
         {
+          id: 'mission-progress',
+          label: 'Mission progress',
+          value: `${data.missionCommand.mission.progressPercent}%`,
+          detail: `${data.missionCommand.projects.length} projects · ${data.missionCommand.goals.length} goals aligned to command intent.`,
+          severity: data.missionCommand.mission.progressPercent >= 50 ? 'stable' : 'watch',
+        },
+        {
           id: 'chat-count',
           label: 'Chat Records',
           value: String(runtime.chat.messageCount),
           detail: 'Conversation state now lives behind the server API for this Nexus session.',
-          severity: 'stable',
-        },
-        {
-          id: 'notes-count',
-          label: 'Notes',
-          value: String(runtime.surfaces.notesCount),
-          detail: 'Notes can move from file-backed storage to a real database without route rewrites.',
           severity: 'stable',
         },
         {
@@ -369,14 +552,11 @@ export class StatusService {
           severity: runtime.surfaces.attentionCounts.blocked > 0 ? 'watch' : 'stable',
         },
         {
-          id: 'workstream-count',
-          label: 'Visible work cells',
-          value: `${runtime.surfaces.workstreams.length} task-derived`,
-          detail:
-            runtime.surfaces.workstreams.length > 0
-              ? 'These are derived from real task ownership/lane metadata, not inferred subagent processes.'
-              : 'No task-derived work cells are visible yet.',
-          severity: runtime.surfaces.workstreams.length > 0 ? 'stable' : 'placeholder',
+          id: 'command-surfaces',
+          label: 'Command surfaces',
+          value: `${data.missionCommand.calendar.length} calendar · ${data.missionCommand.memories.length} memory · ${data.missionCommand.artifacts.length} docs`,
+          detail: `${data.missionCommand.team.length} team entries · ${data.missionCommand.office.length} office facts · ${data.missionCommand.searchIndex.length} search records.`,
+          severity: 'stable',
         },
         {
           id: 'recent-activity',
@@ -387,6 +567,13 @@ export class StatusService {
               ? 'Recent movement includes genuine server-recorded activity from this Nexus instance.'
               : 'Only seeded/demo activity is present so far. UI should not present it as live execution.',
           severity: runtimeActivityCount > 0 ? 'stable' : 'watch',
+        },
+        {
+          id: 'mission-source',
+          label: 'Mission data source',
+          value: `${missionEntityCounts.runtime} runtime · ${missionEntityCounts.seeded} seeded`,
+          detail: 'Mission-command surfaces use the same truth boundary model as tasks, notes, and activity.',
+          severity: missionEntityCounts.runtime > 0 ? 'stable' : 'placeholder',
         },
       ],
     }

@@ -14,6 +14,14 @@
   --accent-mint: #7ef7cd;
   --accent-cyan: #71cbff;
   --accent-warn: #ffcb61;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --shadow-panel:
+    0 16px 48px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-elevated: 0 18px 60px rgba(0, 0, 0, 0.28);
   color: var(--text-0);
   background:
     radial-gradient(circle at top, rgba(65, 255, 165, 0.08), transparent 22%),
@@ -41,6 +49,64 @@ button,
 textarea,
 input {
   font: inherit;
+}
+
+.ui-surface,
+.ui-metric-card {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-0);
+  box-shadow: var(--shadow-panel);
+}
+
+.ui-surface {
+  border-radius: var(--radius-lg);
+}
+
+.ui-surface--accent {
+  background: linear-gradient(180deg, rgba(10, 24, 20, 0.98), rgba(6, 15, 18, 0.95)), rgba(7, 15, 19, 0.9);
+}
+
+.ui-surface--subtle {
+  background: linear-gradient(180deg, rgba(7, 14, 20, 0.94), rgba(5, 11, 15, 0.86));
+}
+
+.ui-surface--success {
+  border-color: rgba(98, 255, 196, 0.24);
+}
+
+.ui-surface--warning {
+  border-color: rgba(255, 203, 97, 0.26);
+}
+
+.ui-surface__body,
+.ui-surface__header,
+.ui-surface__footer,
+.ui-metric-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ui-metric-card {
+  padding: 0.9rem;
+  border-radius: var(--radius-md);
+}
+
+.ui-metric-card--emphasis {
+  background: linear-gradient(135deg, rgba(13, 37, 29, 0.94), rgba(8, 18, 22, 0.9));
+  border-color: rgba(98, 255, 196, 0.24);
+}
+
+.ui-metric-card span {
+  color: #87c8b2;
+}
+
+.ui-metric-card strong {
+  font-size: 1.12rem;
+}
+
+.ui-metric-card small {
+  color: #a9cabb;
+  line-height: 1.6;
 }
 
 button {

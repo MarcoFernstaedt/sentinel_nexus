@@ -43,6 +43,10 @@ Sentinel Nexus now ships as a small full-stack app inside one repo: a React/Vite
 - Conversation flow now feels more premium and usable through auto-scroll, denser message cards, badge markers, and normalized timestamps.
 - The command deck now includes a stage board plus attention columns for active, waiting, blocked, and ready-to-report work.
 - Seeded records are visibly labeled as seeded baseline so the UI stays honest when live runtime activity is sparse.
+- A transitional design-system layer now exists under `src/components/ui/`, giving the project shadcn-style reusable surface primitives without forcing a risky full framework migration.
+- Shared command-center formatting logic has started moving out of `App.tsx`, creating a safer path toward future section decomposition and optional Tailwind adoption.
+
+See `docs/ui-architecture-roadmap.md` for the recommended migration path toward a Next.js + Tailwind + shadcn-style stack.
 
 ## Nexus DB boundary
 - `.env.example` defines `NEXUS_DB_*` variables.

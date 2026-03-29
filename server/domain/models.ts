@@ -33,6 +33,7 @@ export interface TaskRecord extends BaseRecordMeta {
   status: TaskStatus
   stage: TaskStage
   lane: string
+  projectId?: string
   summary?: string
   needsUserInput?: boolean
   readyToReport?: boolean
@@ -74,6 +75,43 @@ export interface RuntimeWorkstreamSnapshot {
   truthLabel: 'task-derived'
 }
 
+export interface RuntimeVisibilitySurface {
+  id: string
+  label: string
+  state: 'live' | 'baseline-only' | 'not-exposed' | 'partial' | 'quiet'
+  detail: string
+}
+
+export interface RuntimeDocumentSurface {
+  id: string
+  label: string
+  path: string
+  exists: boolean
+  summary: string
+  updatedAt: string | null
+}
+
+export interface RuntimeScheduleSurface {
+  id: string
+  label: string
+  state: 'connected' | 'not-connected' | 'derived'
+  summary: string
+  detail: string
+}
+
+export interface RuntimeScheduleVisibility {
+  calendar: RuntimeScheduleSurface
+  scheduledAutomation: RuntimeScheduleSurface
+  meetings: RuntimeScheduleSurface
+}
+
+export interface RuntimeMissionAlignmentSnapshot {
+  sourceDocument: string
+  priorities: string[]
+  executionBias: string[]
+  caution?: string
+}
+
 export interface RuntimeContextSnapshot {
   capturedAt: string
   session: {
@@ -107,6 +145,11 @@ export interface RuntimeContextSnapshot {
     activityCount: number
     latestActivityAt: string | null
     workstreams: RuntimeWorkstreamSnapshot[]
+    visibility: RuntimeVisibilitySurface[]
+    documents: RuntimeDocumentSurface[]
+    schedule: RuntimeScheduleVisibility
+    missionAlignment: RuntimeMissionAlignmentSnapshot
+    suggestions: string[]
   }
 }
 
@@ -122,6 +165,106 @@ export interface NexusStatusSnapshot {
   cards: StatusCard[]
 }
 
+export interface MissionRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  statement: string
+  commandIntent: string
+  progressPercent: number
+  targetDate: string
+  activeModeId: ChatModeId
+}
+
+export interface GoalRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  category: 'income' | 'career' | 'acquisition' | 'fitness' | 'execution'
+  status: 'on-track' | 'at-risk' | 'blocked'
+  progressPercent: number
+  targetDate: string
+  summary: string
+}
+
+export interface ProjectRecord extends BaseRecordMeta {
+  id: string
+  name: string
+  area: string
+  status: 'active' | 'watch' | 'blocked' | 'parked' | 'done'
+  objective: string
+  missionAlignment: string
+  goalIds: string[]
+  progressPercent: number
+  targetDate?: string
+  owner: string
+}
+
+export interface CalendarEventRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  type: 'task' | 'meeting' | 'deadline' | 'routine'
+  startsAt: string
+  endsAt?: string
+  owner: string
+  relatedProjectId?: string
+  status: 'scheduled' | 'next-up' | 'done'
+  detail: string
+}
+
+export interface MemoryRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  kind: 'working-memory' | 'long-term-memory'
+  updatedAt: string
+  summary: string
+  tags: string[]
+}
+
+export interface ArtifactRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  type: 'doc' | 'artifact' | 'reference'
+  location: string
+  updatedAt: string
+  summary: string
+  relatedProjectId?: string
+}
+
+export interface TeamMemberRecord extends BaseRecordMeta {
+  id: string
+  name: string
+  role: string
+  status: 'active' | 'limited-visibility' | 'offline'
+  focus: string
+}
+
+export interface OfficeRecord extends BaseRecordMeta {
+  id: string
+  label: string
+  value: string
+  detail: string
+}
+
+export interface SearchEntryRecord extends BaseRecordMeta {
+  id: string
+  entityType: 'mission' | 'goal' | 'project' | 'task' | 'calendar' | 'memory' | 'artifact' | 'team' | 'office'
+  title: string
+  summary: string
+  relatedId: string
+  updatedAt?: string
+}
+
+export interface MissionCommandSnapshot {
+  mission: MissionRecord
+  goals: GoalRecord[]
+  projects: ProjectRecord[]
+  calendar: CalendarEventRecord[]
+  memories: MemoryRecord[]
+  artifacts: ArtifactRecord[]
+  team: TeamMemberRecord[]
+  office: OfficeRecord[]
+  searchIndex: SearchEntryRecord[]
+}
+
 export interface NexusBootstrapSnapshot {
   status: NexusStatusSnapshot
   runtime: RuntimeContextSnapshot
@@ -129,6 +272,7 @@ export interface NexusBootstrapSnapshot {
   notes: NoteRecord[]
   tasks: TaskRecord[]
   activity: ActivityRecord[]
+  missionCommand: MissionCommandSnapshot
 }
 
 export interface NexusDatabaseConfig {
@@ -143,4 +287,5 @@ export interface NexusDataStore {
   notes: NoteRecord[]
   tasks: TaskRecord[]
   activity: ActivityRecord[]
+  missionCommand: MissionCommandSnapshot
 }
