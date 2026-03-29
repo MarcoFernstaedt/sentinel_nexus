@@ -4,24 +4,24 @@ import type { ChatMessage, ChatMode, TransportPreview } from '../model/types'
 export const chatModes: ChatMode[] = [
   {
     id: 'command',
-    label: 'Command Mode',
-    intent: 'Fast operator execution, triage, and direct next actions.',
+    label: 'Sentinel',
+    intent: 'Operator execution, triage, pressure, and direct next actions.',
     personaLine: 'Sentinel is concise, protective, and focused on immediate leverage.',
-    accent: 'Immediate leverage',
+    accent: 'Execution pressure',
   },
   {
     id: 'strategy',
-    label: 'Strategy Mode',
-    intent: 'Board-level framing, tradeoffs, sequence, and risk posture.',
+    label: 'Acquisition Operator',
+    intent: 'Deal framing, tradeoffs, sequence, outreach posture, and risk control.',
     personaLine: 'Sentinel becomes colder and more analytical, pushing toward decisive clarity.',
-    accent: 'Board view',
+    accent: 'Deal flow control',
   },
   {
     id: 'build',
-    label: 'Build Mode',
-    intent: 'Implementation support, technical breakdowns, and ship discipline.',
+    label: 'Software Engineer',
+    intent: 'Implementation support, technical breakdowns, debugging, and ship discipline.',
     personaLine: 'Sentinel acts like an engineering chief of staff: precise, structured, unsentimental.',
-    accent: 'Ship the thing',
+    accent: 'Ship discipline',
   },
 ]
 
@@ -82,6 +82,6 @@ export const transportPreview: TransportPreview = {
 
 export const suggestedPrompts = [
   'Audit the current bottleneck and give me one ruthless next move.',
-  'Switch to strategy mode and reframe the next 72 hours.',
-  'Break this build into the smallest shippable execution slices.',
+  'Switch to Acquisition Operator and reframe the next 72 hours.',
+  'Switch to Software Engineer and break this build into the smallest shippable execution slices.',
 ]

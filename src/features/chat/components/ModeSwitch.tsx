@@ -12,9 +12,9 @@ export function ModeSwitch({ modes, activeModeId, onSelect }: ModeSwitchProps) {
       <div className="mode-switch-shell__header">
         <div>
           <p className="eyebrow">Mode routing</p>
-          <h3 id="mode-switch-heading">Choose Sentinel’s posture</h3>
+          <h3 id="mode-switch-heading">Choose operating mode</h3>
         </div>
-        <span className="muted-copy">Each mode preserves a distinct voice and decision bias.</span>
+        <span className="muted-copy">Sentinel, Software Engineer, and Acquisition Operator each preserve a distinct voice and decision bias.</span>
       </div>
       <div className="mode-switch" role="tablist" aria-label="Sentinel chat modes">
         {modes.map((mode) => {

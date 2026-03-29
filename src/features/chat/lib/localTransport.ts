@@ -2,11 +2,11 @@ import type { ChatMode } from '../model/types'
 
 const personaReplies: Record<ChatMode['id'], string> = {
   command:
-    'Command path locked. I would convert this into an execution stack, kill ambiguity, and surface the single move that changes the board fastest.',
+    'Sentinel posture locked. I would convert this into an execution stack, kill ambiguity, and surface the single move that changes the board fastest.',
   strategy:
-    'Strategic posture: widen the frame, tighten the sequence, and do not confuse motion for leverage. The board only cares about decisive outcomes.',
+    'Acquisition Operator posture: widen the frame, tighten the sequence, and do not confuse motion for leverage. The board only cares about decisive outcomes.',
   build:
-    'Build posture: keep the architecture seam clean, isolate the mock transport, and make runtime integration a swap rather than a rewrite.',
+    'Software Engineer posture: keep the architecture seam clean, isolate the mock transport, and make runtime integration a swap rather than a rewrite.',
 }
 
 export async function simulateLocalReply(input: string, mode: ChatMode): Promise<string> {

@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiUrl } from '../../lib/apiBaseUrl'
 
+const modeLabelMap: Record<string, string> = {
+  command: 'Sentinel',
+  build: 'Software Engineer',
+  strategy: 'Acquisition Operator',
+}
+
+function formatModeList(modes: string[]) {
+  return modes.map((mode) => modeLabelMap[mode] ?? mode).join(', ')
+}
+
 type Severity = 'stable' | 'watch' | 'critical' | 'placeholder'
 
 type InfoCard = {
@@ -119,8 +129,8 @@ export function useNexusOverview(historyCount: number) {
             },
             {
               label: 'Tracked modes',
-              value: bootstrap.status.runtime.chat.modes.join(', '),
-              detail: 'These are the only chat modes currently known to the server runtime.',
+              value: formatModeList(bootstrap.status.runtime.chat.modes),
+              detail: 'These are the only operator-facing modes currently known to the server runtime.',
               severity: 'stable',
             },
             {

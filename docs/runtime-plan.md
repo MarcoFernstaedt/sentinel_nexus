@@ -1,83 +1,88 @@
 # Nexus runtime plan
 
+## Current state
+Nexus is already a same-repo full-stack app:
+
+- React/Vite frontend on port `3000`
+- TypeScript Node API on port `4001`
+- File-backed Nexus-owned persistence under `~/.openclaw/data/nexus`
+- Truthful runtime/bootstrap/task/note/chat surfaces through `/api/*`
+
+The current gap is not “add a backend.” The gap is tightening truth boundaries, keeping the runtime seam clean, and only exposing visibility the backend can actually justify.
+
 ## Product scope now
-Nexus should become a real app with a same-repo backend, but keep scope disciplined:
+Keep scope disciplined:
 
 - Chat attached to the current runtime/session only
-- System status
-- Notes/tasks
-- Tool execution surface
-- Mode + agent visibility
+- System status and runtime context
+- Notes/tasks with safe write flows
+- Task-derived workstream/project visibility
+- Mode visibility aligned to Sentinel / Software Engineer / Acquisition Operator
+- Agent visibility only where the runtime has real evidence
 
-Do not expand into broad memory, cross-user collaboration, or generic admin surfaces yet.
+Do not expand into broad memory, cross-user collaboration, generic admin surfaces, or fake sub-agent theater.
 
 ## Source of truth split
 
 ### Frontend now
 - Vite/React shell
-- Local mode switching
-- Local prompt history
-- Browser-derived telemetry
-- Mock chat transport seam
+- Local prompt history and offline fallback
+- Operator-facing mode labels
+- Same-origin API access in dev via Vite proxy
+- Explicit live-vs-seeded truth labels
 
-### Backend next
-- Same repo, mounted under `server/` or `src/server/`
-- Own REST/SSE layer under `/api/nexus`
-- Own Nexus DB file, separate from OpenClaw internals
+### Backend now
+- Same repo under `server/`
+- REST layer under `/api`
+- Nexus-owned persistence boundary, separate from OpenClaw internals
+- Runtime snapshots derived from stored chat/task/note/activity records
 
-## DB decision locked in now
-Use a dedicated SQLite database for Nexus product state:
+## Persistence decision for this pass
+Default persistence remains file-backed JSON:
 
-- Path: `~/.openclaw/data/nexus/nexus.sqlite`
-- Owner: Nexus product surfaces only
-- Not for: gateway daemon internals, pairing state, or generic OpenClaw runtime metadata unless intentionally mirrored for the UI
+- Driver: `file-json`
+- Directory: `~/.openclaw/data/nexus`
+- Schema reference: `./nexus.schema.sql`
+
+Future database targets remain valid, but are not the active runtime yet:
+
+- SQLite: `file:~/.openclaw/data/nexus/nexus.sqlite`
+- Postgres: external DSN via `NEXUS_DB_URL`
 
 Why this matters:
-- Prevents tight coupling to OpenClaw internals
-- Makes migrations/product schema safe
-- Keeps backup/export boundaries clean
-- Allows future replacement with Postgres without changing frontend contracts
+- Keeps Nexus decoupled from OpenClaw internals
+- Preserves a migration path without frontend contract churn
+- Avoids pretending a real DB runtime is attached before it exists
 
-## Fastest path to fully operational
-1. Add same-repo backend with three read endpoints first:
-   - `GET /api/nexus/runtime/context`
-   - `GET /api/nexus/system/status`
-   - `GET /api/nexus/notes`
-2. Replace seeded/mock frontend data with these endpoints behind adapters.
-3. Add write flows:
-   - notes create/update
-   - tasks create/update/status change
-4. Add chat runtime adapter:
-   - `POST /api/nexus/chat/messages`
-   - scope limited to current session/runtime
-5. Add tool dispatch endpoint with explicit allowlist and audit trail.
-6. Add SSE stream for runtime events/sub-agent visibility only after the base reads/writes are stable.
+## Active API surface
+- `GET /health`
+- `GET /api/bootstrap`
+- `GET /api/status`
+- `GET /api/runtime/context`
+- `GET /api/activity`
+- `GET /api/chat/messages`
+- `POST /api/chat/messages`
+- `GET /api/notes`
+- `POST /api/notes`
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:taskId`
 
-## Recommended backend shape
+## Runtime truth rules
+- Operator-facing labels may differ from internal mode IDs when needed for compatibility.
+- Task/workstream/project visibility should be derived from stored task truth, not invented UI objects.
+- Sub-agent roster visibility stays unavailable until a real runtime event/session feed exists.
+- Seeded/demo records must remain visibly labeled as seeded baseline.
 
-```text
-server/
-  app.ts
-  routes/
-    runtime.ts
-    system.ts
-    notes.ts
-    tasks.ts
-    chat.ts
-    tools.ts
-  db/
-    client.ts
-    migrations/
-  services/
-    runtimeContext.ts
-    gatewayStatus.ts
-    notesService.ts
-    tasksService.ts
-    chatService.ts
-    toolDispatch.ts
-```
+## Next practical path
+1. Keep file-backed runtime stable and honest.
+2. Add optional SSE/event feed only when the backend can expose real runtime/session activity.
+3. Add command/tool dispatch only behind an explicit allowlist and audit trail.
+4. Attach SQLite or Postgres only when the host/runtime decision is real, not hypothetical.
 
-## First schema slice
+## Schema priorities
+If/when the persistence backend upgrades, preserve these slices first:
+
 - `notes`
   - `id`
   - `title`
@@ -90,12 +95,13 @@ server/
   - `owner`
   - `lane`
   - `status`
-  - `due`
+  - `stage`
+  - `needs_user_input`
+  - `ready_to_report`
   - `updated_at`
 - `session_context_cache`
   - `session_id`
   - `mode`
-  - `active_agent`
   - `visibility_state`
   - `captured_at`
 
@@ -104,3 +110,4 @@ server/
 - Long-term memory engine
 - Arbitrary plugin marketplace
 - Full historical analytics warehouse
+- Invented sub-agent presence without runtime evidence
