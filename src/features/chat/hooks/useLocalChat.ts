@@ -7,11 +7,15 @@ import {
   transportPreview as fallbackTransportPreview,
 } from '../data/mockChat'
 import {
+  createNoteInApi,
+  createTaskInApi,
   createTransportPreview,
+  fetchActivity,
   fetchBootstrap,
   fetchMessages,
   fetchRuntimeContext,
   fetchStatus,
+  patchTaskInApi,
   submitMessageToApi,
 } from '../lib/apiTransport'
 import {
@@ -58,11 +62,14 @@ export function useLocalChat() {
   const [runtimeNotes, setRuntimeNotes] = useState<RuntimeNote[]>([])
   const [runtimeTasks, setRuntimeTasks] = useState<RuntimeTask[]>([])
   const [apiState, setApiState] = useState<'connected' | 'local-fallback'>('local-fallback')
+  const [isSyncingRuntime, setIsSyncingRuntime] = useState(false)
 
   useEffect(() => {
     let cancelled = false
 
     const syncFromApi = async (preferBootstrap: boolean) => {
+      setIsSyncingRuntime(true)
+
       try {
         if (preferBootstrap) {
           const bootstrap = await fetchBootstrap()
@@ -82,10 +89,11 @@ export function useLocalChat() {
           return
         }
 
-        const [apiMessages, apiStatus, apiRuntimeContext, bootstrap] = await Promise.all([
+        const [apiMessages, apiStatus, apiRuntimeContext, apiActivity, bootstrap] = await Promise.all([
           fetchMessages(),
           fetchStatus(),
           fetchRuntimeContext(),
+          fetchActivity(),
           fetchBootstrap(),
         ])
         if (cancelled) return
@@ -94,7 +102,7 @@ export function useLocalChat() {
         }
         setRuntimeStatus(apiStatus)
         setRuntimeContext(apiRuntimeContext)
-        setRecentActivity(bootstrap.activity ?? [])
+        setRecentActivity(apiActivity ?? bootstrap.activity ?? [])
         setRuntimeNotes(bootstrap.notes ?? [])
         setRuntimeTasks(bootstrap.tasks ?? [])
         setTransportPreview(createTransportPreview(apiStatus))
@@ -106,6 +114,10 @@ export function useLocalChat() {
           ...fallbackTransportPreview,
           summary: `${fallbackTransportPreview.summary} Falling back to local simulator because the API is unavailable.`,
         })
+      } finally {
+        if (!cancelled) {
+          setIsSyncingRuntime(false)
+        }
       }
     }
 
@@ -186,6 +198,63 @@ export function useLocalChat() {
     }
   }
 
+  async function refreshRuntime() {
+    try {
+      setIsSyncingRuntime(true)
+      const bootstrap = await fetchBootstrap()
+      if (bootstrap.messages.length > 0) {
+        setMessages(bootstrap.messages)
+      }
+      setRuntimeStatus(bootstrap.status)
+      setRuntimeContext(bootstrap.runtime)
+      setRecentActivity(bootstrap.activity ?? [])
+      setRuntimeNotes(bootstrap.notes ?? [])
+      setRuntimeTasks(bootstrap.tasks ?? [])
+      setTransportPreview(createTransportPreview(bootstrap.status))
+      setApiState('connected')
+      return true
+    } catch {
+      setApiState('local-fallback')
+      return false
+    } finally {
+      setIsSyncingRuntime(false)
+    }
+  }
+
+  async function createTask(input: {
+    title: string
+    owner: string
+    due: string
+    lane: string
+    summary?: string
+    status?: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+    stage?: 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
+    needsUserInput?: boolean
+    readyToReport?: boolean
+  }) {
+    await createTaskInApi(input)
+    await refreshRuntime()
+  }
+
+  async function updateTask(
+    taskId: string,
+    patch: {
+      status?: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+      stage?: 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
+      summary?: string
+      needsUserInput?: boolean
+      readyToReport?: boolean
+    },
+  ) {
+    await patchTaskInApi(taskId, patch)
+    await refreshRuntime()
+  }
+
+  async function createNote(input: { title: string; body: string; tag: string }) {
+    await createNoteInApi(input)
+    await refreshRuntime()
+  }
+
   function cycleHistory(direction: 'older' | 'newer') {
     if (inputHistory.length === 0) {
       return
@@ -217,17 +286,22 @@ export function useLocalChat() {
     apiState,
     draft,
     historyCursorLabel,
+    createNote,
+    createTask,
     inputHistory,
     isResponding,
+    isSyncingRuntime,
     messages: visibleMessages,
     modes: chatModes,
     recentActivity,
+    refreshRuntime,
     runtimeContext,
     runtimeNotes,
     runtimeStatus,
     runtimeTasks,
     suggestedPrompts,
     transportPreview,
+    updateTask,
     rawMessages: messages,
     setActiveModeId,
     setDraft,

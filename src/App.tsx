@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import './App.css'
 import { Composer } from './features/chat/components/Composer'
 import { ConversationView } from './features/chat/components/ConversationView'
@@ -5,6 +7,23 @@ import { ModeSwitch } from './features/chat/components/ModeSwitch'
 import { PersonaPanel } from './features/chat/components/PersonaPanel'
 import { useLocalChat } from './features/chat/hooks/useLocalChat'
 import type { RuntimeTask, TaskStage } from './features/chat/model/types'
+
+type TaskStatus = RuntimeTask['status']
+
+type ProjectSummary = {
+  id: string
+  label: string
+  total: number
+  active: number
+  blocked: number
+  waiting: number
+  done: number
+  completion: number | null
+  nextTask: RuntimeTask | undefined
+  source: 'live' | 'baseline-only' | 'mixed'
+}
+
+const taskStatusOrder: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
 
 function formatLastEventLabel(timestamp: string | undefined) {
   if (!timestamp) return 'Awaiting first packet'
@@ -55,34 +74,106 @@ function describeTask(task: RuntimeTask) {
   return parts.join(' · ')
 }
 
+function defaultStageForStatus(status: TaskStatus): TaskStage {
+  if (status === 'In Progress') return 'editing'
+  if (status === 'Blocked') return 'validating'
+  if (status === 'Done') return 'done'
+  return 'queued'
+}
+
+function calculateProjectSummaries(tasks: RuntimeTask[]): ProjectSummary[] {
+  const projects = new Map<string, RuntimeTask[]>()
+
+  for (const task of tasks) {
+    const key = task.lane?.trim() || 'Unassigned'
+    const current = projects.get(key) ?? []
+    current.push(task)
+    projects.set(key, current)
+  }
+
+  return [...projects.entries()]
+    .map(([label, projectTasks]) => {
+      const active = projectTasks.filter((task) => task.status !== 'Blocked' && task.status !== 'Done' && !task.needsUserInput).length
+      const blocked = projectTasks.filter((task) => task.status === 'Blocked').length
+      const waiting = projectTasks.filter((task) => task.needsUserInput && task.status !== 'Done').length
+      const done = projectTasks.filter((task) => task.status === 'Done').length
+      const runtimeCount = projectTasks.filter((task) => task.source === 'runtime').length
+      const completion = projectTasks.length > 0 ? Math.round((done / projectTasks.length) * 100) : null
+      const nextTask = projectTasks.find((task) => task.status !== 'Done')
+
+      const source: ProjectSummary['source'] =
+        runtimeCount === 0 ? 'baseline-only' : runtimeCount === projectTasks.length ? 'live' : 'mixed'
+
+      return {
+        id: label.toLowerCase().replace(/\s+/g, '-'),
+        label,
+        total: projectTasks.length,
+        active,
+        blocked,
+        waiting,
+        done,
+        completion,
+        nextTask,
+        source,
+      }
+    })
+    .sort((left, right) => {
+      const leftPressure = left.blocked + left.waiting + left.active
+      const rightPressure = right.blocked + right.waiting + right.active
+      return rightPressure - leftPressure || left.label.localeCompare(right.label)
+    })
+}
+
 function App() {
   const {
     activeMode,
     activeModeId,
     apiState,
+    createNote,
+    createTask,
     draft,
     historyCursorLabel,
     inputHistory,
     isResponding,
+    isSyncingRuntime,
     messages,
     modes,
     rawMessages,
     recentActivity,
+    refreshRuntime,
     runtimeContext,
     runtimeNotes,
     runtimeStatus,
     runtimeTasks,
     suggestedPrompts,
     transportPreview,
+    updateTask,
     setActiveModeId,
     setDraft,
     submitMessage,
     cycleHistory,
   } = useLocalChat()
 
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    owner: 'Marco',
+    due: 'Today',
+    lane: 'Build',
+    summary: '',
+    needsUserInput: false,
+  })
+  const [noteForm, setNoteForm] = useState({
+    title: '',
+    body: '',
+    tag: 'ops',
+  })
+  const [surfaceError, setSurfaceError] = useState<string | null>(null)
+  const [isSavingTask, setIsSavingTask] = useState(false)
+  const [isSavingNote, setIsSavingNote] = useState(false)
+  const [taskActionId, setTaskActionId] = useState<string | null>(null)
+
   const latestMessage = rawMessages[rawMessages.length - 1]
   const systemMessages = rawMessages.filter((message) => message.role === 'system').length
-  const taskBreakdown = runtimeContext?.surfaces.taskBreakdown
   const taskStageBreakdown = runtimeContext?.surfaces.taskStageBreakdown
   const attentionCounts = runtimeContext?.surfaces.attentionCounts
   const runtimeCards = runtimeStatus?.cards ?? []
@@ -98,9 +189,9 @@ function App() {
   const waitingOnUserTasks = runtimeTasks.filter((task) => task.needsUserInput && task.status !== 'Done')
   const blockedTasks = runtimeTasks.filter((task) => task.status === 'Blocked')
   const readyToReportTasks = runtimeTasks.filter((task) => task.readyToReport)
+  const completedTasks = runtimeTasks.filter((task) => task.status === 'Done')
   const modeCoverage = runtimeContext?.chat.modes.length ?? modes.length
   const activeModeSurface = activeMode.label
-  const activeModeAccent = activeMode.accent
   const modelLaneLabel =
     apiState === 'connected'
       ? 'Server stub response'
@@ -136,10 +227,10 @@ function App() {
     },
     {
       id: 'reporting',
-      title: 'Ready to report',
-      value: `${readyToReportTasks.length} items`,
+      title: 'Completed',
+      value: `${completedTasks.length} items`,
       detail:
-        readyToReportTasks[0]?.title ?? 'Nothing completed is waiting for operator reporting.',
+        completedTasks[0]?.title ?? 'No completed tasks are visible yet.',
     },
   ]
 
@@ -160,7 +251,7 @@ function App() {
       meta: `[${note.tag}] ${formatRelativeLabel(note.updatedAt)}`,
       source: note.source,
     })),
-  ].slice(0, 6)
+  ].slice(0, 8)
   const baselineFeed = [
     ...seededRecentActivity.map((item) => ({
       id: item.id,
@@ -179,38 +270,11 @@ function App() {
       source: note.source,
     })),
   ].slice(0, 4)
-  const agentRoster = [
-    {
-      id: 'sentinel',
-      label: 'Sentinel core',
-      state: isResponding ? 'engaged' : apiState === 'connected' ? 'synced' : 'local-only',
-      detail: `${activeMode.label} · ${modelLaneLabel}`,
-    },
-    {
-      id: 'runtime',
-      label: 'Runtime spine',
-      state: apiState === 'connected' ? 'live' : 'standby',
-      detail: runtimeContext
-        ? `${runtimeContext.session.hostLabel} · ${runtimeContext.session.persistenceDriver}`
-        : 'Awaiting bootstrap context',
-    },
-    {
-      id: 'task-grid',
-      label: 'Task grid',
-      state: blockedTasks.length > 0 ? 'watch' : 'steady',
-      detail: `${runtimeTasks.length} tracked tasks · ${waitingOnUserTasks.length} waiting on user`,
-    },
-    {
-      id: 'model-monitor',
-      label: 'System/model monitor',
-      state: apiState === 'connected' ? 'truthful' : 'fallback',
-      detail: modelTruthLabel,
-    },
-  ]
 
-  const runtimeSummary = runtimeContext
-    ? `${runtimeContext.session.hostLabel} · ${runtimeContext.chat.messageCount} persisted messages · ${runtimeTasksLive.length} live tasks / ${seededTasks.length} seeded baseline · ${runtimeRecentActivity.length} live updates`
-    : 'Server-derived session context not available yet. Local shell remains armed.'
+  const projectSummaries = useMemo(() => calculateProjectSummaries(runtimeTasks), [runtimeTasks])
+  const completionRate = runtimeTasks.length > 0 ? Math.round((completedTasks.length / runtimeTasks.length) * 100) : null
+  const truthfulProjectLabel = projectSummaries.length > 0 ? `${projectSummaries.length} active lanes` : 'No project lanes exposed'
+  const topProject = projectSummaries[0]
 
   const boardGroups = [
     {
@@ -236,10 +300,10 @@ function App() {
     },
     {
       id: 'report',
-      title: 'Completed, not yet reported',
+      title: 'Completed / ready to report',
       tone: 'subtle',
-      description: 'Done work flagged as ready to report back through the operator loop.',
-      tasks: readyToReportTasks,
+      description: 'Done work stays visible so execution history does not vanish.',
+      tasks: readyToReportTasks.length > 0 ? readyToReportTasks : completedTasks,
     },
   ] as const
 
@@ -253,6 +317,91 @@ function App() {
     { id: 'done', value: taskStageBreakdown?.done ?? 0, detail: 'Execution finished' },
   ]
 
+  async function handleTaskCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSurfaceError(null)
+    setIsSavingTask(true)
+
+    try {
+      await createTask({
+        title: taskForm.title,
+        owner: taskForm.owner,
+        due: taskForm.due,
+        lane: taskForm.lane,
+        summary: taskForm.summary || undefined,
+        needsUserInput: taskForm.needsUserInput,
+        status: taskForm.needsUserInput ? 'Queued' : 'In Progress',
+        stage: taskForm.needsUserInput ? 'queued' : 'editing',
+      })
+      setTaskForm({
+        title: '',
+        owner: taskForm.owner,
+        due: 'Today',
+        lane: taskForm.lane,
+        summary: '',
+        needsUserInput: false,
+      })
+    } catch {
+      setSurfaceError('Task write failed. Nexus API is likely offline.')
+    } finally {
+      setIsSavingTask(false)
+    }
+  }
+
+  async function handleNoteCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSurfaceError(null)
+    setIsSavingNote(true)
+
+    try {
+      await createNote(noteForm)
+      setNoteForm({ title: '', body: '', tag: noteForm.tag })
+    } catch {
+      setSurfaceError('Note write failed. Nexus API is likely offline.')
+    } finally {
+      setIsSavingNote(false)
+    }
+  }
+
+  async function handleTaskStatusChange(task: RuntimeTask, status: TaskStatus) {
+    setSurfaceError(null)
+    setTaskActionId(task.id)
+
+    try {
+      await updateTask(task.id, {
+        status,
+        stage: defaultStageForStatus(status),
+        needsUserInput: status === 'Done' ? false : task.needsUserInput,
+        readyToReport: status === 'Done' ? true : task.readyToReport,
+      })
+    } catch {
+      setSurfaceError(`Could not update ${task.title}.`)
+    } finally {
+      setTaskActionId(null)
+    }
+  }
+
+  async function handleTaskFlagToggle(task: RuntimeTask, field: 'needsUserInput' | 'readyToReport') {
+    setSurfaceError(null)
+    setTaskActionId(task.id)
+
+    try {
+      await updateTask(task.id, { [field]: !task[field] })
+    } catch {
+      setSurfaceError(`Could not update ${task.title}.`)
+    } finally {
+      setTaskActionId(null)
+    }
+  }
+
+  async function handleRefresh() {
+    setSurfaceError(null)
+    const ok = await refreshRuntime()
+    if (!ok) {
+      setSurfaceError('Refresh failed. Local fallback remains active.')
+    }
+  }
+
   return (
     <div className="app-shell">
       <div className="shell-backdrop" aria-hidden="true">
@@ -264,17 +413,17 @@ function App() {
       <aside className="left-rail">
         <div className="brand-block">
           <p className="eyebrow">Sentinel Nexus // Command Center</p>
-          <h1>Operator shell for decisive work, runtime visibility, and controlled execution.</h1>
+          <h1>Operator shell for decisive work, truthful visibility, and controlled execution.</h1>
           <p className="muted-copy">
-            A cinematic local-first command surface with live backend truth when available and explicit seams where it is not.
+            Real task and note state comes from the Nexus API when online. Seeded baseline remains labeled instead of being passed off as live truth.
           </p>
         </div>
 
         <div className="rail-card rail-card--accent">
           <div className="rail-card__header">
             <p className="eyebrow">System posture</p>
-            <span className={`status-pill ${isResponding ? 'status-pill--live' : ''}`}>
-              {isResponding ? 'LIVE TRAFFIC' : apiState === 'connected' ? 'SYNCED' : 'LOCAL FALLBACK'}
+            <span className={`status-pill ${isResponding || isSyncingRuntime ? 'status-pill--live' : ''}`}>
+              {isResponding ? 'LIVE TRAFFIC' : isSyncingRuntime ? 'SYNCING' : apiState === 'connected' ? 'SYNCED' : 'LOCAL FALLBACK'}
             </span>
           </div>
           <strong>{activeMode.label}</strong>
@@ -284,21 +433,21 @@ function App() {
             <span>{modelLaneLabel}</span>
           </div>
           <div className="rail-signal">
-            <span className="rail-signal__label">Transport</span>
-            <span>{transportPreview.provider}</span>
+            <span className="rail-signal__label">Runtime truth</span>
+            <span>{runtimeTasksLive.length > 0 || runtimeNotesLive.length > 0 ? 'Live records present' : 'Baseline / unknown only'}</span>
           </div>
         </div>
 
         <div className="rail-grid">
           <div className="rail-metric rail-metric--emphasis">
-            <span>Active mode</span>
-            <strong>{activeModeId.toUpperCase()}</strong>
-            <small>{activeModeAccent}</small>
+            <span>Project lanes</span>
+            <strong>{projectSummaries.length.toString().padStart(2, '0')}</strong>
+            <small>{truthfulProjectLabel}</small>
           </div>
           <div className="rail-metric rail-metric--emphasis">
-            <span>Active model</span>
-            <strong>{apiState === 'connected' ? 'SERVER STUB' : 'LOCAL SIM'}</strong>
-            <small>{apiState === 'connected' ? 'backend truth boundary' : 'offline/local seam'}</small>
+            <span>Completion</span>
+            <strong>{completionRate === null ? '—' : `${completionRate}%`}</strong>
+            <small>{completionRate === null ? 'No task baseline yet' : `${completedTasks.length}/${runtimeTasks.length} done`}</small>
           </div>
           <div className="rail-metric">
             <span>History</span>
@@ -313,9 +462,13 @@ function App() {
         </div>
 
         <div className="rail-card">
-          <p className="eyebrow">Runtime sync</p>
-          <strong>{apiState === 'connected' ? 'Backend connected' : 'Local continuity mode'}</strong>
-          <p className="muted-copy">{runtimeSummary}</p>
+          <p className="eyebrow">Primary project lane</p>
+          <strong>{topProject?.label ?? 'No lane data yet'}</strong>
+          <p className="muted-copy">
+            {topProject
+              ? `${topProject.active} active · ${topProject.waiting} waiting · ${topProject.blocked} blocked · ${topProject.done} done`
+              : 'Project grouping appears when tasks exist.'}
+          </p>
         </div>
 
         <div className="rail-card">
@@ -336,9 +489,9 @@ function App() {
         <section className="command-deck panel">
           <div>
             <p className="eyebrow">Command deck</p>
-            <h2>Sentinel runtime monitor</h2>
+            <h2>Truthful execution monitor</h2>
             <p className="muted-copy">
-              Real storage, message, task, and activity surfaces route in from the Nexus API when online. Offline, the shell keeps local composure and advertises the seam.
+              Projects, todos, execution stages, completed work, and operator notes all stay visible. Unknowns remain labeled as unknown.
             </p>
           </div>
 
@@ -430,6 +583,43 @@ function App() {
           </section>
 
           <section className="ops-grid ops-grid--command" aria-label="Operations overview">
+            <article className="panel ops-panel ops-panel--wide">
+              <div className="surface-header">
+                <div>
+                  <p className="eyebrow">Projects board</p>
+                  <h2>Truthful lane visibility</h2>
+                </div>
+                <span className="status-pill status-pill--subtle">{projectSummaries.length} lanes</span>
+              </div>
+              <div className="project-board-grid">
+                {projectSummaries.length > 0 ? (
+                  projectSummaries.map((project) => (
+                    <article key={project.id} className="project-card">
+                      <div className="stack-list__row">
+                        <strong>{project.label}</strong>
+                        <span className="status-pill status-pill--subtle">{project.source}</span>
+                      </div>
+                      <div className="project-card__metrics">
+                        <span>{project.total} total</span>
+                        <span>{project.active} active</span>
+                        <span>{project.waiting} waiting</span>
+                        <span>{project.blocked} blocked</span>
+                        <span>{project.done} done</span>
+                      </div>
+                      <p className="muted-copy">
+                        {project.completion === null ? 'Baseline unknown' : `${project.completion}% complete`} · Next focus: {project.nextTask?.title ?? 'no open task'}
+                      </p>
+                    </article>
+                  ))
+                ) : (
+                  <div className="task-board-card task-board-card--empty">
+                    <strong>No project lanes yet</strong>
+                    <small>Create a task and Nexus will group it into a project lane immediately.</small>
+                  </div>
+                )}
+              </div>
+            </article>
+
             <article className="panel ops-panel">
               <div className="surface-header">
                 <div>
@@ -452,21 +642,32 @@ function App() {
             <article className="panel ops-panel">
               <div className="surface-header">
                 <div>
-                  <p className="eyebrow">Agent activity</p>
-                  <h2>Presence and execution posture</h2>
+                  <p className="eyebrow">Execution dashboard</p>
+                  <h2>Pressure and throughput</h2>
                 </div>
-                <span className="status-pill status-pill--subtle">local-first</span>
+                <span className="status-pill status-pill--subtle">operator metrics</span>
               </div>
-              <div className="stack-list">
-                {agentRoster.map((agent) => (
-                  <div key={agent.id} className="stack-list__item stack-list__item--compact">
-                    <div className="stack-list__row">
-                      <strong>{agent.label}</strong>
-                      <span className="status-pill status-pill--subtle">{agent.state}</span>
-                    </div>
-                    <small>{agent.detail}</small>
-                  </div>
-                ))}
+              <div className="task-matrix">
+                <div className="task-cell task-cell--live">
+                  <span>Active</span>
+                  <strong>{attentionCounts?.active ?? activeExecutionTasks.length}</strong>
+                </div>
+                <div className="task-cell">
+                  <span>Waiting</span>
+                  <strong>{attentionCounts?.waitingOnUser ?? waitingOnUserTasks.length}</strong>
+                </div>
+                <div className="task-cell task-cell--warn">
+                  <span>Blocked</span>
+                  <strong>{attentionCounts?.blocked ?? blockedTasks.length}</strong>
+                </div>
+                <div className="task-cell">
+                  <span>Completed</span>
+                  <strong>{completedTasks.length}</strong>
+                </div>
+              </div>
+              <div className="detail-stack muted-copy">
+                <span>{completionRate === null ? 'Completion baseline appears after the first task exists.' : `Completion rate: ${completionRate}% across ${runtimeTasks.length} tracked tasks.`}</span>
+                <span>{runtimeRecentActivity.length > 0 ? `${runtimeRecentActivity.length} live activity records exist.` : 'No live activity records yet; current view is baseline only.'}</span>
               </div>
             </article>
 
@@ -490,14 +691,45 @@ function App() {
                     </div>
                     <div className="board-column__body">
                       {group.tasks.length > 0 ? (
-                        group.tasks.slice(0, 4).map((task) => (
-                          <div key={task.id} className="task-board-card">
+                        group.tasks.slice(0, 5).map((task) => (
+                          <div key={task.id} className="task-board-card task-board-card--interactive">
                             <div className="stack-list__row">
                               <strong>{task.title}</strong>
                               <span className="status-pill status-pill--subtle">{formatStageLabel(task.stage)}</span>
                             </div>
                             <small>{describeTask(task)}</small>
                             {task.summary ? <p className="muted-copy">{task.summary}</p> : null}
+                            <div className="task-action-row" role="group" aria-label={`Task controls for ${task.title}`}>
+                              {taskStatusOrder.map((status) => (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  className={`mini-button ${task.status === status ? 'mini-button--active' : ''}`}
+                                  disabled={taskActionId === task.id}
+                                  onClick={() => handleTaskStatusChange(task, status)}
+                                >
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="task-action-row" role="group" aria-label={`Task flags for ${task.title}`}>
+                              <button
+                                type="button"
+                                className={`mini-button ${task.needsUserInput ? 'mini-button--active' : ''}`}
+                                disabled={taskActionId === task.id}
+                                onClick={() => handleTaskFlagToggle(task, 'needsUserInput')}
+                              >
+                                Waiting on user
+                              </button>
+                              <button
+                                type="button"
+                                className={`mini-button ${task.readyToReport ? 'mini-button--active' : ''}`}
+                                disabled={taskActionId === task.id}
+                                onClick={() => handleTaskFlagToggle(task, 'readyToReport')}
+                              >
+                                Ready to report
+                              </button>
+                            </div>
                             <div className="task-board-card__footer">
                               <span className="status-pill status-pill--subtle">{task.source === 'runtime' ? 'live' : 'seeded baseline'}</span>
                               <span className="status-pill status-pill--subtle">{task.status}</span>
@@ -519,28 +751,81 @@ function App() {
             <article className="panel ops-panel">
               <div className="surface-header">
                 <div>
-                  <p className="eyebrow">Status inventory</p>
-                  <h2>High-level task counts</h2>
+                  <p className="eyebrow">Todo capture</p>
+                  <h2>Add operator work</h2>
                 </div>
-                <span className="status-pill status-pill--subtle">task states</span>
+                <span className="status-pill status-pill--subtle">API-backed</span>
               </div>
-              <div className="task-matrix">
-                <div className="task-cell">
-                  <span>Queued</span>
-                  <strong>{taskBreakdown?.Queued ?? 0}</strong>
+              <form className="form-stack" onSubmit={handleTaskCreate}>
+                <label className="form-field">
+                  <span>Task title</span>
+                  <input value={taskForm.title} onChange={(event) => setTaskForm((current) => ({ ...current, title: event.target.value }))} placeholder="Ship the operator dashboard" />
+                </label>
+                <div className="form-split">
+                  <label className="form-field">
+                    <span>Owner</span>
+                    <input value={taskForm.owner} onChange={(event) => setTaskForm((current) => ({ ...current, owner: event.target.value }))} />
+                  </label>
+                  <label className="form-field">
+                    <span>Due</span>
+                    <input value={taskForm.due} onChange={(event) => setTaskForm((current) => ({ ...current, due: event.target.value }))} />
+                  </label>
                 </div>
-                <div className="task-cell task-cell--live">
-                  <span>In Progress</span>
-                  <strong>{taskBreakdown?.['In Progress'] ?? 0}</strong>
+                <div className="form-split">
+                  <label className="form-field">
+                    <span>Project lane</span>
+                    <input value={taskForm.lane} onChange={(event) => setTaskForm((current) => ({ ...current, lane: event.target.value }))} />
+                  </label>
+                  <label className="form-field form-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={taskForm.needsUserInput}
+                      onChange={(event) => setTaskForm((current) => ({ ...current, needsUserInput: event.target.checked }))}
+                    />
+                    <span>Starts as waiting on user</span>
+                  </label>
                 </div>
-                <div className="task-cell task-cell--warn">
-                  <span>Blocked</span>
-                  <strong>{taskBreakdown?.Blocked ?? 0}</strong>
+                <label className="form-field">
+                  <span>Summary</span>
+                  <textarea rows={3} value={taskForm.summary} onChange={(event) => setTaskForm((current) => ({ ...current, summary: event.target.value }))} placeholder="Why this matters / what done means" />
+                </label>
+                <div className="panel-actions">
+                  <button type="submit" className="primary-button" disabled={isSavingTask || apiState !== 'connected'}>
+                    {isSavingTask ? 'Saving task…' : 'Create todo'}
+                  </button>
+                  <button type="button" className="ghost-button" disabled={isSyncingRuntime} onClick={handleRefresh}>
+                    {isSyncingRuntime ? 'Refreshing…' : 'Refresh runtime'}
+                  </button>
                 </div>
-                <div className="task-cell">
-                  <span>Done</span>
-                  <strong>{taskBreakdown?.Done ?? 0}</strong>
+              </form>
+            </article>
+
+            <article className="panel ops-panel">
+              <div className="surface-header">
+                <div>
+                  <p className="eyebrow">Completed-state visibility</p>
+                  <h2>Recently finished work</h2>
                 </div>
+                <span className="status-pill status-pill--subtle">{completedTasks.length} done</span>
+              </div>
+              <div className="event-list muted-copy">
+                {completedTasks.length > 0 ? (
+                  completedTasks.slice(0, 6).map((task) => (
+                    <div key={task.id} className="event-item">
+                      <div className="stack-list__row">
+                        <strong>{task.title}</strong>
+                        <span className="status-pill status-pill--subtle">{task.readyToReport ? 'ready to report' : 'done'}</span>
+                      </div>
+                      <span>{describeTask(task)}</span>
+                      <small>{task.summary ?? 'No completion summary captured.'}</small>
+                    </div>
+                  ))
+                ) : (
+                  <div className="event-item">
+                    <strong>No completed tasks yet</strong>
+                    <span>Finished work will remain visible here instead of disappearing from the board.</span>
+                  </div>
+                )}
               </div>
             </article>
 
@@ -646,10 +931,27 @@ function App() {
             <section className="panel tactical-panel">
               <div className="panel-block">
                 <p className="eyebrow">Field notes</p>
-                <strong>Project memory + operator doctrine</strong>
+                <strong>Capture operator memory</strong>
+                <form className="form-stack" onSubmit={handleNoteCreate}>
+                  <label className="form-field">
+                    <span>Title</span>
+                    <input value={noteForm.title} onChange={(event) => setNoteForm((current) => ({ ...current, title: event.target.value }))} placeholder="What changed?" />
+                  </label>
+                  <label className="form-field">
+                    <span>Body</span>
+                    <textarea rows={4} value={noteForm.body} onChange={(event) => setNoteForm((current) => ({ ...current, body: event.target.value }))} placeholder="Capture the decision, risk, or next move" />
+                  </label>
+                  <label className="form-field">
+                    <span>Tag</span>
+                    <input value={noteForm.tag} onChange={(event) => setNoteForm((current) => ({ ...current, tag: event.target.value }))} />
+                  </label>
+                  <button type="submit" className="primary-button" disabled={isSavingNote || apiState !== 'connected'}>
+                    {isSavingNote ? 'Saving note…' : 'Save note'}
+                  </button>
+                </form>
                 <div className="detail-stack muted-copy">
                   {runtimeNotes.length > 0 ? (
-                    runtimeNotes.slice(0, 3).map((note) => (
+                    runtimeNotes.slice(0, 4).map((note) => (
                       <span key={note.id}>
                         [{note.tag}] {note.title} — {note.body} ({note.source === 'runtime' ? 'live' : 'seeded baseline'})
                       </span>
@@ -660,6 +962,16 @@ function App() {
                 </div>
               </div>
             </section>
+
+            {surfaceError ? (
+              <section className="panel tactical-panel tactical-panel--error">
+                <div className="panel-block">
+                  <p className="eyebrow">Surface error</p>
+                  <strong>{surfaceError}</strong>
+                  <p className="muted-copy">Writes require the Nexus API. When offline, the dashboard remains readable but not authoritative for new changes.</p>
+                </div>
+              </section>
+            ) : null}
 
             <PersonaPanel
               activeMode={activeMode}

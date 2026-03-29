@@ -14,6 +14,26 @@ interface SubmitResponse {
   sentinelMessage: ChatMessage
 }
 
+interface TaskMutationInput {
+  title: string
+  owner: string
+  due: string
+  status?: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+  stage?: 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
+  lane: string
+  summary?: string
+  needsUserInput?: boolean
+  readyToReport?: boolean
+}
+
+interface TaskPatchInput {
+  status?: 'Queued' | 'In Progress' | 'Blocked' | 'Done'
+  stage?: 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
+  summary?: string
+  needsUserInput?: boolean
+  readyToReport?: boolean
+}
+
 export async function fetchBootstrap(): Promise<BootstrapPayload> {
   const response = await fetch(apiUrl('/api/bootstrap'))
   if (!response.ok) throw new Error('Failed to load Nexus bootstrap payload')
@@ -23,6 +43,12 @@ export async function fetchBootstrap(): Promise<BootstrapPayload> {
 export async function fetchMessages(): Promise<ChatMessage[]> {
   const response = await fetch(apiUrl('/api/chat/messages'))
   if (!response.ok) throw new Error('Failed to load chat messages')
+  return response.json()
+}
+
+export async function fetchActivity() {
+  const response = await fetch(apiUrl('/api/activity'))
+  if (!response.ok) throw new Error('Failed to load activity feed')
   return response.json()
 }
 
@@ -47,6 +73,48 @@ export async function submitMessageToApi(input: string, mode: ChatMode): Promise
 
   if (!response.ok) {
     throw new Error('Failed to submit message')
+  }
+
+  return response.json()
+}
+
+export async function createTaskInApi(input: TaskMutationInput) {
+  const response = await fetch(apiUrl('/api/tasks'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create task')
+  }
+
+  return response.json()
+}
+
+export async function patchTaskInApi(taskId: string, patch: TaskPatchInput) {
+  const response = await fetch(apiUrl(`/api/tasks/${taskId}`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to update task')
+  }
+
+  return response.json()
+}
+
+export async function createNoteInApi(input: { title: string; body: string; tag: string }) {
+  const response = await fetch(apiUrl('/api/notes'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create note')
   }
 
   return response.json()
