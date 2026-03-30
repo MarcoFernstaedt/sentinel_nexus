@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useMemo, useState } from 'react'
 import type { TelemetrySnapshot } from '../../types'
 import { createTelemetrySnapshot } from './createSnapshot'

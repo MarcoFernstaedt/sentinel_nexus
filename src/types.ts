@@ -1,3 +1,7 @@
+// Domain types — re-exported barrel
+// These types come from the original src/types.ts and are preserved
+// for the telemetry + integration features that import from this path.
+
 export type Severity = 'stable' | 'watch' | 'critical'
 export type TelemetrySeverity = Severity | 'placeholder'
 
@@ -6,13 +10,6 @@ export interface StatCard {
   value: string
   detail: string
   severity?: Severity
-}
-
-export interface ChatMessage {
-  id: string
-  sender: 'sentinel' | 'operator'
-  text: string
-  time: string
 }
 
 export interface AgentRole {

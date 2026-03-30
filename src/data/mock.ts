@@ -1,4 +1,4 @@
-import type { AgentRole, ChatMessage, NoteItem, QuickTool, StatCard, TaskItem } from './types'
+import type { AgentRole, NoteItem, QuickTool, StatCard, TaskItem } from '../types'
 
 export const topStats: StatCard[] = [
   { label: 'System Status', value: 'Nominal', detail: 'Frontend workspace online · runtime bridge still local-only', severity: 'stable' },
@@ -11,18 +11,6 @@ export const systemPanels: StatCard[] = [
   { label: 'Gateway', value: 'Pending', detail: 'Future runtime hook for live OpenClaw status', severity: 'watch' },
   { label: 'Telemetry', value: 'Local-first', detail: 'Using seeded operator data until live events exist', severity: 'stable' },
   { label: 'Persistence', value: 'Browser', detail: 'No backend required for notes/tasks in this pass', severity: 'stable' },
-]
-
-export const usagePanels: StatCard[] = [
-  { label: 'Quick Tools', value: '4', detail: 'Operator shortcuts exposed with runtime readiness state', severity: 'stable' },
-  { label: 'Notes', value: '3', detail: 'Seeded field notes can be edited locally', severity: 'stable' },
-  { label: 'Tasks', value: '4', detail: 'Execution board ships with lane and owner metadata', severity: 'watch' },
-]
-
-export const chatMessages: ChatMessage[] = [
-  { id: '1', sender: 'sentinel', text: 'Nexus operator shell is online. Local state is active, agent roles are visible, and execution surfaces are standing by.', time: '02:14 UTC' },
-  { id: '2', sender: 'operator', text: 'What is ready now versus what still needs runtime wiring?', time: '02:15 UTC' },
-  { id: '3', sender: 'sentinel', text: 'Notes, tasks, and quick tools work locally. Live gateway telemetry, command execution, and sub-agent event feeds still need backend integration.', time: '02:15 UTC' },
 ]
 
 export const agentRoles: AgentRole[] = [
