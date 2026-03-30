@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  FolderKanban,
   ListTodo,
   MessageSquare,
   Activity,
@@ -18,8 +19,9 @@ import { cn } from '@/src/lib/cn'
 
 const navItems = [
   { href: '/',          label: 'Dashboard',  icon: LayoutDashboard, group: null },
-  { href: '/chat',      label: 'Chat',        icon: MessageSquare,   group: 'COMMS' },
+  { href: '/projects',  label: 'Projects',   icon: FolderKanban,    group: 'EXECUTION' },
   { href: '/tasks',     label: 'Tasks',       icon: ListTodo,        group: null },
+  { href: '/chat',      label: 'Chat',        icon: MessageSquare,   group: 'COMMS' },
   { href: '/telemetry', label: 'Telemetry',   icon: Activity,        group: 'SYSTEMS' },
   { href: '/agents',    label: 'Agents',      icon: Radio,           group: null },
   { href: '/notes',     label: 'Notes',       icon: FileText,        group: null },
