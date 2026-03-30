@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Activity,
   FileText,
+  BookOpen,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/telemetry', label: 'Telemetry',   icon: Activity,        group: 'SYSTEMS' },
   { href: '/agents',    label: 'Agents',      icon: Radio,           group: null },
   { href: '/notes',     label: 'Notes',       icon: FileText,        group: null },
+  { href: '/docs',      label: 'Docs',        icon: BookOpen,        group: null },
   { href: '/settings',  label: 'Settings',    icon: Settings,        group: null },
 ]
 

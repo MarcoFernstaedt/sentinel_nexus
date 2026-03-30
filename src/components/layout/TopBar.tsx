@@ -12,6 +12,7 @@ const routeLabels: Record<string, { label: string; eyebrow: string }> = {
   '/telemetry':  { label: 'Telemetry',  eyebrow: 'System Health' },
   '/agents':     { label: 'Agents',     eyebrow: 'Agent Roster' },
   '/notes':      { label: 'Notes',      eyebrow: 'Operator Notes' },
+  '/docs':       { label: 'Docs',       eyebrow: 'Artifact Vault' },
   '/settings':   { label: 'Settings',   eyebrow: 'Configuration' },
 }
 
