@@ -1,8 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
+import { Activity } from 'lucide-react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
+import { EmptyState } from '@/src/components/ui/EmptyState'
 import { cn } from '@/src/lib/cn'
 import { useDashboard } from './DashboardDataProvider'
 import type { ActivityItem } from '@/src/features/chat/model/types'
@@ -59,7 +61,7 @@ export function RecentActivity() {
       className="h-full"
     >
       {items.length === 0 ? (
-        <p className="text-[0.72rem] text-text-3 text-center py-4">No activity yet</p>
+        <EmptyState title="No activity yet" icon={Activity} />
       ) : (
         <ol className="grid gap-px" aria-label="Activity feed">
           {items.map((item) => (

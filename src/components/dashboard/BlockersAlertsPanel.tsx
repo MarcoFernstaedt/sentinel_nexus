@@ -1,9 +1,10 @@
 'use client'
 
-import { AlertTriangle, Clock, FolderKanban, ListTodo } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FolderKanban, ListTodo } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
+import { EmptyState } from '@/src/components/ui/EmptyState'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
 import { useCalendarStore } from '@/src/hooks/useCalendarStore'
 
@@ -78,10 +79,13 @@ export function BlockersAlertsPanel() {
       labelledBy={headingId}
     >
       {allClear ? (
-        <div className="flex flex-col items-center justify-center py-6 gap-1.5">
-          <span className="text-[0.72rem] text-accent-mint font-medium">All clear</span>
-          <span className="text-[0.64rem] text-text-3">No active blockers or overdue items</span>
-        </div>
+        <EmptyState
+          title="All clear"
+          description="No active blockers or overdue items"
+          icon={CheckCircle2}
+          iconClassName="text-accent-mint"
+          titleClassName="text-accent-mint"
+        />
       ) : (
         <div className="grid gap-0">
           {/* Blocked projects */}
