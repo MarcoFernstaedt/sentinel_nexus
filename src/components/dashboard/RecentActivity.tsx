@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { Activity } from 'lucide-react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
@@ -33,20 +32,17 @@ export function RecentActivity() {
   const headingId = 'recent-activity-heading'
 
   // Merge activity with recent task updates
-  const items = useMemo(() => {
-    if (recentActivity.length > 0) return recentActivity.slice(0, 8)
-
-    // Fallback: synthesize from tasks when API is offline
-    return runtimeTasks.slice(0, 6).map((task): ActivityItem => ({
-      id: task.id,
-      type: 'task',
-      title: task.title,
-      detail: `${task.status} · ${task.lane} · ${task.owner}`,
-      timestamp: task.lastUpdatedAt ?? new Date().toISOString(),
-      status: task.status === 'Done' ? 'done' : task.status === 'Blocked' ? 'watch' : 'logged',
-      source: 'seeded-demo',
-    }))
-  }, [recentActivity, runtimeTasks])
+  const items: ActivityItem[] = recentActivity.length > 0
+    ? recentActivity.slice(0, 8)
+    : runtimeTasks.slice(0, 6).map((task) => ({
+        id: task.id,
+        type: 'task' as const,
+        title: task.title,
+        detail: `${task.status} · ${task.lane} · ${task.owner}`,
+        timestamp: task.lastUpdatedAt ?? new Date().toISOString(),
+        status: task.status === 'Done' ? 'done' : task.status === 'Blocked' ? 'watch' : 'logged',
+        source: 'seeded-demo',
+      } as ActivityItem))
 
   return (
     <Surface

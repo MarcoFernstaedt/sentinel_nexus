@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/src/lib/cn'
+import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 
 const routeLabels: Record<string, { label: string; eyebrow: string }> = {
   '/':           { label: 'Dashboard',  eyebrow: 'Overview' },
@@ -39,6 +40,8 @@ function useUtcClock() {
 export function TopBar() {
   const pathname = usePathname()
   const time = useUtcClock()
+  const { apiState } = useDashboard()
+  const isOnline = apiState === 'connected'
 
   const routeKey = Object.keys(routeLabels)
     .filter((k) => k !== '/')
@@ -80,16 +83,24 @@ export function TopBar() {
         {/* Status chip */}
         <div
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-[0.22rem] rounded-full',
-            'border border-[rgba(98,255,196,0.18)] bg-[rgba(14,40,28,0.40)]',
+            'flex items-center gap-1.5 px-2.5 py-[0.22rem] rounded-full border',
+            isOnline
+              ? 'border-[rgba(98,255,196,0.18)] bg-[rgba(14,40,28,0.40)]'
+              : 'border-[rgba(255,203,97,0.20)] bg-[rgba(40,28,10,0.40)]',
           )}
         >
           <span
-            className="w-[5px] h-[5px] rounded-full bg-accent-mint opacity-80"
+            className={cn(
+              'w-[5px] h-[5px] rounded-full opacity-80',
+              isOnline ? 'bg-accent-mint' : 'bg-accent-warn',
+            )}
             aria-hidden
           />
-          <span className="text-[0.62rem] uppercase tracking-[0.1em] text-[#a8e8ca] font-medium">
-            Nominal
+          <span className={cn(
+            'text-[0.62rem] uppercase tracking-[0.1em] font-medium',
+            isOnline ? 'text-[#a8e8ca]' : 'text-accent-warn',
+          )}>
+            {isOnline ? 'Nominal' : 'Local Mode'}
           </span>
         </div>
       </div>

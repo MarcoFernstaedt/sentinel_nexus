@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -22,8 +23,8 @@ import { cn } from '@/src/lib/cn'
 const navItems = [
   { href: '/',          label: 'Dashboard',  icon: LayoutDashboard, group: null },
   { href: '/projects',  label: 'Projects',   icon: FolderKanban,    group: 'EXECUTION' },
-  { href: '/tasks',     label: 'Tasks',       icon: ListTodo,        group: null },
-  { href: '/calendar',  label: 'Calendar',    icon: CalendarDays,    group: null },
+  { href: '/tasks',     label: 'Tasks',       icon: ListTodo,        group: 'EXECUTION' },
+  { href: '/calendar',  label: 'Calendar',    icon: CalendarDays,    group: 'EXECUTION' },
   { href: '/chat',      label: 'Chat',        icon: MessageSquare,   group: 'COMMS' },
   { href: '/telemetry', label: 'Telemetry',   icon: Activity,        group: 'SYSTEMS' },
   { href: '/agents',    label: 'Agents',      icon: Radio,           group: null },
@@ -78,6 +79,8 @@ function NavItem({ href, label, icon: Icon, collapsed, active }: NavItemProps) {
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  const { apiState } = useDashboard()
+  const isOnline = apiState === 'connected'
 
   const toggle = useCallback(() => setCollapsed((c) => !c), [])
 
@@ -176,12 +179,22 @@ export function Sidebar() {
           collapsed && 'flex-col gap-1',
         )}>
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7ef7cd] opacity-50" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#7ef7cd]" />
+            {isOnline && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7ef7cd] opacity-50" />
+            )}
+            <span
+              className={cn(
+                'relative inline-flex rounded-full h-2 w-2',
+                isOnline ? 'bg-[#7ef7cd]' : 'bg-accent-warn',
+              )}
+            />
           </span>
           {!collapsed && (
-            <span className="text-[0.66rem] uppercase tracking-[0.1em] text-text-2 font-medium">
-              API
+            <span className={cn(
+              'text-[0.66rem] uppercase tracking-[0.1em] font-medium',
+              isOnline ? 'text-text-2' : 'text-accent-warn',
+            )}>
+              {isOnline ? 'API' : 'Local'}
             </span>
           )}
         </div>
