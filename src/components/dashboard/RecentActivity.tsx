@@ -6,6 +6,7 @@ import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { EmptyState } from '@/src/components/ui/EmptyState'
 import { cn } from '@/src/lib/cn'
 import { useDashboard } from './DashboardDataProvider'
+import { useProjectsStore } from '@/src/hooks/useProjectsStore'
 import type { ActivityItem } from '@/src/features/chat/model/types'
 
 function formatTimestamp(ts: string) {
@@ -29,12 +30,14 @@ const statusAccent: Record<ActivityItem['status'], string> = {
 
 export function RecentActivity() {
   const { recentActivity, runtimeTasks } = useDashboard()
+  const { tasks: localTasks } = useProjectsStore()
   const headingId = 'recent-activity-heading'
 
-  // Merge activity with recent task updates
+  // Fallback chain: API activity → runtime tasks → local store tasks
   const items: ActivityItem[] = recentActivity.length > 0
     ? recentActivity.slice(0, 8)
-    : runtimeTasks.slice(0, 6).map((task) => ({
+    : runtimeTasks.length > 0
+    ? runtimeTasks.slice(0, 6).map((task) => ({
         id: task.id,
         type: 'task' as const,
         title: task.title,
@@ -43,6 +46,18 @@ export function RecentActivity() {
         status: task.status === 'Done' ? 'done' : task.status === 'Blocked' ? 'watch' : 'logged',
         source: 'seeded-demo',
       } as ActivityItem))
+    : [...localTasks]
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 8)
+        .map((task) => ({
+          id: task.id,
+          type: 'task' as const,
+          title: task.title,
+          detail: `${task.status.replace('-', ' ')} · ${task.assignedAgent}`,
+          timestamp: task.updatedAt,
+          status: (task.status === 'completed' ? 'done' : task.status === 'blocked' ? 'watch' : 'logged') as ActivityItem['status'],
+          source: 'seeded-demo',
+        }))
 
   return (
     <Surface

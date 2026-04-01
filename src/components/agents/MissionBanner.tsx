@@ -1,6 +1,6 @@
 import { Target, Calendar, TrendingUp } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
-import type { MissionContext } from '@/src/types/agents'
+import type { Agent, MissionContext } from '@/src/types/agents'
 
 function formatDate(iso: string): string {
   try {
@@ -10,8 +10,55 @@ function formatDate(iso: string): string {
   }
 }
 
-export function MissionBanner({ ctx }: { ctx: MissionContext }) {
-  const pct = Math.min(100, Math.max(0, ctx.progressPercent))
+type AlignmentSummary = {
+  label: string
+  dotClass: string
+  chipClass: string
+}
+
+function deriveAlignment(agents: Agent[]): AlignmentSummary {
+  if (agents.length === 0) {
+    return {
+      label: 'Unknown',
+      dotClass: 'bg-white/30',
+      chipClass: 'border-white/10 bg-white/5 text-text-2',
+    }
+  }
+  const blocked   = agents.filter((a) => a.alignmentStatus === 'blocked').length
+  const offTrack  = agents.filter((a) => a.alignmentStatus === 'off-track').length
+  const idle      = agents.filter((a) => a.alignmentStatus === 'idle').length
+
+  if (blocked > 0) {
+    return {
+      label: 'Attention Needed',
+      dotClass: 'bg-accent-warn',
+      chipClass: 'border-[rgba(255,203,97,0.25)] bg-[rgba(255,203,97,0.10)] text-accent-warn',
+    }
+  }
+  if (offTrack > 0) {
+    return {
+      label: 'At Risk',
+      dotClass: 'bg-[rgba(255,112,112,0.9)]',
+      chipClass: 'border-[rgba(255,112,112,0.25)] bg-[rgba(255,112,112,0.10)] text-[rgba(255,112,112,1)]',
+    }
+  }
+  if (idle > agents.length / 2) {
+    return {
+      label: 'Standby',
+      dotClass: 'bg-white/30',
+      chipClass: 'border-soft bg-surface-1 text-text-2',
+    }
+  }
+  return {
+    label: 'On Track',
+    dotClass: 'bg-accent-mint opacity-80',
+    chipClass: 'border-[rgba(98,255,196,0.22)] bg-[rgba(14,40,28,0.50)] text-[#a8e8ca]',
+  }
+}
+
+export function MissionBanner({ ctx, agents = [] }: { ctx: MissionContext; agents?: Agent[] }) {
+  const pct       = Math.min(100, Math.max(0, ctx.progressPercent))
+  const alignment = deriveAlignment(agents)
 
   return (
     <div className={cn(
@@ -70,11 +117,11 @@ export function MissionBanner({ ctx }: { ctx: MissionContext }) {
               <span className="text-[0.64rem] font-mono text-text-2">{formatDate(ctx.targetDate)}</span>
             </div>
             <span className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-[0.22rem] rounded-full text-[0.62rem] font-medium tracking-[0.04em]',
-              'border border-[rgba(98,255,196,0.22)] bg-[rgba(14,40,28,0.50)] text-[#a8e8ca]',
+              'inline-flex items-center gap-1.5 px-2.5 py-[0.22rem] rounded-full text-[0.62rem] font-medium tracking-[0.04em] border',
+              alignment.chipClass,
             )}>
-              <span className="w-[5px] h-[5px] rounded-full bg-accent-mint opacity-80" aria-hidden />
-              On Track
+              <span className={cn('w-[5px] h-[5px] rounded-full', alignment.dotClass)} aria-hidden />
+              {alignment.label}
             </span>
           </div>
         </div>

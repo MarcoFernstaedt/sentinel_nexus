@@ -25,7 +25,7 @@ export default function AgentsPage() {
         description="Live operations layer — agent team status, current tasking, and mission alignment"
       />
 
-      <MissionBanner ctx={missionContext} />
+      <MissionBanner ctx={missionContext} agents={agents} />
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
 import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 
@@ -40,7 +41,7 @@ function useUtcClock() {
 export function TopBar() {
   const pathname = usePathname()
   const time = useUtcClock()
-  const { apiState } = useDashboard()
+  const { apiState, mobileNavOpen, setMobileNavOpen } = useDashboard()
   const isOnline = apiState === 'connected'
 
   const routeKey = Object.keys(routeLabels)
@@ -57,6 +58,20 @@ export function TopBar() {
         'backdrop-blur-sm',
       )}
     >
+      {/* Mobile nav toggle */}
+      <button
+        type="button"
+        onClick={() => setMobileNavOpen((v) => !v)}
+        className={cn(
+          'flex md:hidden items-center justify-center w-7 h-7 flex-shrink-0',
+          'rounded-[8px] border border-soft bg-surface-0',
+          'text-text-2 hover:text-text-1 hover:border-med transition-colors duration-150',
+        )}
+        aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
+      >
+        {mobileNavOpen ? <X size={14} /> : <Menu size={14} />}
+      </button>
+
       {/* Left: breadcrumb */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className="text-[0.62rem] uppercase tracking-[0.16em] text-text-3 font-medium leading-none">

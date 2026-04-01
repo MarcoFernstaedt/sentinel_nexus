@@ -94,7 +94,7 @@ export default function TelemetryPage() {
   const eventsHeadingId  = 'event-log-heading'
 
   return (
-    <div className="px-5 py-5 space-y-5">
+    <div className="px-5 py-5 space-y-5 max-w-[1400px]">
       {/* Page header */}
       <SectionHeading
         eyebrow="Systems"

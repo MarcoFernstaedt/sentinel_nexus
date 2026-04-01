@@ -39,13 +39,15 @@ interface NavItemProps {
   icon: React.ElementType
   collapsed: boolean
   active: boolean
+  onNavigate?: () => void
 }
 
-function NavItem({ href, label, icon: Icon, collapsed, active }: NavItemProps) {
+function NavItem({ href, label, icon: Icon, collapsed, active, onNavigate }: NavItemProps) {
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
+      onClick={onNavigate}
       className={cn(
         'relative flex items-center gap-3 rounded-[10px] transition-all duration-150',
         'border-l-2 text-sm font-medium',
@@ -79,7 +81,7 @@ function NavItem({ href, label, icon: Icon, collapsed, active }: NavItemProps) {
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
-  const { apiState } = useDashboard()
+  const { apiState, mobileNavOpen, setMobileNavOpen } = useDashboard()
   const isOnline = apiState === 'connected'
 
   const toggle = useCallback(() => setCollapsed((c) => !c), [])
@@ -103,17 +105,30 @@ export function Sidebar() {
   }
 
   return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileNavOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden
+        />
+      )}
+
     <aside
       className={cn(
-        'relative flex h-dvh flex-shrink-0 flex-col',
+        'h-dvh flex-shrink-0 flex-col',
         'border-r border-soft',
         'bg-gradient-to-b from-[rgba(3,9,13,0.97)] to-[rgba(5,11,16,0.90)]',
         'backdrop-blur-[20px]',
-        'transition-[width] duration-200 ease-out',
         'overflow-hidden',
-        collapsed ? 'w-[56px]' : 'w-[220px]',
-        // Hide sidebar on small screens, show as overlay on md
-        'hidden md:flex',
+        // Mobile: overlay when open, hidden when closed
+        mobileNavOpen
+          ? 'flex fixed inset-y-0 left-0 z-50 w-[240px] shadow-elevated'
+          : 'hidden',
+        // Desktop: always shown, width based on collapsed state
+        'md:flex md:relative md:transition-[width] md:duration-200 md:ease-out md:shadow-none',
+        collapsed ? 'md:w-[56px]' : 'md:w-[220px]',
       )}
       aria-label="Main navigation"
     >
@@ -162,6 +177,7 @@ export function Sidebar() {
                 icon={item.icon}
                 collapsed={collapsed}
                 active={isActive(item.href)}
+                onNavigate={() => setMobileNavOpen(false)}
               />
             </div>
           )
@@ -216,5 +232,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   )
 }

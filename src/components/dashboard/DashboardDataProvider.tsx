@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { useLocalChat } from '@/src/features/chat/hooks/useLocalChat'
 import type {
   ActivityItem,
@@ -14,6 +14,8 @@ import type {
 import type { ChatMode, ChatModeId } from '@/src/features/chat/model/types'
 
 interface DashboardContextValue {
+  mobileNavOpen: boolean
+  setMobileNavOpen: React.Dispatch<React.SetStateAction<boolean>>
   apiState: 'connected' | 'local-fallback'
   isSyncingRuntime: boolean
   missionCommand: MissionCommandSnapshot
@@ -33,8 +35,11 @@ const DashboardContext = createContext<DashboardContextValue | null>(null)
 
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
   const chat = useLocalChat()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const value: DashboardContextValue = {
+    mobileNavOpen,
+    setMobileNavOpen,
     apiState: chat.apiState,
     isSyncingRuntime: chat.isSyncingRuntime,
     missionCommand: chat.missionCommand,
