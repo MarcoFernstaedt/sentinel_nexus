@@ -1,7 +1,0 @@
-import { useMemo, useState } from 'react'
-import type { QuickTool, TaskItem } from '../types'
-export function QuickToolsPanel({ tools, tasks }: { tools: QuickTool[]; tasks: TaskItem[] }) {
-  const [focusMode, setFocusMode] = useState(false)
-  const standup = useMemo(() => { const doneCount = tasks.filter((task) => task.status === 'Done').length; const blockedCount = tasks.filter((task) => task.status === 'Blocked').length; const inProgressCount = tasks.filter((task) => task.status === 'In Progress').length; return `Done ${doneCount} · In progress ${inProgressCount} · Blocked ${blockedCount}` }, [tasks])
-  return <section className="panel"><div className="panel-header"><div><p className="eyebrow">Quick tools</p><h3>Operator shortcuts</h3></div><button className="ghost-button" onClick={() => setFocusMode((current) => !current)}>{focusMode ? 'Exit Focus' : 'Focus Mode'}</button></div><div className="tools-list">{tools.map((tool) => <article key={tool.id} className="tool-card"><div><strong>{tool.title}</strong><p>{tool.description}</p></div><div className="tool-meta"><span>{tool.hotkey}</span><span className={`pill ${tool.state === 'Needs runtime' ? 'watch' : 'stable'}`}>{tool.state}</span></div></article>)}</div><article className="info-card"><div className="panel-header"><strong>Local standup</strong><span className="pill stable">Ready</span></div><p>{standup}</p><p className="note-timestamp">This summary is generated entirely from current local task state.</p></article></section>
-}
