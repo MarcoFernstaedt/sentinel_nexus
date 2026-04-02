@@ -2,11 +2,16 @@ import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import type {
+  ActivityRecord,
+  CalendarEventRecord,
   ChatModeId,
   ChatMessageRecord,
+  MemoryRecord,
   MissionCommandSnapshot,
+  MissionRecord,
   NexusStatusSnapshot,
   NoteRecord,
+  ProjectRecord,
   RuntimeContextSnapshot,
   RuntimeDocumentSurface,
   RuntimeScheduleVisibility,
@@ -15,9 +20,12 @@ import type {
   TaskRecord,
   TaskStage,
   TaskStatus,
+  TeamMemberRecord,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
-import { ActivityRepository, ChatRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import { ConflictError, ValidationError } from '../api/http.js'
+import { validateCalendarCreate, validateMemoryCreate, validateSingleActiveTask, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -346,6 +354,18 @@ export class TasksService {
   }
 
   async create(input: Omit<TaskRecord, 'id' | 'source'>) {
+    const existingTasks = await this.repository.list()
+    const createCheck = validateTaskCreate(
+      { status: input.status, owner: input.owner, blockedReason: input.blockedReason, summary: input.summary },
+      existingTasks,
+    )
+    if (!createCheck.ok) {
+      const isConflict = createCheck.code === 'OWNER_ALREADY_ACTIVE'
+      throw isConflict
+        ? new ConflictError(createCheck.code, createCheck.message, createCheck.details)
+        : new ValidationError(createCheck.code, createCheck.message, createCheck.details)
+    }
+
     const now = timestampNow()
     const task = await this.repository.create({
       ...input,
@@ -374,6 +394,22 @@ export class TasksService {
   }
 
   async update(taskId: string, patch: Partial<TaskRecord>) {
+    const allTasks = await this.repository.list()
+    const existing = allTasks.find((t) => t.id === taskId)
+    if (!existing) return null
+
+    const transitionCheck = validateTaskTransition(existing, patch)
+    if (!transitionCheck.ok) {
+      throw new ValidationError(transitionCheck.code, transitionCheck.message, transitionCheck.details)
+    }
+
+    if (patch.status === 'In Progress' && existing.status !== 'In Progress') {
+      const activeCheck = validateSingleActiveTask(existing.owner, allTasks, taskId)
+      if (!activeCheck.ok) {
+        throw new ConflictError(activeCheck.code, activeCheck.message, activeCheck.details)
+      }
+    }
+
     const now = timestampNow()
     const normalizedPatch: Partial<TaskRecord> = {
       ...patch,
@@ -577,5 +613,123 @@ export class StatusService {
         },
       ],
     }
+  }
+}
+
+export class MissionCommandService {
+  constructor(
+    private readonly repository: MissionCommandRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  async patchMission(patch: Partial<MissionRecord>): Promise<MissionRecord> {
+    const updated = await this.repository.patchMission({ ...patch, source: 'runtime' })
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: 'Mission updated',
+      detail: patch.progressPercent !== undefined ? `Progress: ${patch.progressPercent}%` : 'Mission record patched.',
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return updated
+  }
+
+  async patchProject(id: string, patch: Partial<ProjectRecord>): Promise<ProjectRecord | null> {
+    const updated = await this.repository.patchProject(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Project updated: ${updated.name}`,
+        detail: patch.status ? `Status → ${patch.status}` : patch.progressPercent !== undefined ? `Progress → ${patch.progressPercent}%` : 'Project patched.',
+        timestamp: new Date().toISOString(),
+        status: updated.status === 'blocked' ? 'watch' : updated.status === 'done' ? 'done' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async patchTeamMember(id: string, patch: Partial<TeamMemberRecord>): Promise<TeamMemberRecord | null> {
+    const updated = await this.repository.patchTeamMember(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Agent updated: ${updated.name}`,
+        detail: patch.focus ? `Focus → ${patch.focus}` : `Status → ${patch.status ?? 'updated'}`,
+        timestamp: new Date().toISOString(),
+        status: updated.status === 'offline' ? 'watch' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async createCalendarEvent(input: { title: string; type: CalendarEventRecord['type']; startsAt: string; owner: string; detail: string; endsAt?: string; relatedProjectId?: string }): Promise<CalendarEventRecord> {
+    const existingEvents = await this.repository.listCalendarEvents()
+    const check = validateCalendarCreate({ title: input.title, startsAt: input.startsAt }, existingEvents)
+    if (!check.ok) {
+      throw check.code === 'CALENDAR_EVENT_CONFLICT'
+        ? new ConflictError(check.code, check.message, check.details)
+        : new ValidationError(check.code, check.message, check.details)
+    }
+
+    const event: CalendarEventRecord = {
+      id: `cal-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      type: input.type,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      owner: input.owner.trim(),
+      relatedProjectId: input.relatedProjectId,
+      status: 'scheduled',
+      detail: input.detail.trim(),
+      source: 'runtime',
+    }
+    const created = await this.repository.createCalendarEvent(event)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Calendar: ${created.title}`,
+      detail: `${created.type} · ${created.startsAt}`,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async createMemory(input: { title: string; summary: string; kind?: MemoryRecord['kind']; tags?: string[] }): Promise<MemoryRecord> {
+    const existingMemories = await this.repository.listMemories()
+    const check = validateMemoryCreate({ title: input.title, summary: input.summary }, existingMemories)
+    if (!check.ok) {
+      throw check.code === 'MEMORY_TITLE_CONFLICT'
+        ? new ConflictError(check.code, check.message, check.details)
+        : new ValidationError(check.code, check.message, check.details)
+    }
+
+    const memory: MemoryRecord = {
+      id: `mem-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      kind: input.kind ?? 'working-memory',
+      updatedAt: new Date().toISOString(),
+      summary: input.summary.trim(),
+      tags: input.tags ?? [],
+      source: 'runtime',
+    }
+    const created = await this.repository.createMemory(memory)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Memory stored: ${created.title}`,
+      detail: created.tags.length > 0 ? created.tags.join(', ') : created.kind,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
   }
 }
