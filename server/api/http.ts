@@ -12,6 +12,28 @@ export class HttpError extends Error {
   }
 }
 
+export class ValidationError extends HttpError {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly details?: unknown,
+  ) {
+    super(message, 422)
+    this.name = 'ValidationError'
+  }
+}
+
+export class ConflictError extends HttpError {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly details?: unknown,
+  ) {
+    super(message, 409)
+    this.name = 'ConflictError'
+  }
+}
+
 export async function readJson<T>(request: IncomingMessage): Promise<T> {
   const chunks: Buffer[] = []
   let totalBytes = 0
@@ -60,4 +82,8 @@ export function badRequest(response: ServerResponse, message: string) {
 
 export function internalServerError(response: ServerResponse) {
   json(response, 500, { error: 'Internal server error' })
+}
+
+export function conflict(response: ServerResponse, code: string, message: string, details?: unknown) {
+  json(response, 409, { ok: false, code, message, ...(details !== undefined ? { details } : {}) })
 }

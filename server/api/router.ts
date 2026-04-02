@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, MemoryRecord, TaskStage, TaskStatus } from '../domain/models.js'
-import { HttpError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
+import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
+import { ConflictError, HttpError, ValidationError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
 import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
 
@@ -110,23 +110,20 @@ export function createRouter(services: Services) {
         }
         const status = body.status && allowedTaskStatuses.includes(body.status) ? body.status : 'Queued'
         const stage = body.stage && allowedTaskStages.includes(body.stage) ? body.stage : undefined
-        json(
-          response,
-          201,
-          await services.tasksService.create({
-            title: body.title,
-            owner: body.owner,
-            due: body.due,
-            status,
-            stage,
-            lane: body.lane,
-            summary: body.summary?.trim() || undefined,
-            needsUserInput: body.needsUserInput === true,
-            readyToReport: body.readyToReport === true,
-            blockedReason: body.blockedReason?.trim() || undefined,
-            waitingFor: body.waitingFor?.trim() || undefined,
-          }),
-        )
+        const createInput = {
+          title: body.title,
+          owner: body.owner,
+          due: body.due,
+          status,
+          lane: body.lane,
+          summary: body.summary?.trim() || undefined,
+          needsUserInput: body.needsUserInput === true,
+          readyToReport: body.readyToReport === true,
+          blockedReason: body.blockedReason?.trim() || undefined,
+          waitingFor: body.waitingFor?.trim() || undefined,
+          ...(stage !== undefined ? { stage } : {}),
+        } as Parameters<typeof services.tasksService.create>[0]
+        json(response, 201, await services.tasksService.create(createInput))
         return
       }
 
@@ -210,11 +207,11 @@ export function createRouter(services: Services) {
         const projectId = url.pathname.split('/').at(-1)
         if (!projectId) return badRequest(response, 'projectId is required')
         const body = await readJson<{ status?: string; progressPercent?: number; objective?: string }>(request)
-        const patch: { status?: string; progressPercent?: number; objective?: string } = {}
-        const allowedProjectStatuses = ['active', 'watch', 'blocked', 'parked', 'done']
+        const patch: Partial<ProjectRecord> = {}
+        const allowedProjectStatuses: ProjectRecord['status'][] = ['active', 'watch', 'blocked', 'parked', 'done']
         if (body.status !== undefined) {
-          if (!allowedProjectStatuses.includes(body.status)) return badRequest(response, `status must be one of: ${allowedProjectStatuses.join(', ')}`)
-          patch.status = body.status
+          if (!allowedProjectStatuses.includes(body.status as ProjectRecord['status'])) return badRequest(response, `status must be one of: ${allowedProjectStatuses.join(', ')}`)
+          patch.status = body.status as ProjectRecord['status']
         }
         if (body.progressPercent !== undefined) {
           const pct = Number(body.progressPercent)
@@ -233,11 +230,11 @@ export function createRouter(services: Services) {
         const memberId = url.pathname.split('/').at(-1)
         if (!memberId) return badRequest(response, 'memberId is required')
         const body = await readJson<{ status?: string; focus?: string }>(request)
-        const patch: { status?: string; focus?: string } = {}
-        const allowedMemberStatuses = ['active', 'limited-visibility', 'offline']
+        const patch: Partial<TeamMemberRecord> = {}
+        const allowedMemberStatuses: TeamMemberRecord['status'][] = ['active', 'limited-visibility', 'offline']
         if (body.status !== undefined) {
-          if (!allowedMemberStatuses.includes(body.status)) return badRequest(response, `status must be one of: ${allowedMemberStatuses.join(', ')}`)
-          patch.status = body.status
+          if (!allowedMemberStatuses.includes(body.status as TeamMemberRecord['status'])) return badRequest(response, `status must be one of: ${allowedMemberStatuses.join(', ')}`)
+          patch.status = body.status as TeamMemberRecord['status']
         }
         if (body.focus !== undefined) patch.focus = body.focus.trim()
         if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
@@ -300,6 +297,17 @@ export function createRouter(services: Services) {
 
       notFound(response)
     } catch (error) {
+      if (error instanceof ValidationError || error instanceof ConflictError) {
+        console.warn(`[nexus:reject] ${request.method ?? 'GET'} ${request.url ?? '/'} — ${error.code} — ${error.message}`)
+        json(response, error.statusCode, {
+          ok: false,
+          code: error.code,
+          message: error.message,
+          ...(error.details !== undefined ? { details: error.details } : {}),
+        })
+        return
+      }
+
       if (error instanceof HttpError) {
         json(response, error.statusCode, { error: error.message })
         return

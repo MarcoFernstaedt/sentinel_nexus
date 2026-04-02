@@ -134,4 +134,14 @@ export class MissionCommandRepository {
     await this.store.write(data)
     return memory
   }
+
+  async listMemories(): Promise<MemoryRecord[]> {
+    const data = await this.store.read()
+    return data.missionCommand.memories
+  }
+
+  async listCalendarEvents(): Promise<CalendarEventRecord[]> {
+    const data = await this.store.read()
+    return data.missionCommand.calendar
+  }
 }

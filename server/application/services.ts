@@ -23,6 +23,8 @@ import type {
   TeamMemberRecord,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
+import { ConflictError, ValidationError } from '../api/http.js'
+import { validateCalendarCreate, validateMemoryCreate, validateSingleActiveTask, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
 import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
@@ -352,6 +354,18 @@ export class TasksService {
   }
 
   async create(input: Omit<TaskRecord, 'id' | 'source'>) {
+    const existingTasks = await this.repository.list()
+    const createCheck = validateTaskCreate(
+      { status: input.status, owner: input.owner, blockedReason: input.blockedReason, summary: input.summary },
+      existingTasks,
+    )
+    if (!createCheck.ok) {
+      const isConflict = createCheck.code === 'OWNER_ALREADY_ACTIVE'
+      throw isConflict
+        ? new ConflictError(createCheck.code, createCheck.message, createCheck.details)
+        : new ValidationError(createCheck.code, createCheck.message, createCheck.details)
+    }
+
     const now = timestampNow()
     const task = await this.repository.create({
       ...input,
@@ -380,6 +394,22 @@ export class TasksService {
   }
 
   async update(taskId: string, patch: Partial<TaskRecord>) {
+    const allTasks = await this.repository.list()
+    const existing = allTasks.find((t) => t.id === taskId)
+    if (!existing) return null
+
+    const transitionCheck = validateTaskTransition(existing, patch)
+    if (!transitionCheck.ok) {
+      throw new ValidationError(transitionCheck.code, transitionCheck.message, transitionCheck.details)
+    }
+
+    if (patch.status === 'In Progress' && existing.status !== 'In Progress') {
+      const activeCheck = validateSingleActiveTask(existing.owner, allTasks, taskId)
+      if (!activeCheck.ok) {
+        throw new ConflictError(activeCheck.code, activeCheck.message, activeCheck.details)
+      }
+    }
+
     const now = timestampNow()
     const normalizedPatch: Partial<TaskRecord> = {
       ...patch,
@@ -639,6 +669,14 @@ export class MissionCommandService {
   }
 
   async createCalendarEvent(input: { title: string; type: CalendarEventRecord['type']; startsAt: string; owner: string; detail: string; endsAt?: string; relatedProjectId?: string }): Promise<CalendarEventRecord> {
+    const existingEvents = await this.repository.listCalendarEvents()
+    const check = validateCalendarCreate({ title: input.title, startsAt: input.startsAt }, existingEvents)
+    if (!check.ok) {
+      throw check.code === 'CALENDAR_EVENT_CONFLICT'
+        ? new ConflictError(check.code, check.message, check.details)
+        : new ValidationError(check.code, check.message, check.details)
+    }
+
     const event: CalendarEventRecord = {
       id: `cal-${crypto.randomUUID()}`,
       title: input.title.trim(),
@@ -665,6 +703,14 @@ export class MissionCommandService {
   }
 
   async createMemory(input: { title: string; summary: string; kind?: MemoryRecord['kind']; tags?: string[] }): Promise<MemoryRecord> {
+    const existingMemories = await this.repository.listMemories()
+    const check = validateMemoryCreate({ title: input.title, summary: input.summary }, existingMemories)
+    if (!check.ok) {
+      throw check.code === 'MEMORY_TITLE_CONFLICT'
+        ? new ConflictError(check.code, check.message, check.details)
+        : new ValidationError(check.code, check.message, check.details)
+    }
+
     const memory: MemoryRecord = {
       id: `mem-${crypto.randomUUID()}`,
       title: input.title.trim(),
