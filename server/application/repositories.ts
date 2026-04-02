@@ -1,4 +1,15 @@
-import type { ActivityRecord, ChatMessageRecord, NexusDataStore, NoteRecord, TaskRecord } from '../domain/models.js'
+import type {
+  ActivityRecord,
+  CalendarEventRecord,
+  ChatMessageRecord,
+  MemoryRecord,
+  MissionRecord,
+  NexusDataStore,
+  NoteRecord,
+  ProjectRecord,
+  TaskRecord,
+  TeamMemberRecord,
+} from '../domain/models.js'
 import { FileBackedStore } from '../infrastructure/fileStore.js'
 
 export class ChatRepository {
@@ -79,5 +90,48 @@ export class StatusRepository {
 
   snapshot(): Promise<NexusDataStore> {
     return this.store.read()
+  }
+}
+
+export class MissionCommandRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async patchMission(patch: Partial<MissionRecord>): Promise<MissionRecord> {
+    const data = await this.store.read()
+    data.missionCommand.mission = { ...data.missionCommand.mission, ...patch }
+    await this.store.write(data)
+    return data.missionCommand.mission
+  }
+
+  async patchProject(id: string, patch: Partial<ProjectRecord>): Promise<ProjectRecord | null> {
+    const data = await this.store.read()
+    const index = data.missionCommand.projects.findIndex((p) => p.id === id)
+    if (index === -1) return null
+    data.missionCommand.projects[index] = { ...data.missionCommand.projects[index], ...patch }
+    await this.store.write(data)
+    return data.missionCommand.projects[index]
+  }
+
+  async patchTeamMember(id: string, patch: Partial<TeamMemberRecord>): Promise<TeamMemberRecord | null> {
+    const data = await this.store.read()
+    const index = data.missionCommand.team.findIndex((t) => t.id === id)
+    if (index === -1) return null
+    data.missionCommand.team[index] = { ...data.missionCommand.team[index], ...patch }
+    await this.store.write(data)
+    return data.missionCommand.team[index]
+  }
+
+  async createCalendarEvent(event: CalendarEventRecord): Promise<CalendarEventRecord> {
+    const data = await this.store.read()
+    data.missionCommand.calendar = [event, ...data.missionCommand.calendar]
+    await this.store.write(data)
+    return event
+  }
+
+  async createMemory(memory: MemoryRecord): Promise<MemoryRecord> {
+    const data = await this.store.read()
+    data.missionCommand.memories = [memory, ...data.missionCommand.memories]
+    await this.store.write(data)
+    return memory
   }
 }

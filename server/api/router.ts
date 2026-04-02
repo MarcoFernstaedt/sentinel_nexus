@@ -1,14 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { ChatModeId, TaskStage, TaskStatus } from '../domain/models.js'
+import type { CalendarEventRecord, ChatModeId, MemoryRecord, TaskStage, TaskStatus } from '../domain/models.js'
 import { HttpError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
-import { ChatService, NotesService, StatusService, TasksService } from '../application/services.js'
+import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
 
 interface Services {
   chatService: ChatService
   notesService: NotesService
   tasksService: TasksService
   statusService: StatusService
+  missionCommandService: MissionCommandService
   activityRepository: ActivityRepository
 }
 
@@ -188,6 +189,112 @@ export function createRouter(services: Services) {
         const updated = await services.tasksService.update(taskId, patch)
         if (!updated) return notFound(response)
         json(response, 200, updated)
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname === '/api/mission') {
+        const body = await readJson<{ progressPercent?: number; commandIntent?: string }>(request)
+        const patch: { progressPercent?: number; commandIntent?: string } = {}
+        if (body.progressPercent !== undefined) {
+          const pct = Number(body.progressPercent)
+          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, 'progressPercent must be 0-100')
+          patch.progressPercent = pct
+        }
+        if (body.commandIntent !== undefined) patch.commandIntent = body.commandIntent.trim()
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        json(response, 200, await services.missionCommandService.patchMission(patch))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/projects/')) {
+        const projectId = url.pathname.split('/').at(-1)
+        if (!projectId) return badRequest(response, 'projectId is required')
+        const body = await readJson<{ status?: string; progressPercent?: number; objective?: string }>(request)
+        const patch: { status?: string; progressPercent?: number; objective?: string } = {}
+        const allowedProjectStatuses = ['active', 'watch', 'blocked', 'parked', 'done']
+        if (body.status !== undefined) {
+          if (!allowedProjectStatuses.includes(body.status)) return badRequest(response, `status must be one of: ${allowedProjectStatuses.join(', ')}`)
+          patch.status = body.status
+        }
+        if (body.progressPercent !== undefined) {
+          const pct = Number(body.progressPercent)
+          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, 'progressPercent must be 0-100')
+          patch.progressPercent = pct
+        }
+        if (body.objective !== undefined) patch.objective = body.objective.trim()
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        const updated = await services.missionCommandService.patchProject(projectId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/team/')) {
+        const memberId = url.pathname.split('/').at(-1)
+        if (!memberId) return badRequest(response, 'memberId is required')
+        const body = await readJson<{ status?: string; focus?: string }>(request)
+        const patch: { status?: string; focus?: string } = {}
+        const allowedMemberStatuses = ['active', 'limited-visibility', 'offline']
+        if (body.status !== undefined) {
+          if (!allowedMemberStatuses.includes(body.status)) return badRequest(response, `status must be one of: ${allowedMemberStatuses.join(', ')}`)
+          patch.status = body.status
+        }
+        if (body.focus !== undefined) patch.focus = body.focus.trim()
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        const updated = await services.missionCommandService.patchTeamMember(memberId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/calendar') {
+        const body = await readJson<{ title?: string; type?: CalendarEventRecord['type']; startsAt?: string; owner?: string; detail?: string; endsAt?: string; relatedProjectId?: string }>(request)
+        if (!body.title?.trim() || !body.type || !body.startsAt?.trim() || !body.owner?.trim()) {
+          return badRequest(response, 'title, type, startsAt, and owner are required')
+        }
+        const allowedEventTypes: CalendarEventRecord['type'][] = ['task', 'meeting', 'deadline', 'routine']
+        if (!allowedEventTypes.includes(body.type)) return badRequest(response, `type must be one of: ${allowedEventTypes.join(', ')}`)
+        json(response, 201, await services.missionCommandService.createCalendarEvent({
+          title: body.title,
+          type: body.type,
+          startsAt: body.startsAt,
+          owner: body.owner,
+          detail: body.detail?.trim() ?? '',
+          endsAt: body.endsAt,
+          relatedProjectId: body.relatedProjectId,
+        }))
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/memories') {
+        const body = await readJson<{ title?: string; summary?: string; kind?: MemoryRecord['kind']; tags?: string[] }>(request)
+        if (!body.title?.trim() || !body.summary?.trim()) return badRequest(response, 'title and summary are required')
+        const allowedKinds: MemoryRecord['kind'][] = ['working-memory', 'long-term-memory']
+        if (body.kind && !allowedKinds.includes(body.kind)) return badRequest(response, `kind must be one of: ${allowedKinds.join(', ')}`)
+        json(response, 201, await services.missionCommandService.createMemory({
+          title: body.title,
+          summary: body.summary,
+          kind: body.kind,
+          tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
+        }))
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/activity') {
+        const body = await readJson<{ title?: string; detail?: string; type?: string }>(request)
+        if (!body.title?.trim()) return badRequest(response, 'title is required')
+        const allowedTypes = ['chat', 'task', 'note', 'status']
+        const entryType = body.type && allowedTypes.includes(body.type) ? body.type as 'chat' | 'task' | 'note' | 'status' : 'status'
+        const entry = await services.activityRepository.append({
+          id: `activity-${crypto.randomUUID()}`,
+          type: entryType,
+          title: body.title.trim(),
+          detail: body.detail?.trim() ?? '',
+          timestamp: new Date().toISOString(),
+          status: 'logged',
+          source: 'runtime',
+        })
+        json(response, 201, entry)
         return
       }
 

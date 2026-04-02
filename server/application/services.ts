@@ -2,11 +2,16 @@ import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import type {
+  ActivityRecord,
+  CalendarEventRecord,
   ChatModeId,
   ChatMessageRecord,
+  MemoryRecord,
   MissionCommandSnapshot,
+  MissionRecord,
   NexusStatusSnapshot,
   NoteRecord,
+  ProjectRecord,
   RuntimeContextSnapshot,
   RuntimeDocumentSurface,
   RuntimeScheduleVisibility,
@@ -15,9 +20,10 @@ import type {
   TaskRecord,
   TaskStage,
   TaskStatus,
+  TeamMemberRecord,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
-import { ActivityRepository, ChatRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -577,5 +583,107 @@ export class StatusService {
         },
       ],
     }
+  }
+}
+
+export class MissionCommandService {
+  constructor(
+    private readonly repository: MissionCommandRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  async patchMission(patch: Partial<MissionRecord>): Promise<MissionRecord> {
+    const updated = await this.repository.patchMission({ ...patch, source: 'runtime' })
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: 'Mission updated',
+      detail: patch.progressPercent !== undefined ? `Progress: ${patch.progressPercent}%` : 'Mission record patched.',
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return updated
+  }
+
+  async patchProject(id: string, patch: Partial<ProjectRecord>): Promise<ProjectRecord | null> {
+    const updated = await this.repository.patchProject(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Project updated: ${updated.name}`,
+        detail: patch.status ? `Status → ${patch.status}` : patch.progressPercent !== undefined ? `Progress → ${patch.progressPercent}%` : 'Project patched.',
+        timestamp: new Date().toISOString(),
+        status: updated.status === 'blocked' ? 'watch' : updated.status === 'done' ? 'done' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async patchTeamMember(id: string, patch: Partial<TeamMemberRecord>): Promise<TeamMemberRecord | null> {
+    const updated = await this.repository.patchTeamMember(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Agent updated: ${updated.name}`,
+        detail: patch.focus ? `Focus → ${patch.focus}` : `Status → ${patch.status ?? 'updated'}`,
+        timestamp: new Date().toISOString(),
+        status: updated.status === 'offline' ? 'watch' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async createCalendarEvent(input: { title: string; type: CalendarEventRecord['type']; startsAt: string; owner: string; detail: string; endsAt?: string; relatedProjectId?: string }): Promise<CalendarEventRecord> {
+    const event: CalendarEventRecord = {
+      id: `cal-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      type: input.type,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      owner: input.owner.trim(),
+      relatedProjectId: input.relatedProjectId,
+      status: 'scheduled',
+      detail: input.detail.trim(),
+      source: 'runtime',
+    }
+    const created = await this.repository.createCalendarEvent(event)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Calendar: ${created.title}`,
+      detail: `${created.type} · ${created.startsAt}`,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async createMemory(input: { title: string; summary: string; kind?: MemoryRecord['kind']; tags?: string[] }): Promise<MemoryRecord> {
+    const memory: MemoryRecord = {
+      id: `mem-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      kind: input.kind ?? 'working-memory',
+      updatedAt: new Date().toISOString(),
+      summary: input.summary.trim(),
+      tags: input.tags ?? [],
+      source: 'runtime',
+    }
+    const created = await this.repository.createMemory(memory)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Memory stored: ${created.title}`,
+      detail: created.tags.length > 0 ? created.tags.join(', ') : created.kind,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
   }
 }

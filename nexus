@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# nexus — OpenClaw CLI for Sentinel Nexus
+# Low-token interface for updating all platform state.
+#
+# Usage:
+#   ./nexus status
+#   ./nexus task start  <id> [summary]
+#   ./nexus task done   <id>
+#   ./nexus task block  <id> <reason>
+#   ./nexus task wait   <id> <waitingFor>
+#   ./nexus task new    <title> <owner> <lane> [due:YYYY-MM-DD]
+#   ./nexus project status   <id> <active|watch|blocked|parked|done>
+#   ./nexus project progress <id> <0-100>
+#   ./nexus agent  <id> <active|limited-visibility|offline> [focus]
+#   ./nexus calendar add <title> <type:task|meeting|deadline|routine> <YYYY-MM-DD> <owner> [detail]
+#   ./nexus memory add <title> <summary> [tags:comma,separated]
+#   ./nexus log <title> [detail]
+#
+# Environment:
+#   NEXUS_API  — base URL (default: http://localhost:3001)
+
+set -euo pipefail
+
+BASE="${NEXUS_API:-http://localhost:3001}"
+
+_curl() {
+  curl -sf --max-time 10 "$@"
+}
+
+_patch() {
+  _curl -X PATCH "$BASE$1" -H "Content-Type: application/json" -d "$2"
+}
+
+_post() {
+  _curl -X POST "$BASE$1" -H "Content-Type: application/json" -d "$2"
+}
+
+_jq_compact() {
+  if command -v jq &>/dev/null; then
+    jq "$@"
+  else
+    cat
+  fi
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+
+  status)
+    _curl "$BASE/api/bootstrap" | _jq_compact '{
+      mission_pct: .missionCommand.mission.progressPercent,
+      tasks_total: (.tasks | length),
+      blocked: ([.tasks[] | select(.status == "Blocked")] | length),
+      active: ([.tasks[] | select(.status == "In Progress")] | length),
+      done: ([.tasks[] | select(.status == "Done")] | length),
+      queued: ([.tasks[] | select(.status == "Queued")] | length),
+      projects: (.missionCommand.projects | length),
+      calendar_items: (.missionCommand.calendar | length),
+      memories: (.missionCommand.memories | length),
+      last_activity: (.activity[0].title // "none")
+    }'
+    ;;
+
+  task)
+    subcmd="${1:-}"; shift || true
+    case "$subcmd" in
+      start)
+        id="${1:?task id required}"; shift
+        summary="${1:-}"; shift || true
+        _patch "/api/tasks/$id" "{\"status\":\"In Progress\",\"summary\":\"$summary\"}" \
+          | _jq_compact '{id, status, title, summary}'
+        ;;
+      done)
+        id="${1:?task id required}"
+        _patch "/api/tasks/$id" '{"status":"Done","readyToReport":true}' \
+          | _jq_compact '{id, status, title}'
+        ;;
+      block)
+        id="${1:?task id required}"; shift
+        reason="${1:?block reason required}"
+        _patch "/api/tasks/$id" "{\"status\":\"Blocked\",\"blockedReason\":\"$reason\"}" \
+          | _jq_compact '{id, status, title, blockedReason}'
+        ;;
+      wait)
+        id="${1:?task id required}"; shift
+        waiting="${1:?waitingFor required}"
+        _patch "/api/tasks/$id" "{\"needsUserInput\":true,\"waitingFor\":\"$waiting\"}" \
+          | _jq_compact '{id, status, title, waitingFor}'
+        ;;
+      new)
+        title="${1:?title required}"; shift
+        owner="${1:?owner required}"; shift
+        lane="${1:?lane required}"; shift
+        due="${1:-$(date -d '+7 days' +%Y-%m-%d 2>/dev/null || date -v+7d +%Y-%m-%d)}"
+        _post "/api/tasks" "{\"title\":\"$title\",\"owner\":\"$owner\",\"lane\":\"$lane\",\"due\":\"$due\"}" \
+          | _jq_compact '{id, status, title, owner, lane, due}'
+        ;;
+      *)
+        echo "Usage: nexus task <start|done|block|wait|new> ..." >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  project)
+    subcmd="${1:-}"; shift || true
+    case "$subcmd" in
+      status)
+        id="${1:?project id required}"; shift
+        status="${1:?status required}"
+        _patch "/api/projects/$id" "{\"status\":\"$status\"}" \
+          | _jq_compact '{id, name, status, progressPercent}'
+        ;;
+      progress)
+        id="${1:?project id required}"; shift
+        pct="${1:?progress 0-100 required}"
+        _patch "/api/projects/$id" "{\"progressPercent\":$pct}" \
+          | _jq_compact '{id, name, progressPercent}'
+        ;;
+      *)
+        echo "Usage: nexus project <status|progress> ..." >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  agent)
+    id="${1:?team member id required}"; shift
+    status="${1:?status required}"; shift
+    focus="${1:-}"; shift || true
+    _patch "/api/team/$id" "{\"status\":\"$status\",\"focus\":\"$focus\"}" \
+      | _jq_compact '{id, name, status, focus}'
+    ;;
+
+  calendar)
+    subcmd="${1:-}"; shift || true
+    case "$subcmd" in
+      add)
+        title="${1:?title required}"; shift
+        type="${1:?type required}"; shift
+        starts="${1:?date YYYY-MM-DD required}"; shift
+        owner="${1:?owner required}"; shift
+        detail="${1:-}"; shift || true
+        _post "/api/calendar" "{\"title\":\"$title\",\"type\":\"$type\",\"startsAt\":\"${starts}T00:00:00.000Z\",\"owner\":\"$owner\",\"detail\":\"$detail\"}" \
+          | _jq_compact '{id, title, type, startsAt, owner}'
+        ;;
+      *)
+        echo "Usage: nexus calendar add <title> <type> <YYYY-MM-DD> <owner> [detail]" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  memory)
+    subcmd="${1:-}"; shift || true
+    case "$subcmd" in
+      add)
+        title="${1:?title required}"; shift
+        summary="${1:?summary required}"; shift
+        raw_tags="${1:-}"; shift || true
+        if [ -n "$raw_tags" ] && command -v jq &>/dev/null; then
+          tags=$(echo "$raw_tags" | jq -R 'split(",")')
+        else
+          tags="[]"
+        fi
+        _post "/api/memories" "{\"title\":\"$title\",\"summary\":\"$summary\",\"tags\":$tags}" \
+          | _jq_compact '{id, title, kind, tags}'
+        ;;
+      *)
+        echo "Usage: nexus memory add <title> <summary> [tag1,tag2]" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  log)
+    title="${1:?log title required}"; shift
+    detail="${1:-}"; shift || true
+    _post "/api/activity" "{\"title\":\"$title\",\"detail\":\"$detail\",\"type\":\"status\"}" \
+      | _jq_compact '{id, title, detail, timestamp}'
+    ;;
+
+  *)
+    cat <<'EOF'
+nexus — Sentinel Nexus CLI
+
+Commands:
+  status                                    system snapshot (tasks, blocked, mission%)
+  task start  <id> [summary]                mark task In Progress
+  task done   <id>                          mark task Done + ready to report
+  task block  <id> <reason>                 mark task Blocked with reason
+  task wait   <id> <waitingFor>             flag task waiting on input
+  task new    <title> <owner> <lane> [due]  create task
+  project status   <id> <status>            set project status
+  project progress <id> <0-100>             set project progress %
+  agent  <id> <status> [focus]              update team member
+  calendar add <title> <type> <date> <owner> [detail]
+  memory add <title> <summary> [tags]       store memory entry
+  log <title> [detail]                      append activity entry
+
+Environment:
+  NEXUS_API   API base URL (default: http://localhost:3001)
+
+Tip: run 'nexus status' first each session to orient without reading raw JSON.
+EOF
+    ;;
+
+esac
