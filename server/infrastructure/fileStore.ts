@@ -47,6 +47,7 @@ function normalizeTask(task: TaskRecord): TaskRecord {
     ...task,
     stage: task.stage ?? statusToStage[task.status],
     needsUserInput: task.needsUserInput ?? false,
+    needsApproval: task.needsApproval ?? false,
     readyToReport: task.readyToReport ?? false,
     blockedReason: task.blockedReason?.trim() || undefined,
     waitingFor: task.waitingFor?.trim() || undefined,
