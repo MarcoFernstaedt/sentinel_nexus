@@ -37,7 +37,7 @@ export function getAppConfig(): AppConfig {
     : defaultWorkspaceRoot
 
   return {
-    port: Number(process.env.NEXUS_API_PORT ?? 4001),
+    port: Number(process.env.NEXUS_API_PORT ?? 3001),
     nodeEnv: process.env.NODE_ENV ?? 'development',
     database: {
       driver,

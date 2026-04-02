@@ -72,7 +72,7 @@ npm run dev
 ```
 
 Frontend: `http://localhost:3000`
-API: `http://localhost:4001`
+API: `http://localhost:3001`
 
 ### Useful scripts
 
@@ -80,7 +80,7 @@ API: `http://localhost:4001`
 npm run dev       # starts frontend + API together for local development
 npm run dev:web   # frontend only
 npm run dev:api   # API only (TS watch mode)
-npm run start     # serves built frontend on 3000 + built API on 4001
+npm run start     # serves built frontend on 3000 + built API on 3001
 npm run build:all # builds frontend and API
 npm run lint
 ```
@@ -98,7 +98,7 @@ A real Nexus database runtime is not provisioned on the host yet. The architectu
 
 ## Local workflow notes
 
-- Frontend API calls now default to same-origin paths, so Vite proxying works cleanly in dev on port `3000` while the API listens on `4001`.
+- Frontend API calls now default to same-origin paths, so Vite proxying works cleanly in dev on port `3000` while the API listens on `3001`.
 - Set `VITE_API_BASE_URL` only when you intentionally want the frontend to talk to a different API origin.
 - Patching tasks through `/api/tasks/:taskId` is the current safe way to move work between stages or mark user/reporting attention.
 - The UI keeps legacy internal mode IDs (`command`, `build`, `strategy`) for storage/runtime compatibility, while the operator-facing labels are now `Sentinel`, `Software Engineer`, and `Acquisition Operator`.

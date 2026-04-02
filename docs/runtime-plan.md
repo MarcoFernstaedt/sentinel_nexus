@@ -4,7 +4,7 @@
 Nexus is already a same-repo full-stack app:
 
 - React/Vite frontend on port `3000`
-- TypeScript Node API on port `4001`
+- TypeScript Node API on port `3001`
 - File-backed Nexus-owned persistence under `~/.openclaw/data/nexus`
 - Truthful runtime/bootstrap/task/note/chat surfaces through `/api/*`
 

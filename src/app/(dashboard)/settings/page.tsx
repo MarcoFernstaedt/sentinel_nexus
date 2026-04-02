@@ -85,8 +85,8 @@ export default function SettingsPage() {
             badge={apiState === 'connected' ? 'Connected' : 'Offline'}
             badgeTone={apiState === 'connected' ? 'live' : 'warning'}
           />
-          <SettingRow label="Endpoint"   value="localhost:4001"              mono />
-          <SettingRow label="Proxy path" value="/api/* → localhost:4001/api/*" mono />
+          <SettingRow label="Endpoint"   value="localhost:3001"              mono />
+          <SettingRow label="Proxy path" value="/api/* → localhost:3001/api/*" mono />
           <SettingRow
             label="Last sync"
             value={apiState === 'connected' ? 'Active' : 'Not connected'}

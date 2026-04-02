@@ -145,7 +145,7 @@ export const mockMemories: Memory[] = [
     id: 'mem-011',
     title: 'Environment constraint — no internet access during build',
     content:
-      'The build environment does not have outbound network access. next/font/google and any build-time fetch calls will fail. All fonts must use system font stacks via CSS custom properties. External asset loading must happen at runtime via the Next.js rewrite proxy (localhost:4001). Discovered in Batch 1 when Google Fonts import caused build failure.',
+      'The build environment does not have outbound network access. next/font/google and any build-time fetch calls will fail. All fonts must use system font stacks via CSS custom properties. External asset loading must happen at runtime via the Next.js rewrite proxy (localhost:3001). Discovered in Batch 1 when Google Fonts import caused build failure.',
     category: 'context',
     status: 'long-term',
     createdAt: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString(),
