@@ -372,6 +372,8 @@ export class TasksService {
       id: `task-${crypto.randomUUID()}`,
       stage: input.stage ?? defaultStageByStatus[input.status],
       needsUserInput: input.needsUserInput ?? false,
+      needsApproval: input.needsApproval ?? false,
+      assignedBy: input.assignedBy?.trim() || undefined,
       readyToReport: input.readyToReport ?? false,
       blockedReason: input.blockedReason?.trim() || undefined,
       waitingFor: input.waitingFor?.trim() || undefined,
@@ -435,6 +437,61 @@ export class TasksService {
         detail: describeTaskState(updated),
         timestamp: now,
         status: updated.status === 'Blocked' ? 'watch' : updated.status === 'Done' ? 'done' : 'logged',
+        source: 'runtime',
+      })
+    }
+
+    return updated
+  }
+
+  async approve(taskId: string) {
+    const allTasks = await this.repository.list()
+    const existing = allTasks.find((t) => t.id === taskId)
+    if (!existing) return null
+
+    const now = timestampNow()
+    const updated = await this.repository.update(taskId, {
+      needsApproval: false,
+      lastUpdatedAt: now,
+    })
+
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'task',
+        title: `Task approved: ${updated.title}`,
+        detail: `Operator approved task. ${describeTaskState(updated)}`,
+        timestamp: now,
+        status: 'logged',
+        source: 'runtime',
+      })
+    }
+
+    return updated
+  }
+
+  async reject(taskId: string, reason?: string) {
+    const allTasks = await this.repository.list()
+    const existing = allTasks.find((t) => t.id === taskId)
+    if (!existing) return null
+
+    const now = timestampNow()
+    const blockedReason = reason ?? 'Rejected by operator'
+    const updated = await this.repository.update(taskId, {
+      status: 'Blocked',
+      needsApproval: false,
+      blockedReason,
+      lastUpdatedAt: now,
+    })
+
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'task',
+        title: `Task rejected: ${updated.title}`,
+        detail: `Operator rejected task. Reason: ${blockedReason}`,
+        timestamp: now,
+        status: 'watch',
         source: 'runtime',
       })
     }

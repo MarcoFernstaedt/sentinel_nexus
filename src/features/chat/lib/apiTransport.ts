@@ -23,6 +23,8 @@ interface TaskMutationInput {
   lane: string
   summary?: string
   needsUserInput?: boolean
+  needsApproval?: boolean
+  assignedBy?: string
   readyToReport?: boolean
 }
 
@@ -31,6 +33,7 @@ interface TaskPatchInput {
   stage?: 'queued' | 'inspecting' | 'editing' | 'validating' | 'committing' | 'pushing' | 'done'
   summary?: string
   needsUserInput?: boolean
+  needsApproval?: boolean
   readyToReport?: boolean
 }
 
@@ -101,6 +104,33 @@ export async function patchTaskInApi(taskId: string, patch: TaskPatchInput) {
 
   if (!response.ok) {
     throw new Error('Failed to update task')
+  }
+
+  return response.json()
+}
+
+export async function approveTask(taskId: string) {
+  const response = await fetch(apiUrl(`/api/tasks/${taskId}/approve`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to approve task')
+  }
+
+  return response.json()
+}
+
+export async function rejectTask(taskId: string, reason?: string) {
+  const response = await fetch(apiUrl(`/api/tasks/${taskId}/reject`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to reject task')
   }
 
   return response.json()

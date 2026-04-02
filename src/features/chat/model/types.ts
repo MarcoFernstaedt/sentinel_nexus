@@ -183,6 +183,8 @@ export interface RuntimeTask extends BaseRecordMeta {
   projectId?: string
   summary?: string
   needsUserInput?: boolean
+  needsApproval?: boolean
+  assignedBy?: string
   readyToReport?: boolean
   blockedReason?: string
   waitingFor?: string

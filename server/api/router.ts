@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
+import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
 import { ConflictError, HttpError, ValidationError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
 import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
@@ -101,6 +101,8 @@ export function createRouter(services: Services) {
           lane?: string
           summary?: string
           needsUserInput?: boolean
+          needsApproval?: boolean
+          assignedBy?: string
           readyToReport?: boolean
           blockedReason?: string
           waitingFor?: string
@@ -118,12 +120,33 @@ export function createRouter(services: Services) {
           lane: body.lane,
           summary: body.summary?.trim() || undefined,
           needsUserInput: body.needsUserInput === true,
+          needsApproval: body.needsApproval === true,
+          assignedBy: body.assignedBy?.trim() || undefined,
           readyToReport: body.readyToReport === true,
           blockedReason: body.blockedReason?.trim() || undefined,
           waitingFor: body.waitingFor?.trim() || undefined,
           ...(stage !== undefined ? { stage } : {}),
         } as Parameters<typeof services.tasksService.create>[0]
         json(response, 201, await services.tasksService.create(createInput))
+        return
+      }
+
+      if (method === 'POST' && url.pathname.match(/^\/api\/tasks\/[^/]+\/approve$/)) {
+        const taskId = url.pathname.split('/')[3]
+        if (!taskId) return badRequest(response, 'taskId is required')
+        const updated = await services.tasksService.approve(taskId)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'POST' && url.pathname.match(/^\/api\/tasks\/[^/]+\/reject$/)) {
+        const taskId = url.pathname.split('/')[3]
+        if (!taskId) return badRequest(response, 'taskId is required')
+        const body = await readJson<{ reason?: string }>(request)
+        const updated = await services.tasksService.reject(taskId, body.reason?.trim() || undefined)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
         return
       }
 
@@ -135,19 +158,12 @@ export function createRouter(services: Services) {
           stage?: TaskStage
           summary?: string
           needsUserInput?: boolean
+          needsApproval?: boolean
           readyToReport?: boolean
           blockedReason?: string
           waitingFor?: string
         }>(request)
-        const patch: {
-          status?: TaskStatus
-          stage?: TaskStage
-          summary?: string
-          needsUserInput?: boolean
-          readyToReport?: boolean
-          blockedReason?: string
-          waitingFor?: string
-        } = {}
+        const patch: Partial<TaskRecord> = {}
 
         if (body.status !== undefined) {
           if (!allowedTaskStatuses.includes(body.status)) return badRequest(response, 'valid status is required')
@@ -165,6 +181,10 @@ export function createRouter(services: Services) {
 
         if (body.needsUserInput !== undefined) {
           patch.needsUserInput = body.needsUserInput === true
+        }
+
+        if (body.needsApproval !== undefined) {
+          patch.needsApproval = body.needsApproval === true
         }
 
         if (body.readyToReport !== undefined) {

@@ -1,5 +1,6 @@
 import { MetricRibbon } from '@/src/components/dashboard/MetricRibbon'
 import { MissionProgressPanel } from '@/src/components/dashboard/MissionProgressPanel'
+import { OperatorQueue } from '@/src/components/dashboard/OperatorQueue'
 import { BlockersAlertsPanel } from '@/src/components/dashboard/BlockersAlertsPanel'
 import { RecentCompletionsPanel } from '@/src/components/dashboard/RecentCompletionsPanel'
 import { SuggestionPanel } from '@/src/components/dashboard/SuggestionPanel'
@@ -16,6 +17,9 @@ export default function DashboardPage() {
 
       {/* Row 2: Mission progress banner */}
       <MissionProgressPanel />
+
+      {/* Row 2.5: Operator queue — tasks assigned to operator or pending approval */}
+      <OperatorQueue />
 
       {/* Row 3: Intelligence layer — blockers, completions, suggestions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
