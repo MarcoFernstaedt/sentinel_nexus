@@ -34,6 +34,7 @@ function detailForAction(task: RuntimeTask): string {
 function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean }) {
   const label = titleForAction(task)
   const detail = detailForAction(task)
+  const actionSummary = `${label}: ${task.title}. ${detail}`
   const icon = task.status === 'Blocked'
     ? <CircleAlert size={14} className="text-accent-warn" aria-hidden />
     : task.status === 'In Progress'
@@ -43,7 +44,11 @@ function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean })
         : <Clock3 size={14} className="text-text-3" aria-hidden />
 
   return (
-    <div className={`rounded-[10px] border ${primary ? 'border-[rgba(92,214,255,0.24)] bg-[rgba(92,214,255,0.06)]' : 'border-soft bg-[rgba(6,12,18,0.72)]'} p-3 grid gap-2`}>
+    <div
+      className={`rounded-[10px] border ${primary ? 'border-[rgba(92,214,255,0.24)] bg-[rgba(92,214,255,0.06)]' : 'border-soft bg-[rgba(6,12,18,0.72)]'} p-3 grid gap-2`}
+      role="article"
+      aria-label={actionSummary}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="grid gap-1 min-w-0">
           <div className="flex items-center gap-2 text-[0.67rem] uppercase tracking-[0.12em] text-text-2 font-medium">
