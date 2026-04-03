@@ -50,6 +50,36 @@ _python_json_filter() {
   python3 - "$@"
 }
 
+_json_field() {
+  local field="$1"
+  python3 - "$field" <<'PY'
+import json, sys
+field = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+value = data.get(field)
+if value is None:
+    sys.exit(1)
+print(value)
+PY
+}
+
+_task_lookup_by_title() {
+  local title="$1"
+  _curl "$BASE/api/tasks" | python3 - "$title" <<'PY'
+import json, sys
+title = sys.argv[1]
+items = json.load(sys.stdin)
+matches = [t for t in items if t.get('title') == title]
+if not matches:
+    print('{}')
+else:
+    print(json.dumps(matches[-1]))
+PY
+}
+
 cmd="${1:-}"
 shift || true
 
@@ -77,24 +107,24 @@ case "$cmd" in
         id="${1:?task id required}"; shift
         summary="${1:-}"; shift || true
         _patch "/api/tasks/$id" "{\"status\":\"In Progress\",\"summary\":\"$summary\"}" \
-          | _jq_compact '{id, status, title, summary}'
+          | _jq_compact '{id, status, title, summary, blockedReason, waitingFor, needsApproval, readyToReport}'
         ;;
       done)
         id="${1:?task id required}"
         _patch "/api/tasks/$id" '{"status":"Done","readyToReport":true}' \
-          | _jq_compact '{id, status, title}'
+          | _jq_compact '{id, status, title, completedAt, readyToReport}'
         ;;
       block)
         id="${1:?task id required}"; shift
         reason="${1:?block reason required}"
         _patch "/api/tasks/$id" "{\"status\":\"Blocked\",\"blockedReason\":\"$reason\"}" \
-          | _jq_compact '{id, status, title, blockedReason}'
+          | _jq_compact '{id, status, title, blockedReason, readyToReport}'
         ;;
       wait)
         id="${1:?task id required}"; shift
         waiting="${1:?waitingFor required}"
         _patch "/api/tasks/$id" "{\"needsUserInput\":true,\"waitingFor\":\"$waiting\"}" \
-          | _jq_compact '{id, status, title, waitingFor}'
+          | _jq_compact '{id, status, title, waitingFor, needsUserInput}'
         ;;
       approve)
         id="${1:?task id required}"
