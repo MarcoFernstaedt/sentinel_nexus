@@ -15,8 +15,6 @@ import type {
   TeamMemberRecord,
 } from './models.js'
 
-const seededAt = new Date().toISOString()
-
 export const seededMessages: ChatMessageRecord[] = []
 export const seededNotes: NoteRecord[] = []
 export const seededTasks: TaskRecord[] = []
