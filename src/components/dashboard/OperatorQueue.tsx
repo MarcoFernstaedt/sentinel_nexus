@@ -8,6 +8,8 @@ import { cn } from '@/src/lib/cn'
 import { useDashboard } from './DashboardDataProvider'
 import { approveTask, rejectTask } from '@/src/features/chat/lib/apiTransport'
 import type { RuntimeTask } from '@/src/features/chat/model/types'
+import { useSoundContext } from '@/src/context/SoundContext'
+import { useAnnouncer } from '@/src/components/layout/LiveRegion'
 
 const OPERATOR_NAME = 'Marco'
 
@@ -18,7 +20,11 @@ function ApprovalCard({ task, onApprove, onReject, loading }: {
   loading: boolean
 }) {
   return (
-    <div className="grid gap-2 p-3 rounded-[8px] border border-[rgba(255,203,97,0.20)] bg-[rgba(255,203,97,0.04)]">
+    <div
+      role="region"
+      aria-label={`Approval required: ${task.title}`}
+      className="grid gap-2 p-3 rounded-[8px] border border-[rgba(255,203,97,0.20)] bg-[rgba(255,203,97,0.04)]"
+    >
       <p className="text-[0.73rem] font-medium text-text-0 leading-tight line-clamp-2">
         {task.title}
       </p>
@@ -35,6 +41,7 @@ function ApprovalCard({ task, onApprove, onReject, loading }: {
         <button
           onClick={onApprove}
           disabled={loading}
+          aria-label={`Approve task: ${task.title}`}
           className={cn(
             'text-[0.65rem] font-medium px-2.5 py-1 rounded-[5px] border transition-colors',
             'border-[rgba(36,255,156,0.30)] bg-[rgba(36,255,156,0.08)] text-[#7ef7cd]',
@@ -46,6 +53,7 @@ function ApprovalCard({ task, onApprove, onReject, loading }: {
         <button
           onClick={onReject}
           disabled={loading}
+          aria-label={`Reject task: ${task.title}`}
           className={cn(
             'text-[0.65rem] font-medium px-2.5 py-1 rounded-[5px] border transition-colors',
             'border-[rgba(255,112,112,0.28)] bg-[rgba(255,112,112,0.08)] text-[rgba(255,112,112,0.9)]',
@@ -86,6 +94,8 @@ function MyTaskCard({ task }: { task: RuntimeTask }) {
 export function OperatorQueue() {
   const { runtimeTasks, refreshRuntime } = useDashboard()
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+  const { play } = useSoundContext()
+  const { announce } = useAnnouncer()
 
   const pendingApproval = runtimeTasks.filter((t) => t.needsApproval === true)
   const myTasks = runtimeTasks.filter(
@@ -97,9 +107,12 @@ export function OperatorQueue() {
   const headingId = 'operator-queue-heading'
 
   async function handleApprove(taskId: string) {
+    const task = runtimeTasks.find((t) => t.id === taskId)
     setLoadingIds((prev) => new Set(prev).add(taskId))
     try {
       await approveTask(taskId)
+      play('approve')
+      announce(`Mission update: task "${task?.title ?? taskId}" approved. Agent cleared to proceed.`)
       await refreshRuntime()
     } finally {
       setLoadingIds((prev) => { const next = new Set(prev); next.delete(taskId); return next })
@@ -107,9 +120,12 @@ export function OperatorQueue() {
   }
 
   async function handleReject(taskId: string) {
+    const task = runtimeTasks.find((t) => t.id === taskId)
     setLoadingIds((prev) => new Set(prev).add(taskId))
     try {
       await rejectTask(taskId)
+      play('reject')
+      announce(`Mission update: task "${task?.title ?? taskId}" rejected. Agent standing by.`)
       await refreshRuntime()
     } finally {
       setLoadingIds((prev) => { const next = new Set(prev); next.delete(taskId); return next })
@@ -133,7 +149,7 @@ export function OperatorQueue() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Pending Approval */}
-          <div className="flex flex-col gap-2">
+          <section aria-label="Pending approval queue" className="flex flex-col gap-2">
             <div className="flex items-center justify-between pb-2.5 border-b border-soft">
               <span className="text-[0.67rem] uppercase tracking-[0.14em] text-text-2 font-medium">
                 Pending Approval
@@ -158,10 +174,10 @@ export function OperatorQueue() {
                 />
               ))
             )}
-          </div>
+          </section>
 
           {/* My Tasks */}
-          <div className="flex flex-col gap-2">
+          <section aria-label="My active tasks" className="flex flex-col gap-2">
             <div className="flex items-center justify-between pb-2.5 border-b border-soft">
               <span className="text-[0.67rem] uppercase tracking-[0.14em] text-text-2 font-medium">
                 My Tasks
@@ -180,7 +196,7 @@ export function OperatorQueue() {
                 <MyTaskCard key={task.id} task={task} />
               ))
             )}
-          </div>
+          </section>
         </div>
       )}
     </Surface>

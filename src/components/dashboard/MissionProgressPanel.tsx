@@ -35,6 +35,7 @@ export function MissionProgressPanel() {
       'rounded-lg border border-[rgba(126,255,210,0.16)] bg-[rgba(5,14,10,0.55)]',
       'shadow-panel backdrop-blur-sm p-5',
     )}>
+      <h2 className="sr-only">Mission Status</h2>
       <div className="flex flex-col lg:flex-row lg:items-start gap-5">
 
         {/* Left: mission + command intent */}
@@ -66,12 +67,17 @@ export function MissionProgressPanel() {
             <span className="text-[0.58rem] uppercase tracking-[0.14em] text-text-3 font-medium">
               Mission Progress
             </span>
-            <span className="text-[0.86rem] font-mono font-semibold text-accent-mint tabular-nums">
+            <span className="text-[0.86rem] font-mono font-semibold text-accent-mint tabular-nums" aria-hidden>
               {pct}%
             </span>
           </div>
           <div className="w-full h-[5px] rounded-full bg-[rgba(126,255,210,0.08)] overflow-hidden">
             <div
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Mission completion: ${pct} percent`}
               className="h-full rounded-full bg-gradient-to-r from-accent-mint to-accent-cyan transition-[width] duration-700"
               style={{ width: `${pct}%` }}
             />
@@ -108,12 +114,16 @@ export function MissionProgressPanel() {
             </span>
             <div className="flex flex-wrap gap-2.5 lg:justify-end">
               {agents.map((a) => (
-                <div key={a.id} className="flex items-center gap-1.5" title={`${a.name}: ${a.alignmentStatus}`}>
+                <div
+                  key={a.id}
+                  className="flex items-center gap-1.5"
+                  aria-label={`${a.name}: alignment ${a.alignmentStatus}`}
+                >
                   <span
                     className={cn('w-[7px] h-[7px] rounded-full flex-shrink-0', ALIGNMENT_DOT[a.alignmentStatus])}
                     aria-hidden
                   />
-                  <span className="text-[0.6rem] text-text-2">{a.name}</span>
+                  <span className="text-[0.6rem] text-text-2" aria-hidden>{a.name}</span>
                 </div>
               ))}
             </div>

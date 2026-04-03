@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
+import { useSoundContext } from '@/src/context/SoundContext'
 import {
   LayoutDashboard,
   FolderKanban,
@@ -32,6 +33,19 @@ const navItems = [
   { href: '/docs',      label: 'Docs',        icon: BookOpen,        group: null },
   { href: '/settings',  label: 'Settings',    icon: Settings,        group: null },
 ]
+
+const ariaDescriptions: Record<string, string> = {
+  '/':          'Mission overview — system status at a glance',
+  '/projects':  'Execution layer — all active projects',
+  '/tasks':     'Task board — granular execution tracking',
+  '/calendar':  'Mission schedule and milestones',
+  '/chat':      'Command interface — issue directives to agents',
+  '/telemetry': 'Systems telemetry — health and metrics',
+  '/agents':    'Agent roster — supervise AI agents',
+  '/notes':     'Operator notes and field observations',
+  '/docs':      'Artifact vault — mission documents',
+  '/settings':  'System configuration and preferences',
+}
 
 interface NavItemProps {
   href: string
@@ -64,9 +78,13 @@ function NavItem({ href, label, icon: Icon, collapsed, active, onNavigate }: Nav
           'flex-shrink-0 transition-colors duration-150',
           active ? 'text-accent-mint' : 'text-text-2',
         )}
+        aria-hidden
       />
       {!collapsed && (
-        <span className="leading-none tracking-[0.01em]">{label}</span>
+        <>
+          <span className="leading-none tracking-[0.01em]">{label}</span>
+          <span className="sr-only"> — {ariaDescriptions[href]}</span>
+        </>
       )}
       {active && !collapsed && (
         <span
@@ -82,9 +100,13 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
   const { apiState, mobileNavOpen, setMobileNavOpen } = useDashboard()
+  const { play } = useSoundContext()
   const isOnline = apiState === 'connected'
 
-  const toggle = useCallback(() => setCollapsed((c) => !c), [])
+  const toggle = useCallback(() => {
+    play('sidebar-toggle')
+    setCollapsed((c) => !c)
+  }, [play])
 
   // Keyboard shortcut: [ to toggle
   useEffect(() => {
@@ -116,6 +138,7 @@ export function Sidebar() {
       )}
 
     <aside
+      id="sidebar"
       className={cn(
         'h-dvh flex-shrink-0 flex-col',
         'border-r border-soft',
@@ -130,7 +153,7 @@ export function Sidebar() {
         'md:flex md:relative md:transition-[width] md:duration-200 md:ease-out md:shadow-none',
         collapsed ? 'md:w-[56px]' : 'md:w-[220px]',
       )}
-      aria-label="Main navigation"
+      aria-label="Sentinel Nexus mission control navigation"
     >
       {/* Header */}
       <div
@@ -144,7 +167,7 @@ export function Sidebar() {
           className="flex-shrink-0 w-7 h-7 rounded-[8px] border border-[rgba(126,255,210,0.28)] bg-gradient-to-br from-[rgba(36,255,156,0.18)] to-[rgba(83,201,255,0.14)] flex items-center justify-center"
           aria-hidden
         >
-          <span className="text-[10px] font-bold text-accent-mint font-mono leading-none">SN</span>
+          <span className="logo-glow text-[10px] font-bold text-accent-mint font-mono leading-none">SN</span>
         </div>
         {!collapsed && (
           <div className="min-w-0">
@@ -167,7 +190,7 @@ export function Sidebar() {
           return (
             <div key={item.href}>
               {showGroup && (
-                <p className="px-4 pb-1 pt-3 text-[0.6rem] uppercase tracking-[0.18em] text-text-3 font-medium">
+                <p className="px-4 pb-1 pt-3 text-[0.6rem] uppercase tracking-[0.18em] text-text-3 font-medium" aria-hidden>
                   {item.group}
                 </p>
               )}
@@ -177,7 +200,10 @@ export function Sidebar() {
                 icon={item.icon}
                 collapsed={collapsed}
                 active={isActive(item.href)}
-                onNavigate={() => setMobileNavOpen(false)}
+                onNavigate={() => {
+                  play('nav')
+                  setMobileNavOpen(false)
+                }}
               />
             </div>
           )
@@ -194,7 +220,7 @@ export function Sidebar() {
           'flex items-center gap-2',
           collapsed && 'flex-col gap-1',
         )}>
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2" aria-hidden>
             {isOnline && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7ef7cd] opacity-50" />
             )}
@@ -209,11 +235,15 @@ export function Sidebar() {
             <span className={cn(
               'text-[0.66rem] uppercase tracking-[0.1em] font-medium',
               isOnline ? 'text-text-2' : 'text-accent-warn',
-            )}>
+            )} aria-hidden>
               {isOnline ? 'API' : 'Local'}
             </span>
           )}
         </div>
+        {/* Screen-reader connection status */}
+        <span className="sr-only">
+          {isOnline ? 'Connection status: nominal — API online' : 'Connection status: local mode — API offline'}
+        </span>
 
         {/* Toggle button */}
         <button
@@ -225,7 +255,11 @@ export function Sidebar() {
             'text-text-3 hover:text-text-1 hover:border-med',
             'transition-colors duration-150',
           )}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={
+            collapsed
+              ? 'Expand navigation panel — keyboard shortcut: open bracket'
+              : 'Collapse navigation panel — keyboard shortcut: open bracket'
+          }
           title={`Press [ to toggle (${collapsed ? 'expand' : 'collapse'})`}
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
