@@ -45,10 +45,9 @@ export default function SettingsPage() {
   const systemHeadingId      = 'settings-system-heading'
 
   const agentCount = agents.length
-  const targetDate = missionContext.targetDate
-    ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(
-        new Date(missionContext.targetDate)
-      )
+  const parsedTargetDate = missionContext.targetDate ? new Date(missionContext.targetDate) : null
+  const targetDate = parsedTargetDate && !Number.isNaN(parsedTargetDate.getTime())
+    ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(parsedTargetDate)
     : '—'
 
   return (

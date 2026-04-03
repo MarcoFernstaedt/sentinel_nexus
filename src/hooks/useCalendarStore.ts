@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { mockCalendarItems } from '@/src/data/calendarMock'
 import type { CalendarItem, CalendarItemStatus } from '@/src/types/calendar'
 
 const STORAGE_KEY = 'sentinel-nexus.calendar-store'
@@ -32,7 +31,7 @@ function saveToStorage(state: StoreState) {
 export function useCalendarStore() {
   const [items, setItems] = useState<CalendarItem[]>(() => {
     const stored = loadFromStorage()
-    return stored?.items ?? mockCalendarItems
+    return stored?.items ?? []
   })
 
   useEffect(() => {

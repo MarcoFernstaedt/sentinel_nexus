@@ -1,4 +1,4 @@
-import { chatModes, initialMessages } from '../data/mockChat'
+import { chatModes } from '../data/mockChat'
 import type { ChatMessage, ChatModeId } from '../model/types'
 
 const MAX_STORED_MESSAGES = 60
@@ -38,7 +38,7 @@ export function parseStoredInputHistory(value: unknown): string[] {
 
 export function parseStoredMessages(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) {
-    return initialMessages
+    return []
   }
 
   const parsed = value
@@ -74,7 +74,7 @@ export function parseStoredMessages(value: unknown): ChatMessage[] {
     .filter((entry): entry is ChatMessage => Boolean(entry))
     .slice(-MAX_STORED_MESSAGES)
 
-  return parsed.length > 0 ? parsed : initialMessages
+  return parsed
 }
 
 export function pushHistoryEntry(history: string[], value: string) {

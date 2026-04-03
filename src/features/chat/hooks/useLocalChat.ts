@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocalStorageState } from '../../../hooks/useLocalStorageState'
 import {
   chatModes,
-  initialMessages,
   suggestedPrompts,
   transportPreview as fallbackTransportPreview,
 } from '../data/mockChat'
@@ -69,7 +68,7 @@ const emptyMissionCommand: MissionCommandSnapshot = {
 }
 
 export function useLocalChat() {
-  const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(CHAT_MESSAGES_KEY, initialMessages, {
+  const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(CHAT_MESSAGES_KEY, [], {
     parse: parseStoredMessages,
   })
   const [activeModeId, setActiveModeId] = useLocalStorageState<ChatModeId>(CHAT_MODE_KEY, 'build', {

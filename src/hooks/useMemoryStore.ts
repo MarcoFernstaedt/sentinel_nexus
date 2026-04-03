@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { mockMemories } from '@/src/data/memoryMock'
 import type { Memory, MemoryStatus } from '@/src/types/memory'
 
 const STORAGE_KEY = 'sentinel-nexus.memory-store'
@@ -32,7 +31,7 @@ function saveToStorage(state: StoreState) {
 export function useMemoryStore() {
   const [memories, setMemories] = useState<Memory[]>(() => {
     const stored = loadFromStorage()
-    return stored?.memories ?? mockMemories
+    return stored?.memories ?? []
   })
 
   useEffect(() => {

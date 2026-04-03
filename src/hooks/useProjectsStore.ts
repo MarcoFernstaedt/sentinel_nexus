@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { mockProjects, mockTasks } from '@/src/data/projectsMock'
 import type { Project, ProjectStatus, Task, TaskStatus } from '@/src/types/projects'
 
 const STORAGE_KEY = 'sentinel-nexus.projects-store'
@@ -40,12 +39,12 @@ function computeProgress(projectId: string, tasks: Task[]): number {
 export function useProjectsStore() {
   const [projects, setProjects] = useState<Project[]>(() => {
     const stored = loadFromStorage()
-    return stored?.projects ?? mockProjects
+    return stored?.projects ?? []
   })
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const stored = loadFromStorage()
-    return stored?.tasks ?? mockTasks
+    return stored?.tasks ?? []
   })
 
   // Persist on every change

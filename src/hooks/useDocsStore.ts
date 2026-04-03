@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { mockDocs } from '@/src/data/docsMock'
 import type { Doc, DocStatus } from '@/src/types/docs'
 
 const STORAGE_KEY = 'sentinel-nexus.docs-store'
@@ -32,7 +31,7 @@ function saveToStorage(state: StoreState) {
 export function useDocsStore() {
   const [docs, setDocs] = useState<Doc[]>(() => {
     const stored = loadFromStorage()
-    return stored?.docs ?? mockDocs
+    return stored?.docs ?? []
   })
 
   useEffect(() => {

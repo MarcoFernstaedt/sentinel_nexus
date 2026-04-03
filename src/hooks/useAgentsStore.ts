@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { mockAgents, mockMissionContext } from '@/src/data/agentsMock'
 import type { Agent, AgentStatus, MissionContext } from '@/src/types/agents'
 
 const STORAGE_KEY = 'sentinel-nexus.agents-store'
@@ -30,15 +29,23 @@ function saveToStorage(state: StoreState) {
   }
 }
 
+const emptyMissionContext: MissionContext = {
+  statement: 'No live mission context yet.',
+  teamObjective: 'Populate Nexus with real priorities and live execution state.',
+  commandIntent: 'Prefer runtime truth and clear empty states over demo data.',
+  progressPercent: 0,
+  targetDate: 'Pending',
+}
+
 export function useAgentsStore() {
   const [agents, setAgents] = useState<Agent[]>(() => {
     const stored = loadFromStorage()
-    return stored?.agents ?? mockAgents
+    return stored?.agents ?? []
   })
 
   const [missionContext, setMissionContext] = useState<MissionContext>(() => {
     const stored = loadFromStorage()
-    return stored?.missionContext ?? mockMissionContext
+    return stored?.missionContext ?? emptyMissionContext
   })
 
   useEffect(() => {
