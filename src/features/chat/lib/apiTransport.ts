@@ -136,6 +136,70 @@ export async function rejectTask(taskId: string, reason?: string) {
   return response.json()
 }
 
+export async function fetchGoals() {
+  const response = await fetch(apiUrl('/api/goals'))
+  if (!response.ok) throw new Error('Failed to fetch goals')
+  return response.json()
+}
+
+export async function createGoalInApi(input: { title: string; category: string; targetDate: string; summary: string }) {
+  const response = await fetch(apiUrl('/api/goals'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw new Error('Failed to create goal')
+  return response.json()
+}
+
+export async function patchGoalInApi(goalId: string, patch: { progressPercent?: number; status?: string; summary?: string }) {
+  const response = await fetch(apiUrl(`/api/goals/${goalId}`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (!response.ok) throw new Error('Failed to update goal')
+  return response.json()
+}
+
+export async function deleteGoalInApi(goalId: string) {
+  const response = await fetch(apiUrl(`/api/goals/${goalId}`), { method: 'DELETE' })
+  if (!response.ok) throw new Error('Failed to delete goal')
+  return response.json()
+}
+
+export async function fetchHabits() {
+  const response = await fetch(apiUrl('/api/habits'))
+  if (!response.ok) throw new Error('Failed to fetch habits')
+  return response.json()
+}
+
+export async function createHabitInApi(input: { title: string; category: string; frequency: string; targetPerPeriod: number }) {
+  const response = await fetch(apiUrl('/api/habits'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw new Error('Failed to create habit')
+  return response.json()
+}
+
+export async function completeHabitInApi(habitId: string, date?: string) {
+  const response = await fetch(apiUrl(`/api/habits/${habitId}/complete`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date }),
+  })
+  if (!response.ok) throw new Error('Failed to complete habit')
+  return response.json()
+}
+
+export async function deleteHabitInApi(habitId: string) {
+  const response = await fetch(apiUrl(`/api/habits/${habitId}`), { method: 'DELETE' })
+  if (!response.ok) throw new Error('Failed to delete habit')
+  return response.json()
+}
+
 export async function createNoteInApi(input: { title: string; body: string; tag: string }) {
   const response = await fetch(apiUrl('/api/notes'), {
     method: 'POST',

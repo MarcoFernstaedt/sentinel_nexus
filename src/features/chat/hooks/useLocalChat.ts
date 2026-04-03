@@ -58,6 +58,7 @@ const emptyMissionCommand: MissionCommandSnapshot = {
     source: 'runtime',
   },
   goals: [],
+  habits: [],
   projects: [],
   calendar: [],
   memories: [],

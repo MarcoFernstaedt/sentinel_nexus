@@ -8,6 +8,8 @@ import { NextActionsPanel } from '@/src/components/dashboard/NextActionsPanel'
 import { AttentionBoard } from '@/src/components/dashboard/AttentionBoard'
 import { RecentActivity } from '@/src/components/dashboard/RecentActivity'
 import { AgentStatusList } from '@/src/components/dashboard/AgentStatusList'
+import { GoalProgressPanel } from '@/src/components/dashboard/GoalProgressPanel'
+import { HabitTrackerPanel } from '@/src/components/dashboard/HabitTrackerPanel'
 
 export default function DashboardPage() {
   return (
@@ -39,6 +41,12 @@ export default function DashboardPage() {
           <AgentStatusList />
         </div>
         <RecentActivity />
+      </div>
+
+      {/* Row 5: Goals + Habits */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        <GoalProgressPanel />
+        <HabitTrackerPanel />
       </div>
 
     </div>

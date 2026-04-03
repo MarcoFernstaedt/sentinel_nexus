@@ -4,6 +4,7 @@ import type {
   CalendarEventRecord,
   ChatMessageRecord,
   GoalRecord,
+  HabitRecord,
   MemoryRecord,
   MissionCommandSnapshot,
   NexusDataStore,
@@ -23,6 +24,7 @@ export const seededTasks: TaskRecord[] = []
 export const seededActivity: ActivityRecord[] = []
 
 const seededGoals: GoalRecord[] = []
+const seededHabits: HabitRecord[] = []
 const seededProjects: ProjectRecord[] = []
 const seededCalendar: CalendarEventRecord[] = []
 const seededMemories: MemoryRecord[] = []
@@ -53,6 +55,7 @@ export const seededMissionCommand: MissionCommandSnapshot = {
   team: seededTeam,
   office: seededOffice,
   searchIndex: createSearchIndex(),
+  habits: seededHabits,
 }
 
 export const createSeedData = (): NexusDataStore => ({

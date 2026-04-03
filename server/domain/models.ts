@@ -246,6 +246,18 @@ export interface OfficeRecord extends BaseRecordMeta {
   detail: string
 }
 
+export interface HabitRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  category: 'fitness' | 'work' | 'learning' | 'health' | 'focus'
+  frequency: 'daily' | 'weekly'
+  targetPerPeriod: number     // e.g., 5 days/week
+  completedDates: string[]    // ISO date strings 'YYYY-MM-DD'
+  currentStreak: number       // consecutive completions up to today
+  longestStreak: number
+  createdAt: string
+}
+
 export interface SearchEntryRecord extends BaseRecordMeta {
   id: string
   entityType: 'mission' | 'goal' | 'project' | 'task' | 'calendar' | 'memory' | 'artifact' | 'team' | 'office'
@@ -265,6 +277,7 @@ export interface MissionCommandSnapshot {
   team: TeamMemberRecord[]
   office: OfficeRecord[]
   searchIndex: SearchEntryRecord[]
+  habits: HabitRecord[]
 }
 
 export interface NexusBootstrapSnapshot {

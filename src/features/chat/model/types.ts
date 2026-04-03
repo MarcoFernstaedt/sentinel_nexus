@@ -280,9 +280,22 @@ export interface SearchEntryRecord extends BaseRecordMeta {
   updatedAt?: string
 }
 
+export interface HabitRecord extends BaseRecordMeta {
+  id: string
+  title: string
+  category: 'fitness' | 'work' | 'learning' | 'health' | 'focus'
+  frequency: 'daily' | 'weekly'
+  targetPerPeriod: number
+  completedDates: string[]
+  currentStreak: number
+  longestStreak: number
+  createdAt: string
+}
+
 export interface MissionCommandSnapshot {
   mission: MissionRecord
   goals: GoalRecord[]
+  habits: HabitRecord[]
   projects: ProjectRecord[]
   calendar: CalendarEventRecord[]
   memories: MemoryRecord[]

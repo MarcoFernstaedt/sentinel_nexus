@@ -1,8 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
+import type { CalendarEventRecord, ChatModeId, GoalRecord, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
 import { ConflictError, HttpError, ValidationError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
-import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
+import { ChatService, GoalsService, HabitsService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
+import type { AuthStore } from '../infrastructure/authStore.js'
+import { requireAuth, buildSessionCookieHeader, clearSessionCookieHeader } from '../middleware/auth.js'
 
 interface Services {
   chatService: ChatService
@@ -10,11 +12,18 @@ interface Services {
   tasksService: TasksService
   statusService: StatusService
   missionCommandService: MissionCommandService
+  goalsService: GoalsService
+  habitsService: HabitsService
   activityRepository: ActivityRepository
+  authStore: AuthStore
 }
 
 const allowedTaskStatuses: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
 const allowedTaskStages: TaskStage[] = ['queued', 'inspecting', 'editing', 'validating', 'committing', 'pushing', 'done']
+
+function isAuthPath(pathname: string) {
+  return pathname === '/health' || pathname.startsWith('/api/auth/')
+}
 
 export function createRouter(services: Services) {
   return async function route(request: IncomingMessage, response: ServerResponse) {
@@ -27,11 +36,22 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Health (public) ─────────────────────────────────────────
       if (method === 'GET' && url.pathname === '/health') {
         json(response, 200, { ok: true })
         return
       }
 
+      // ── Auth endpoints (public) ──────────────────────────────────
+      if (url.pathname.startsWith('/api/auth/')) {
+        await handleAuth(method, url.pathname, request, response, services.authStore)
+        return
+      }
+
+      // ── Auth guard (all other routes) ────────────────────────────
+      if (!await requireAuth(request, response, services.authStore)) return
+
+      // ── Bootstrap ───────────────────────────────────────────────
       if (method === 'GET' && url.pathname === '/api/bootstrap') {
         const [status, runtime, messages, notes, tasks, activity, missionCommand] = await Promise.all([
           services.statusService.snapshot(),
@@ -61,6 +81,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Chat ────────────────────────────────────────────────────
       if (method === 'GET' && url.pathname === '/api/chat/messages') {
         json(response, 200, await services.chatService.list())
         return
@@ -74,6 +95,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Notes ───────────────────────────────────────────────────
       if (method === 'GET' && url.pathname === '/api/notes') {
         json(response, 200, await services.notesService.list())
         return
@@ -86,6 +108,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Tasks ───────────────────────────────────────────────────
       if (method === 'GET' && url.pathname === '/api/tasks') {
         json(response, 200, await services.tasksService.list())
         return
@@ -93,19 +116,9 @@ export function createRouter(services: Services) {
 
       if (method === 'POST' && url.pathname === '/api/tasks') {
         const body = await readJson<{
-          title?: string
-          owner?: string
-          due?: string
-          status?: TaskStatus
-          stage?: TaskStage
-          lane?: string
-          summary?: string
-          needsUserInput?: boolean
-          needsApproval?: boolean
-          assignedBy?: string
-          readyToReport?: boolean
-          blockedReason?: string
-          waitingFor?: string
+          title?: string; owner?: string; due?: string; status?: TaskStatus; stage?: TaskStage
+          lane?: string; summary?: string; needsUserInput?: boolean; needsApproval?: boolean
+          assignedBy?: string; readyToReport?: boolean; blockedReason?: string; waitingFor?: string
         }>(request)
         if (!body.title?.trim() || !body.owner?.trim() || !body.due?.trim() || !body.lane?.trim()) {
           return badRequest(response, 'title, owner, due, and lane are required')
@@ -113,19 +126,11 @@ export function createRouter(services: Services) {
         const status = body.status && allowedTaskStatuses.includes(body.status) ? body.status : 'Queued'
         const stage = body.stage && allowedTaskStages.includes(body.stage) ? body.stage : undefined
         const createInput = {
-          title: body.title,
-          owner: body.owner,
-          due: body.due,
-          status,
-          lane: body.lane,
-          summary: body.summary?.trim() || undefined,
-          needsUserInput: body.needsUserInput === true,
-          needsApproval: body.needsApproval === true,
-          assignedBy: body.assignedBy?.trim() || undefined,
-          readyToReport: body.readyToReport === true,
-          blockedReason: body.blockedReason?.trim() || undefined,
-          waitingFor: body.waitingFor?.trim() || undefined,
-          ...(stage !== undefined ? { stage } : {}),
+          title: body.title, owner: body.owner, due: body.due, status, lane: body.lane,
+          summary: body.summary?.trim() || undefined, needsUserInput: body.needsUserInput === true,
+          needsApproval: body.needsApproval === true, assignedBy: body.assignedBy?.trim() || undefined,
+          readyToReport: body.readyToReport === true, blockedReason: body.blockedReason?.trim() || undefined,
+          waitingFor: body.waitingFor?.trim() || undefined, ...(stage !== undefined ? { stage } : {}),
         } as Parameters<typeof services.tasksService.create>[0]
         json(response, 201, await services.tasksService.create(createInput))
         return
@@ -154,61 +159,33 @@ export function createRouter(services: Services) {
         const taskId = url.pathname.split('/').at(-1)
         if (!taskId) return badRequest(response, 'taskId is required')
         const body = await readJson<{
-          status?: TaskStatus
-          stage?: TaskStage
-          summary?: string
-          needsUserInput?: boolean
-          needsApproval?: boolean
-          readyToReport?: boolean
-          blockedReason?: string
-          waitingFor?: string
+          status?: TaskStatus; stage?: TaskStage; summary?: string
+          needsUserInput?: boolean; needsApproval?: boolean; readyToReport?: boolean
+          blockedReason?: string; waitingFor?: string
         }>(request)
         const patch: Partial<TaskRecord> = {}
-
         if (body.status !== undefined) {
           if (!allowedTaskStatuses.includes(body.status)) return badRequest(response, 'valid status is required')
           patch.status = body.status
         }
-
         if (body.stage !== undefined) {
           if (!allowedTaskStages.includes(body.stage)) return badRequest(response, 'valid stage is required')
           patch.stage = body.stage
         }
-
-        if (body.summary !== undefined) {
-          patch.summary = body.summary.trim() || undefined
-        }
-
-        if (body.needsUserInput !== undefined) {
-          patch.needsUserInput = body.needsUserInput === true
-        }
-
-        if (body.needsApproval !== undefined) {
-          patch.needsApproval = body.needsApproval === true
-        }
-
-        if (body.readyToReport !== undefined) {
-          patch.readyToReport = body.readyToReport === true
-        }
-
-        if (body.blockedReason !== undefined) {
-          patch.blockedReason = body.blockedReason.trim() || undefined
-        }
-
-        if (body.waitingFor !== undefined) {
-          patch.waitingFor = body.waitingFor.trim() || undefined
-        }
-
-        if (Object.keys(patch).length === 0) {
-          return badRequest(response, 'at least one valid task field is required')
-        }
-
+        if (body.summary !== undefined) patch.summary = body.summary.trim() || undefined
+        if (body.needsUserInput !== undefined) patch.needsUserInput = body.needsUserInput === true
+        if (body.needsApproval !== undefined) patch.needsApproval = body.needsApproval === true
+        if (body.readyToReport !== undefined) patch.readyToReport = body.readyToReport === true
+        if (body.blockedReason !== undefined) patch.blockedReason = body.blockedReason.trim() || undefined
+        if (body.waitingFor !== undefined) patch.waitingFor = body.waitingFor.trim() || undefined
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one valid task field is required')
         const updated = await services.tasksService.update(taskId, patch)
         if (!updated) return notFound(response)
         json(response, 200, updated)
         return
       }
 
+      // ── Mission ─────────────────────────────────────────────────
       if (method === 'PATCH' && url.pathname === '/api/mission') {
         const body = await readJson<{ progressPercent?: number; commandIntent?: string }>(request)
         const patch: { progressPercent?: number; commandIntent?: string } = {}
@@ -223,6 +200,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Projects ────────────────────────────────────────────────
       if (method === 'PATCH' && url.pathname.startsWith('/api/projects/')) {
         const projectId = url.pathname.split('/').at(-1)
         if (!projectId) return badRequest(response, 'projectId is required')
@@ -246,6 +224,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Team ────────────────────────────────────────────────────
       if (method === 'PATCH' && url.pathname.startsWith('/api/team/')) {
         const memberId = url.pathname.split('/').at(-1)
         if (!memberId) return badRequest(response, 'memberId is required')
@@ -264,6 +243,7 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Calendar ────────────────────────────────────────────────
       if (method === 'POST' && url.pathname === '/api/calendar') {
         const body = await readJson<{ title?: string; type?: CalendarEventRecord['type']; startsAt?: string; owner?: string; detail?: string; endsAt?: string; relatedProjectId?: string }>(request)
         if (!body.title?.trim() || !body.type || !body.startsAt?.trim() || !body.owner?.trim()) {
@@ -272,31 +252,128 @@ export function createRouter(services: Services) {
         const allowedEventTypes: CalendarEventRecord['type'][] = ['task', 'meeting', 'deadline', 'routine']
         if (!allowedEventTypes.includes(body.type)) return badRequest(response, `type must be one of: ${allowedEventTypes.join(', ')}`)
         json(response, 201, await services.missionCommandService.createCalendarEvent({
-          title: body.title,
-          type: body.type,
-          startsAt: body.startsAt,
-          owner: body.owner,
-          detail: body.detail?.trim() ?? '',
-          endsAt: body.endsAt,
-          relatedProjectId: body.relatedProjectId,
+          title: body.title, type: body.type, startsAt: body.startsAt, owner: body.owner,
+          detail: body.detail?.trim() ?? '', endsAt: body.endsAt, relatedProjectId: body.relatedProjectId,
         }))
         return
       }
 
+      // ── Memories ────────────────────────────────────────────────
       if (method === 'POST' && url.pathname === '/api/memories') {
         const body = await readJson<{ title?: string; summary?: string; kind?: MemoryRecord['kind']; tags?: string[] }>(request)
         if (!body.title?.trim() || !body.summary?.trim()) return badRequest(response, 'title and summary are required')
         const allowedKinds: MemoryRecord['kind'][] = ['working-memory', 'long-term-memory']
         if (body.kind && !allowedKinds.includes(body.kind)) return badRequest(response, `kind must be one of: ${allowedKinds.join(', ')}`)
         json(response, 201, await services.missionCommandService.createMemory({
-          title: body.title,
-          summary: body.summary,
-          kind: body.kind,
+          title: body.title, summary: body.summary, kind: body.kind,
           tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
         }))
         return
       }
 
+      // ── Goals ───────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/goals') {
+        json(response, 200, await services.goalsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/goals') {
+        const body = await readJson<{ title?: string; category?: GoalRecord['category']; targetDate?: string; summary?: string }>(request)
+        if (!body.title?.trim()) return badRequest(response, 'title is required')
+        if (!body.category) return badRequest(response, 'category is required')
+        json(response, 201, await services.goalsService.create({
+          title: body.title, category: body.category,
+          targetDate: body.targetDate ?? '', summary: body.summary ?? '',
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/goals/')) {
+        const goalId = url.pathname.split('/').at(-1)
+        if (!goalId) return badRequest(response, 'goalId is required')
+        const body = await readJson<{ progressPercent?: number; status?: GoalRecord['status']; summary?: string; title?: string; targetDate?: string }>(request)
+        const patch: Parameters<typeof services.goalsService.update>[1] = {}
+        if (body.progressPercent !== undefined) {
+          const pct = Number(body.progressPercent)
+          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, 'progressPercent must be 0-100')
+          patch.progressPercent = pct
+        }
+        const allowedGoalStatuses: GoalRecord['status'][] = ['on-track', 'at-risk', 'blocked']
+        if (body.status !== undefined) {
+          if (!allowedGoalStatuses.includes(body.status)) return badRequest(response, `status must be one of: ${allowedGoalStatuses.join(', ')}`)
+          patch.status = body.status
+        }
+        if (body.summary !== undefined) patch.summary = body.summary.trim()
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.targetDate !== undefined) patch.targetDate = body.targetDate.trim()
+        const updated = await services.goalsService.update(goalId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/goals/')) {
+        const goalId = url.pathname.split('/').at(-1)
+        if (!goalId) return badRequest(response, 'goalId is required')
+        const deleted = await services.goalsService.delete(goalId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Habits ──────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/habits') {
+        json(response, 200, await services.habitsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/habits') {
+        const body = await readJson<{ title?: string; category?: string; frequency?: string; targetPerPeriod?: number }>(request)
+        if (!body.title?.trim()) return badRequest(response, 'title is required')
+        const allowedCategories = ['fitness', 'work', 'learning', 'health', 'focus']
+        const allowedFrequencies = ['daily', 'weekly']
+        const category = body.category && allowedCategories.includes(body.category) ? body.category as 'fitness' | 'work' | 'learning' | 'health' | 'focus' : 'work'
+        const frequency = body.frequency && allowedFrequencies.includes(body.frequency) ? body.frequency as 'daily' | 'weekly' : 'daily'
+        const targetPerPeriod = Number.isFinite(Number(body.targetPerPeriod)) && Number(body.targetPerPeriod) > 0 ? Number(body.targetPerPeriod) : 1
+        json(response, 201, await services.habitsService.create({ title: body.title, category, frequency, targetPerPeriod }))
+        return
+      }
+
+      if (method === 'POST' && url.pathname.match(/^\/api\/habits\/[^/]+\/complete$/)) {
+        const habitId = url.pathname.split('/')[3]
+        if (!habitId) return badRequest(response, 'habitId is required')
+        const body = await readJson<{ date?: string }>(request).catch(() => ({}) as { date?: string })
+        const updated = await services.habitsService.complete(habitId, body.date)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/habits/')) {
+        const habitId = url.pathname.split('/').at(-1)
+        if (!habitId) return badRequest(response, 'habitId is required')
+        const body = await readJson<{ title?: string; category?: string; frequency?: string; targetPerPeriod?: number }>(request)
+        const patch: Parameters<typeof services.habitsService.update>[1] = {}
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.category !== undefined) patch.category = body.category as 'fitness' | 'work' | 'learning' | 'health' | 'focus'
+        if (body.frequency !== undefined) patch.frequency = body.frequency as 'daily' | 'weekly'
+        if (body.targetPerPeriod !== undefined) patch.targetPerPeriod = Number(body.targetPerPeriod)
+        const updated = await services.habitsService.update(habitId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/habits/')) {
+        const habitId = url.pathname.split('/').at(-1)
+        if (!habitId) return badRequest(response, 'habitId is required')
+        const deleted = await services.habitsService.delete(habitId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Activity ────────────────────────────────────────────────
       if (method === 'POST' && url.pathname === '/api/activity') {
         const body = await readJson<{ title?: string; detail?: string; type?: string }>(request)
         if (!body.title?.trim()) return badRequest(response, 'title is required')
@@ -320,21 +397,87 @@ export function createRouter(services: Services) {
       if (error instanceof ValidationError || error instanceof ConflictError) {
         console.warn(`[nexus:reject] ${request.method ?? 'GET'} ${request.url ?? '/'} — ${error.code} — ${error.message}`)
         json(response, error.statusCode, {
-          ok: false,
-          code: error.code,
-          message: error.message,
+          ok: false, code: error.code, message: error.message,
           ...(error.details !== undefined ? { details: error.details } : {}),
         })
         return
       }
-
       if (error instanceof HttpError) {
         json(response, error.statusCode, { error: error.message })
         return
       }
-
       console.error('Nexus API route failed', error)
       internalServerError(response)
     }
   }
+}
+
+// ── Auth route handler ────────────────────────────────────────────
+
+async function handleAuth(
+  method: string,
+  pathname: string,
+  request: IncomingMessage,
+  response: ServerResponse,
+  authStore: AuthStore,
+) {
+  // GET /api/auth/status
+  if (method === 'GET' && pathname === '/api/auth/status') {
+    const setupComplete = await authStore.isSetupComplete()
+    json(response, 200, { setupComplete })
+    return
+  }
+
+  // POST /api/auth/setup
+  if (method === 'POST' && pathname === '/api/auth/setup') {
+    if (await authStore.isSetupComplete()) {
+      json(response, 409, { error: 'already_setup', message: 'Setup already complete' })
+      return
+    }
+    const body = await readJson<{ password?: string }>(request)
+    if (!body.password || body.password.length < 8) {
+      return badRequest(response, 'password must be at least 8 characters')
+    }
+    const config = await authStore.setup(body.password)
+    json(response, 201, { ok: true, apiKey: config.apiKey })
+    return
+  }
+
+  // POST /api/auth/login
+  if (method === 'POST' && pathname === '/api/auth/login') {
+    const config = await authStore.read()
+    if (!config?.setupComplete) {
+      json(response, 503, { error: 'setup_required', message: 'Setup not complete' })
+      return
+    }
+    const body = await readJson<{ password?: string }>(request)
+    if (!body.password) return badRequest(response, 'password is required')
+    const valid = await authStore.verifyPassword(body.password, config.salt, config.passwordHash)
+    if (!valid) {
+      json(response, 401, { error: 'invalid_credentials', message: 'Invalid password' })
+      return
+    }
+    const token = authStore.createSessionToken(config.sessionSecret)
+    response.setHeader('Set-Cookie', buildSessionCookieHeader(token))
+    json(response, 200, { ok: true })
+    return
+  }
+
+  // POST /api/auth/logout
+  if (method === 'POST' && pathname === '/api/auth/logout') {
+    response.setHeader('Set-Cookie', clearSessionCookieHeader())
+    json(response, 200, { ok: true })
+    return
+  }
+
+  // GET /api/auth/key (requires auth)
+  if (method === 'GET' && pathname === '/api/auth/key') {
+    if (!await requireAuth(request, response, authStore)) return
+    const config = await authStore.read()
+    if (!config) return notFound(response)
+    json(response, 200, { apiKey: config.apiKey })
+    return
+  }
+
+  notFound(response)
 }

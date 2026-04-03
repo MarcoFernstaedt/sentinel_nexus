@@ -6,6 +6,8 @@ import type {
   CalendarEventRecord,
   ChatModeId,
   ChatMessageRecord,
+  GoalRecord,
+  HabitRecord,
   MemoryRecord,
   MissionCommandSnapshot,
   MissionRecord,
@@ -25,7 +27,7 @@ import type {
 import type { AppConfig } from '../config/env.js'
 import { ConflictError, ValidationError } from '../api/http.js'
 import { validateCalendarCreate, validateMemoryCreate, validateSingleActiveTask, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
-import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import { ActivityRepository, ChatRepository, GoalsRepository, HabitsRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -788,5 +790,114 @@ export class MissionCommandService {
       source: 'runtime',
     } as ActivityRecord)
     return created
+  }
+}
+
+export class GoalsService {
+  constructor(
+    private readonly repository: GoalsRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  async list(): Promise<GoalRecord[]> {
+    return this.repository.list()
+  }
+
+  async create(input: Pick<GoalRecord, 'title' | 'category' | 'targetDate' | 'summary'>): Promise<GoalRecord> {
+    if (!input.title.trim()) throw new ValidationError('GOAL_TITLE_REQUIRED', 'title is required')
+    const goal: GoalRecord = {
+      id: `goal-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      category: input.category,
+      status: 'on-track',
+      progressPercent: 0,
+      targetDate: input.targetDate,
+      summary: input.summary?.trim() ?? '',
+      source: 'runtime',
+    }
+    const created = await this.repository.create(goal)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Goal created: ${created.title}`,
+      detail: `${created.category} · ${created.targetDate}`,
+      timestamp: new Date().toISOString(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async update(id: string, patch: Partial<Pick<GoalRecord, 'progressPercent' | 'status' | 'summary' | 'title' | 'targetDate'>>): Promise<GoalRecord | null> {
+    const updated = await this.repository.update(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Goal updated: ${updated.title}`,
+        detail: `${updated.progressPercent}% · ${updated.status}`,
+        timestamp: new Date().toISOString(),
+        status: 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
+  }
+}
+
+export class HabitsService {
+  constructor(
+    private readonly repository: HabitsRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  async list(): Promise<HabitRecord[]> {
+    return this.repository.list()
+  }
+
+  async create(input: Pick<HabitRecord, 'title' | 'category' | 'frequency' | 'targetPerPeriod'>): Promise<HabitRecord> {
+    if (!input.title.trim()) throw new ValidationError('HABIT_TITLE_REQUIRED', 'title is required')
+    const habit: HabitRecord = {
+      id: `habit-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      category: input.category,
+      frequency: input.frequency,
+      targetPerPeriod: input.targetPerPeriod,
+      completedDates: [],
+      currentStreak: 0,
+      longestStreak: 0,
+      createdAt: new Date().toISOString(),
+      source: 'runtime',
+    }
+    return this.repository.create(habit)
+  }
+
+  async complete(id: string, date?: string): Promise<HabitRecord | null> {
+    const today = date ?? new Date().toISOString().slice(0, 10)
+    const updated = await this.repository.complete(id, today)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Habit completed: ${updated.title}`,
+        detail: `${today} · streak ${updated.currentStreak}`,
+        timestamp: new Date().toISOString(),
+        status: 'done',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async update(id: string, patch: Partial<Pick<HabitRecord, 'title' | 'category' | 'frequency' | 'targetPerPeriod'>>): Promise<HabitRecord | null> {
+    return this.repository.update(id, patch)
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
   }
 }

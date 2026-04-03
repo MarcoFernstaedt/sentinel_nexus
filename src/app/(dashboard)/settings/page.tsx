@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useEffect, useState } from 'react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
@@ -35,6 +36,78 @@ function SettingRow({
 function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <p className={`text-[0.62rem] font-medium text-text-3 uppercase tracking-wider mb-3 ${className ?? ''}`}>{children}</p>
+  )
+}
+
+function ApiKeyRow() {
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/auth/key')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { apiKey?: string } | null) => {
+        if (data?.apiKey) setApiKey(data.apiKey)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function handleCopy() {
+    if (!apiKey) return
+    await navigator.clipboard.writeText(apiKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const maskedKey = apiKey ? `${apiKey.slice(0, 8)}${'•'.repeat(24)}` : '—'
+  const displayKey = revealed ? (apiKey ?? '—') : maskedKey
+
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-soft last:border-0">
+      <div className="grid gap-0.5 min-w-0 flex-1">
+        <span className="text-[0.74rem] text-text-2">Agent API Key</span>
+        <span className="text-[0.62rem] text-text-3">Use as <code className="font-mono text-[#53c9ff]">X-Nexus-Key</code> header for direct API access</span>
+        {!loading && (
+          <code className="text-[0.7rem] font-mono text-[rgba(126,247,205,0.8)] mt-1 break-all leading-relaxed">
+            {displayKey}
+          </code>
+        )}
+        {loading && <span className="text-[0.7rem] text-text-3 font-mono mt-1">Loading…</span>}
+      </div>
+      {apiKey && (
+        <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            className={cn(
+              'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
+              'border border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)]',
+              'text-[rgba(126,247,205,0.6)] hover:text-[rgba(126,247,205,0.9)] hover:bg-[rgba(36,255,156,0.1)] transition-colors duration-150',
+            )}
+            aria-label={revealed ? 'Hide API key' : 'Reveal API key'}
+          >
+            {revealed ? 'Hide' : 'Reveal'}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={cn(
+              'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
+              'border transition-all duration-150',
+              copied
+                ? 'border-[rgba(65,255,165,0.45)] bg-[rgba(65,255,165,0.12)] text-[#41ffa5]'
+                : 'border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)] text-[rgba(126,247,205,0.6)] hover:bg-[rgba(36,255,156,0.1)]',
+            )}
+            aria-label={copied ? 'Copied' : 'Copy API key'}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -82,6 +155,7 @@ export default function SettingsPage() {
 
   const interfaceHeadingId   = 'settings-interface-heading'
   const apiHeadingId         = 'settings-api-heading'
+  const authHeadingId        = 'settings-auth-heading'
   const systemHeadingId      = 'settings-system-heading'
 
   const agentCount = agents.length
@@ -112,6 +186,15 @@ export default function SettingsPage() {
           <SettingRow label="Sidebar"       value="Expanded" badge="System Default" badgeTone="subtle" />
           <SectionLabel className="mt-4">Audio</SectionLabel>
           <SoundSettingRow />
+        </Surface>
+
+        {/* Auth & Access */}
+        <Surface
+          header={<SectionHeading id={authHeadingId} eyebrow="Security" title="Auth & Access" />}
+          labelledBy={authHeadingId}
+        >
+          <SectionLabel>Agent Access</SectionLabel>
+          <ApiKeyRow />
         </Surface>
 
         {/* API Connection */}

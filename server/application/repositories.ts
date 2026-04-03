@@ -2,6 +2,8 @@ import type {
   ActivityRecord,
   CalendarEventRecord,
   ChatMessageRecord,
+  GoalRecord,
+  HabitRecord,
   MemoryRecord,
   MissionRecord,
   NexusDataStore,
@@ -10,10 +12,13 @@ import type {
   TaskRecord,
   TeamMemberRecord,
 } from '../domain/models.js'
-import { FileBackedStore } from '../infrastructure/fileStore.js'
+import type { FileBackedStore } from '../infrastructure/fileStore.js'
+import type { SqliteStore } from '../infrastructure/sqliteStore.js'
+
+type StorageDriver = FileBackedStore | SqliteStore
 
 export class ChatRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   async list() {
     const data = await this.store.read()
@@ -29,7 +34,7 @@ export class ChatRepository {
 }
 
 export class NotesRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   async list() {
     const data = await this.store.read()
@@ -45,7 +50,7 @@ export class NotesRepository {
 }
 
 export class TasksRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   async list() {
     const data = await this.store.read()
@@ -69,7 +74,7 @@ export class TasksRepository {
 }
 
 export class ActivityRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   async list(limit?: number) {
     const data = await this.store.read()
@@ -86,7 +91,7 @@ export class ActivityRepository {
 }
 
 export class StatusRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   snapshot(): Promise<NexusDataStore> {
     return this.store.read()
@@ -94,7 +99,7 @@ export class StatusRepository {
 }
 
 export class MissionCommandRepository {
-  constructor(private readonly store: FileBackedStore) {}
+  constructor(private readonly store: StorageDriver) {}
 
   async patchMission(patch: Partial<MissionRecord>): Promise<MissionRecord> {
     const data = await this.store.read()
@@ -144,4 +149,129 @@ export class MissionCommandRepository {
     const data = await this.store.read()
     return data.missionCommand.calendar
   }
+}
+
+export class GoalsRepository {
+  constructor(private readonly store: StorageDriver) {}
+
+  async list(): Promise<GoalRecord[]> {
+    const data = await this.store.read()
+    return data.missionCommand.goals
+  }
+
+  async create(goal: GoalRecord): Promise<GoalRecord> {
+    const data = await this.store.read()
+    data.missionCommand.goals = [goal, ...data.missionCommand.goals]
+    await this.store.write(data)
+    return goal
+  }
+
+  async update(id: string, patch: Partial<GoalRecord>): Promise<GoalRecord | null> {
+    const data = await this.store.read()
+    const index = data.missionCommand.goals.findIndex((g) => g.id === id)
+    if (index === -1) return null
+    data.missionCommand.goals[index] = { ...data.missionCommand.goals[index]!, ...patch }
+    await this.store.write(data)
+    return data.missionCommand.goals[index]!
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const data = await this.store.read()
+    const before = data.missionCommand.goals.length
+    data.missionCommand.goals = data.missionCommand.goals.filter((g) => g.id !== id)
+    await this.store.write(data)
+    return data.missionCommand.goals.length < before
+  }
+}
+
+export class HabitsRepository {
+  constructor(private readonly store: StorageDriver) {}
+
+  private getAll(data: NexusDataStore): HabitRecord[] {
+    return data.missionCommand.habits ?? []
+  }
+
+  async list(): Promise<HabitRecord[]> {
+    const data = await this.store.read()
+    return this.getAll(data)
+  }
+
+  async create(habit: HabitRecord): Promise<HabitRecord> {
+    const data = await this.store.read()
+    data.missionCommand.habits = [habit, ...this.getAll(data)]
+    await this.store.write(data)
+    return habit
+  }
+
+  async update(id: string, patch: Partial<HabitRecord>): Promise<HabitRecord | null> {
+    const data = await this.store.read()
+    const habits = this.getAll(data)
+    const index = habits.findIndex((h) => h.id === id)
+    if (index === -1) return null
+    habits[index] = { ...habits[index]!, ...patch }
+    data.missionCommand.habits = habits
+    await this.store.write(data)
+    return habits[index]!
+  }
+
+  async complete(id: string, date: string): Promise<HabitRecord | null> {
+    const data = await this.store.read()
+    const habits = this.getAll(data)
+    const index = habits.findIndex((h) => h.id === id)
+    if (index === -1) return null
+
+    const habit = { ...habits[index]! }
+    if (!habit.completedDates.includes(date)) {
+      habit.completedDates = [...habit.completedDates, date].sort()
+    }
+
+    // Recompute streak (consecutive daily completions ending today or yesterday)
+    habit.currentStreak = computeCurrentStreak(habit.completedDates)
+    habit.longestStreak = Math.max(habit.longestStreak, habit.currentStreak)
+
+    habits[index] = habit
+    data.missionCommand.habits = habits
+    await this.store.write(data)
+    return habit
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const data = await this.store.read()
+    const habits = this.getAll(data)
+    const before = habits.length
+    data.missionCommand.habits = habits.filter((h) => h.id !== id)
+    await this.store.write(data)
+    return data.missionCommand.habits.length < before
+  }
+}
+
+function computeCurrentStreak(sortedDates: string[]): number {
+  if (sortedDates.length === 0) return 0
+  const today = todayIso()
+  const yesterday = offsetIso(today, -1)
+  // Streak must include today or yesterday to be considered active
+  const latest = sortedDates[sortedDates.length - 1]!
+  if (latest !== today && latest !== yesterday) return 0
+
+  let streak = 0
+  let cursor = latest === today ? today : yesterday
+  for (let i = sortedDates.length - 1; i >= 0; i--) {
+    if (sortedDates[i] === cursor) {
+      streak++
+      cursor = offsetIso(cursor, -1)
+    } else if (sortedDates[i]! < cursor) {
+      break
+    }
+  }
+  return streak
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function offsetIso(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
 }
