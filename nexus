@@ -8,7 +8,10 @@
 #   ./nexus task done   <id>
 #   ./nexus task block  <id> <reason>
 #   ./nexus task wait   <id> <waitingFor>
-#   ./nexus task new    <title> <owner> <lane> [due:YYYY-MM-DD]
+#   ./nexus task approve <id>
+#   ./nexus task list
+#   ./nexus task inspect <id>
+#   ./nexus task new    <title> <owner> <lane> [due:YYYY-MM-DD] [needsApproval:true|false]
 #   ./nexus project status   <id> <active|watch|blocked|parked|done>
 #   ./nexus project progress <id> <0-100>
 #   ./nexus agent  <id> <active|limited-visibility|offline> [focus]
@@ -41,6 +44,10 @@ _jq_compact() {
   else
     cat
   fi
+}
+
+_python_json_filter() {
+  python3 - "$@"
 }
 
 cmd="${1:-}"
@@ -89,16 +96,53 @@ case "$cmd" in
         _patch "/api/tasks/$id" "{\"needsUserInput\":true,\"waitingFor\":\"$waiting\"}" \
           | _jq_compact '{id, status, title, waitingFor}'
         ;;
+      approve)
+        id="${1:?task id required}"
+        _post "/api/tasks/$id/approve" '{}' \
+          | _jq_compact '{id, status, title, needsApproval, readyToReport}'
+        ;;
+      list)
+        _curl "$BASE/api/tasks" \
+          | _jq_compact 'map({id, title, status, owner, needsApproval, needsUserInput, readyToReport, blockedReason, waitingFor})'
+        ;;
+      inspect)
+        id="${1:?task id required}"
+        if command -v jq &>/dev/null; then
+          _curl "$BASE/api/tasks" | jq --arg id "$id" 'map(select(.id == $id)) | .[0]'
+        else
+          TASKS_JSON="$(_curl "$BASE/api/tasks")"
+          TASKS_JSON="$TASKS_JSON" _python_json_filter "$id" <<'PY'
+import json
+import os
+import sys
+
+task_id = sys.argv[1]
+data = json.loads(os.environ.get('TASKS_JSON', '[]'))
+match = next((t for t in data if t.get('id') == task_id), None)
+if match is None:
+    print('{}')
+else:
+    print(json.dumps(match, indent=2))
+PY
+        fi
+        ;;
       new)
         title="${1:?title required}"; shift
         owner="${1:?owner required}"; shift
         lane="${1:?lane required}"; shift
         due="${1:-$(date -d '+7 days' +%Y-%m-%d 2>/dev/null || date -v+7d +%Y-%m-%d)}"
-        _post "/api/tasks" "{\"title\":\"$title\",\"owner\":\"$owner\",\"lane\":\"$lane\",\"due\":\"$due\"}" \
-          | _jq_compact '{id, status, title, owner, lane, due}'
+        shift || true
+        needs_approval_raw="${1:-false}"
+        if [ "$needs_approval_raw" = "true" ]; then
+          needs_approval=true
+        else
+          needs_approval=false
+        fi
+        _post "/api/tasks" "{\"title\":\"$title\",\"owner\":\"$owner\",\"lane\":\"$lane\",\"due\":\"$due\",\"needsApproval\":$needs_approval}" \
+          | _jq_compact '{id, status, title, owner, lane, due, needsApproval, needsUserInput, readyToReport}'
         ;;
       *)
-        echo "Usage: nexus task <start|done|block|wait|new> ..." >&2
+        echo "Usage: nexus task <start|done|block|wait|approve|list|inspect|new> ..." >&2
         exit 1
         ;;
     esac
@@ -188,11 +232,14 @@ nexus — Sentinel Nexus CLI
 
 Commands:
   status                                    system snapshot (tasks, blocked, mission%)
-  task start  <id> [summary]                mark task In Progress
-  task done   <id>                          mark task Done + ready to report
-  task block  <id> <reason>                 mark task Blocked with reason
-  task wait   <id> <waitingFor>             flag task waiting on input
-  task new    <title> <owner> <lane> [due]  create task
+  task start   <id> [summary]                            mark task In Progress
+  task done    <id>                                      mark task Done + ready to report
+  task block   <id> <reason>                             mark task Blocked with reason
+  task wait    <id> <waitingFor>                         flag task waiting on input
+  task approve <id>                                      approve a task that requires operator approval
+  task list                                              list tasks with approval and waiting state
+  task inspect <id>                                      inspect one task in full
+  task new     <title> <owner> <lane> [due] [true|false] create task, optional needsApproval flag
   project status   <id> <status>            set project status
   project progress <id> <0-100>             set project progress %
   agent  <id> <status> [focus]              update team member

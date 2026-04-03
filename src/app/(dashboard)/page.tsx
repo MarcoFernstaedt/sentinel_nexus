@@ -4,6 +4,7 @@ import { OperatorQueue } from '@/src/components/dashboard/OperatorQueue'
 import { BlockersAlertsPanel } from '@/src/components/dashboard/BlockersAlertsPanel'
 import { RecentCompletionsPanel } from '@/src/components/dashboard/RecentCompletionsPanel'
 import { SuggestionPanel } from '@/src/components/dashboard/SuggestionPanel'
+import { NextActionsPanel } from '@/src/components/dashboard/NextActionsPanel'
 import { AttentionBoard } from '@/src/components/dashboard/AttentionBoard'
 import { RecentActivity } from '@/src/components/dashboard/RecentActivity'
 import { AgentStatusList } from '@/src/components/dashboard/AgentStatusList'
@@ -21,11 +22,14 @@ export default function DashboardPage() {
       {/* Row 2.5: Operator queue — tasks assigned to operator or pending approval */}
       <OperatorQueue />
 
-      {/* Row 3: Intelligence layer — blockers, completions, suggestions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <BlockersAlertsPanel />
-        <RecentCompletionsPanel />
-        <SuggestionPanel />
+      {/* Row 3: Immediate operator guidance + intelligence */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-4 items-start">
+        <NextActionsPanel />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          <BlockersAlertsPanel />
+          <RecentCompletionsPanel />
+          <SuggestionPanel />
+        </div>
       </div>
 
       {/* Row 4: Task board + agent roster / activity feed */}
