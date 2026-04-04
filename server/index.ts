@@ -47,6 +47,18 @@ const server = http.createServer(
   }),
 )
 
-server.listen(config.port, () => {
-  console.log(`Sentinel Nexus API listening on http://localhost:${config.port}`)
+server.listen(config.port, async () => {
+  const authReady = await authStore.isSetupComplete()
+  const bar = '═'.repeat(54)
+  console.log(`\n${bar}`)
+  console.log(`  Sentinel Nexus API  ·  http://localhost:${config.port}`)
+  console.log(bar)
+  console.log(`  DB driver  : ${config.database.driver}`)
+  console.log(`  Data dir   : ${config.database.dataDirectory}`)
+  console.log(`  Auth       : ${authReady ? 'configured ✓' : 'not set up — visit http://localhost:3000/setup'}`)
+  if (authReady) {
+    console.log(`  Agent key  : X-Nexus-Key header  (Settings → Auth & Access)`)
+  }
+  console.log(`  Env        : ${config.nodeEnv}`)
+  console.log(`${bar}\n`)
 })

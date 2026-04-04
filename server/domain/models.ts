@@ -22,6 +22,7 @@ export interface NoteRecord extends BaseRecordMeta {
   title: string
   body: string
   tag: string
+  projectId?: string
   updatedAt: string
 }
 

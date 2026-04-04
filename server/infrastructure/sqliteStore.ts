@@ -245,7 +245,7 @@ function messageToRow(r: ChatMessageRecord): Record<string, unknown> {
 }
 
 function noteToRow(r: NoteRecord): Record<string, unknown> {
-  return { id: r.id, title: r.title, body: r.body, tag: r.tag, updated_at: r.updatedAt, source: r.source }
+  return { id: r.id, title: r.title, body: r.body, tag: r.tag, project_id: r.projectId ?? null, updated_at: r.updatedAt, source: r.source }
 }
 
 function taskToRow(r: TaskRecord): Record<string, unknown> {

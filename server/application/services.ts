@@ -26,7 +26,7 @@ import type {
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
 import { ConflictError, ValidationError } from '../api/http.js'
-import { validateCalendarCreate, validateMemoryCreate, validateSingleActiveTask, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
+import { validateCalendarCreate, validateMemoryCreate, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
 import { ActivityRepository, ChatRepository, GoalsRepository, HabitsRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
@@ -405,13 +405,6 @@ export class TasksService {
     const transitionCheck = validateTaskTransition(existing, patch)
     if (!transitionCheck.ok) {
       throw new ValidationError(transitionCheck.code, transitionCheck.message, transitionCheck.details)
-    }
-
-    if (patch.status === 'In Progress' && existing.status !== 'In Progress') {
-      const activeCheck = validateSingleActiveTask(existing.owner, allTasks, taskId)
-      if (!activeCheck.ok) {
-        throw new ConflictError(activeCheck.code, activeCheck.message, activeCheck.details)
-      }
     }
 
     const now = timestampNow()

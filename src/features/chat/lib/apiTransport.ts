@@ -200,7 +200,7 @@ export async function deleteHabitInApi(habitId: string) {
   return response.json()
 }
 
-export async function createNoteInApi(input: { title: string; body: string; tag: string }) {
+export async function createNoteInApi(input: { title: string; body: string; tag: string; projectId?: string }) {
   const response = await fetch(apiUrl('/api/notes'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -211,6 +211,12 @@ export async function createNoteInApi(input: { title: string; body: string; tag:
     throw new Error('Failed to create note')
   }
 
+  return response.json()
+}
+
+export async function rotateApiKey(): Promise<{ apiKey: string }> {
+  const response = await fetch(apiUrl('/api/auth/rotate-key'), { method: 'POST' })
+  if (!response.ok) throw new Error('Failed to rotate API key')
   return response.json()
 }
 

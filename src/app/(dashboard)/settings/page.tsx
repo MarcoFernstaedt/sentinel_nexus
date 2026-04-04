@@ -8,6 +8,7 @@ import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 import { useSoundContext } from '@/src/context/SoundContext'
 import { cn } from '@/src/lib/cn'
+import { rotateApiKey } from '@/src/features/chat/lib/apiTransport'
 
 function SettingRow({
   label,
@@ -43,6 +44,8 @@ function ApiKeyRow() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [rotating, setRotating] = useState(false)
+  const [rotateConfirm, setRotateConfirm] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -62,49 +65,92 @@ function ApiKeyRow() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function handleRotate() {
+    if (!rotateConfirm) {
+      setRotateConfirm(true)
+      setTimeout(() => setRotateConfirm(false), 4000)
+      return
+    }
+    setRotating(true)
+    setRotateConfirm(false)
+    try {
+      const data = await rotateApiKey()
+      setApiKey(data.apiKey)
+      setRevealed(true)
+    } catch {
+      // silently fail — key display won't update
+    } finally {
+      setRotating(false)
+    }
+  }
+
   const maskedKey = apiKey ? `${apiKey.slice(0, 8)}${'•'.repeat(24)}` : '—'
   const displayKey = revealed ? (apiKey ?? '—') : maskedKey
 
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-soft last:border-0">
-      <div className="grid gap-0.5 min-w-0 flex-1">
-        <span className="text-[0.74rem] text-text-2">Agent API Key</span>
-        <span className="text-[0.62rem] text-text-3">Use as <code className="font-mono text-[#53c9ff]">X-Nexus-Key</code> header for direct API access</span>
-        {!loading && (
-          <code className="text-[0.7rem] font-mono text-[rgba(126,247,205,0.8)] mt-1 break-all leading-relaxed">
-            {displayKey}
-          </code>
+    <div className="grid gap-2 py-2.5 border-b border-soft last:border-0">
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid gap-0.5 min-w-0 flex-1">
+          <span className="text-[0.74rem] text-text-2">Agent API Key</span>
+          <span className="text-[0.62rem] text-text-3">Use as <code className="font-mono text-[#53c9ff]">X-Nexus-Key</code> header for direct API access</span>
+          {!loading && (
+            <code className="text-[0.7rem] font-mono text-[rgba(126,247,205,0.8)] mt-1 break-all leading-relaxed">
+              {displayKey}
+            </code>
+          )}
+          {loading && <span className="text-[0.7rem] text-text-3 font-mono mt-1">Loading…</span>}
+        </div>
+        {apiKey && (
+          <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+            <button
+              type="button"
+              onClick={() => setRevealed((v) => !v)}
+              className={cn(
+                'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
+                'border border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)]',
+                'text-[rgba(126,247,205,0.6)] hover:text-[rgba(126,247,205,0.9)] hover:bg-[rgba(36,255,156,0.1)] transition-colors duration-150',
+              )}
+              aria-label={revealed ? 'Hide API key' : 'Reveal API key'}
+            >
+              {revealed ? 'Hide' : 'Reveal'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={cn(
+                'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
+                'border transition-all duration-150',
+                copied
+                  ? 'border-[rgba(65,255,165,0.45)] bg-[rgba(65,255,165,0.12)] text-[#41ffa5]'
+                  : 'border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)] text-[rgba(126,247,205,0.6)] hover:bg-[rgba(36,255,156,0.1)]',
+              )}
+              aria-label={copied ? 'Copied' : 'Copy API key'}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
         )}
-        {loading && <span className="text-[0.7rem] text-text-3 font-mono mt-1">Loading…</span>}
       </div>
       {apiKey && (
-        <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setRevealed((v) => !v)}
+            onClick={handleRotate}
+            disabled={rotating}
             className={cn(
               'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
-              'border border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)]',
-              'text-[rgba(126,247,205,0.6)] hover:text-[rgba(126,247,205,0.9)] hover:bg-[rgba(36,255,156,0.1)] transition-colors duration-150',
+              'border transition-all duration-150 disabled:opacity-40',
+              rotateConfirm
+                ? 'border-[rgba(255,112,112,0.45)] bg-[rgba(255,112,112,0.10)] text-[rgba(255,112,112,0.9)]'
+                : 'border-[rgba(126,255,210,0.14)] bg-transparent text-text-3 hover:text-text-2 hover:border-[rgba(126,255,210,0.25)]',
             )}
-            aria-label={revealed ? 'Hide API key' : 'Reveal API key'}
+            aria-label="Rotate API key — generates a new key and invalidates the old one"
           >
-            {revealed ? 'Hide' : 'Reveal'}
+            {rotating ? 'Rotating…' : rotateConfirm ? 'Click again to confirm rotation' : 'Rotate key'}
           </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className={cn(
-              'px-2 py-1 rounded-[6px] text-[0.6rem] font-medium uppercase tracking-[0.06em]',
-              'border transition-all duration-150',
-              copied
-                ? 'border-[rgba(65,255,165,0.45)] bg-[rgba(65,255,165,0.12)] text-[#41ffa5]'
-                : 'border-[rgba(126,255,210,0.18)] bg-[rgba(36,255,156,0.05)] text-[rgba(126,247,205,0.6)] hover:bg-[rgba(36,255,156,0.1)]',
-            )}
-            aria-label={copied ? 'Copied' : 'Copy API key'}
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </button>
+          {rotateConfirm && (
+            <span className="text-[0.6rem] text-[rgba(255,112,112,0.7)]">This invalidates the current key — update any agents using it.</span>
+          )}
         </div>
       )}
     </div>

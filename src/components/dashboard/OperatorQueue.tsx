@@ -13,21 +13,25 @@ import { useAnnouncer } from '@/src/components/layout/LiveRegion'
 
 const OPERATOR_NAME = 'Marco'
 
-function ApprovalCard({ task, onApprove, onReject, loading }: {
+function ApprovalCard({ task, onApprove, onReject, loading, projectName }: {
   task: RuntimeTask
   onApprove: () => void
   onReject: () => void
   loading: boolean
+  projectName?: string
 }) {
   return (
     <div
       role="region"
-      aria-label={`Approval required: ${task.title}`}
+      aria-label={`Approval required: ${task.title}${projectName ? ` · ${projectName}` : ''}`}
       className="grid gap-2 p-3 rounded-[8px] border border-[rgba(255,203,97,0.20)] bg-[rgba(255,203,97,0.04)]"
     >
       <p className="text-[0.73rem] font-medium text-text-0 leading-tight line-clamp-2">
         {task.title}
       </p>
+      {projectName && (
+        <span className="text-[0.62rem] text-[rgba(126,247,205,0.6)] truncate">↳ {projectName}</span>
+      )}
       <div className="flex items-center gap-2 flex-wrap">
         {task.assignedBy && (
           <span className="text-[0.62rem] text-text-3 font-mono">from {task.assignedBy}</span>
@@ -67,7 +71,7 @@ function ApprovalCard({ task, onApprove, onReject, loading }: {
   )
 }
 
-function MyTaskCard({ task }: { task: RuntimeTask }) {
+function MyTaskCard({ task, projectName }: { task: RuntimeTask; projectName?: string }) {
   const badgeToneMap: Record<string, 'live' | 'warning' | 'pending' | 'subtle'> = {
     'In Progress': 'live',
     'Blocked': 'warning',
@@ -81,6 +85,9 @@ function MyTaskCard({ task }: { task: RuntimeTask }) {
       <p className="text-[0.73rem] font-medium text-text-0 leading-tight line-clamp-2">
         {task.title}
       </p>
+      {projectName && (
+        <span className="text-[0.62rem] text-[rgba(126,247,205,0.6)] truncate">↳ {projectName}</span>
+      )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[0.62rem] text-text-3 font-mono truncate">{task.lane}</span>
         <StatusBadge tone={tone} className="text-[0.6rem] py-[0.18rem] px-[0.5rem] flex-shrink-0">
@@ -92,10 +99,13 @@ function MyTaskCard({ task }: { task: RuntimeTask }) {
 }
 
 export function OperatorQueue() {
-  const { runtimeTasks, refreshRuntime } = useDashboard()
+  const { runtimeTasks, refreshRuntime, missionCommand } = useDashboard()
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const { play } = useSoundContext()
   const { announce } = useAnnouncer()
+
+  const getProjectName = (projectId?: string) =>
+    projectId ? missionCommand.projects.find((p) => p.id === projectId)?.name : undefined
 
   const pendingApproval = runtimeTasks.filter((t) => t.needsApproval === true)
   const myTasks = runtimeTasks.filter(
@@ -171,6 +181,7 @@ export function OperatorQueue() {
                   loading={loadingIds.has(task.id)}
                   onApprove={() => handleApprove(task.id)}
                   onReject={() => handleReject(task.id)}
+                  projectName={getProjectName(task.projectId)}
                 />
               ))
             )}
@@ -193,7 +204,7 @@ export function OperatorQueue() {
               <p className="text-[0.68rem] text-text-3 text-center py-3">No tasks</p>
             ) : (
               myTasks.map((task) => (
-                <MyTaskCard key={task.id} task={task} />
+                <MyTaskCard key={task.id} task={task} projectName={getProjectName(task.projectId)} />
               ))
             )}
           </section>

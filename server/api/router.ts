@@ -102,9 +102,9 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'POST' && url.pathname === '/api/notes') {
-        const body = await readJson<{ title?: string; body?: string; tag?: string }>(request)
+        const body = await readJson<{ title?: string; body?: string; tag?: string; projectId?: string }>(request)
         if (!body.title?.trim() || !body.body?.trim()) return badRequest(response, 'title and body are required')
-        json(response, 201, await services.notesService.create({ title: body.title, body: body.body, tag: body.tag ?? 'general' }))
+        json(response, 201, await services.notesService.create({ title: body.title, body: body.body, tag: body.tag ?? 'general', projectId: body.projectId }))
         return
       }
 
@@ -476,6 +476,18 @@ async function handleAuth(
     const config = await authStore.read()
     if (!config) return notFound(response)
     json(response, 200, { apiKey: config.apiKey })
+    return
+  }
+
+  // POST /api/auth/rotate-key (requires auth)
+  if (method === 'POST' && pathname === '/api/auth/rotate-key') {
+    if (!await requireAuth(request, response, authStore)) return
+    try {
+      const newKey = await authStore.rotateApiKey()
+      json(response, 200, { apiKey: newKey })
+    } catch (err) {
+      json(response, 400, { message: (err as Error).message })
+    }
     return
   }
 

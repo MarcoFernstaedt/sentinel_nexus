@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronRight, CircleAlert, CheckCircle2, Clock3, Target } from 'lucide-react'
+import { ChevronRight, CircleAlert, CheckCircle2, Clock3, Target, FolderOpen } from 'lucide-react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
@@ -31,10 +31,10 @@ function detailForAction(task: RuntimeTask): string {
   return `${task.owner} · ${task.lane}`
 }
 
-function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean }) {
+function ActionCard({ task, primary, projectName }: { task: RuntimeTask; primary?: boolean; projectName?: string }) {
   const label = titleForAction(task)
   const detail = detailForAction(task)
-  const actionSummary = `${label}: ${task.title}. ${detail}`
+  const actionSummary = `${label}: ${task.title}. ${detail}${projectName ? ` · Project: ${projectName}` : ''}`
   const icon = task.status === 'Blocked'
     ? <CircleAlert size={14} className="text-accent-warn" aria-hidden />
     : task.status === 'In Progress'
@@ -56,6 +56,12 @@ function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean })
             <span>{label}</span>
           </div>
           <p className="text-[0.8rem] font-semibold text-text-0 leading-snug">{task.title}</p>
+          {projectName && (
+            <div className="flex items-center gap-1 text-[0.62rem] text-[rgba(126,247,205,0.6)]">
+              <FolderOpen size={10} aria-hidden />
+              <span className="truncate">{projectName}</span>
+            </div>
+          )}
         </div>
         <StatusBadge tone={task.status === 'Blocked' ? 'warning' : task.status === 'In Progress' ? 'live' : 'pending'} className="text-[0.6rem] py-[0.18rem] px-[0.5rem] shrink-0">
           {task.status}
@@ -74,7 +80,10 @@ function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean })
 }
 
 export function NextActionsPanel() {
-  const { runtimeTasks } = useDashboard()
+  const { runtimeTasks, missionCommand } = useDashboard()
+
+  const getProjectName = (projectId?: string) =>
+    projectId ? missionCommand.projects.find((p) => p.id === projectId)?.name : undefined
 
   const actionable = runtimeTasks
     .filter((task) => task.status !== 'Done')
@@ -82,6 +91,7 @@ export function NextActionsPanel() {
 
   const primary = actionable[0]
   const next = actionable.slice(1, 4)
+  const overflow = actionable.length - 1 - next.length
   const headingId = 'next-actions-heading'
 
   return (
@@ -91,28 +101,31 @@ export function NextActionsPanel() {
           id={headingId}
           eyebrow="Operator"
           title="Next Actions"
-          description="The clearest immediate actions surfaced from live task state"
+          description="Active tasks across all projects, ranked by priority"
         />
       }
       labelledBy={headingId}
     >
       {primary ? (
         <div className="grid gap-3">
-          <ActionCard task={primary} primary />
+          <ActionCard task={primary} primary projectName={getProjectName(primary.projectId)} />
           {next.length > 0 && (
             <div className="grid gap-2">
               <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.12em] text-text-3 font-medium">
                 <ChevronRight size={12} aria-hidden />
-                <span>After that</span>
+                <span>Also active</span>
               </div>
               {next.map((task) => (
-                <ActionCard key={task.id} task={task} />
+                <ActionCard key={task.id} task={task} projectName={getProjectName(task.projectId)} />
               ))}
+              {overflow > 0 && (
+                <p className="text-[0.62rem] text-text-3 text-center">+{overflow} more active tasks</p>
+              )}
             </div>
           )}
         </div>
       ) : (
-        <p className="text-[0.72rem] text-text-3 text-center py-4">No immediate actions surfaced</p>
+        <p className="text-[0.72rem] text-text-3 text-center py-4">No active tasks — all clear</p>
       )}
     </Surface>
   )

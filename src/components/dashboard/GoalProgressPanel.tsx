@@ -34,9 +34,11 @@ const CATEGORY_LABELS: Record<GoalRecord['category'], string> = {
 function GoalRow({
   goal,
   onUpdate,
+  linkedProjects,
 }: {
   goal: GoalRecord
   onUpdate: (id: string, patch: Partial<GoalRecord>) => Promise<void>
+  linkedProjects: { id: string; name: string }[]
 }) {
   const [updating, setUpdating] = useState(false)
 
@@ -114,10 +116,25 @@ function GoalRow({
             +{delta}%
           </button>
         ))}
-        {pct < 100 ? null : (
+        {pct >= 100 && (
           <span className="text-[0.6rem] text-[#41ffa5] font-medium uppercase tracking-[0.08em] ml-1">Complete</span>
         )}
       </div>
+
+      {/* Linked projects */}
+      {linkedProjects.length > 0 && (
+        <div className="flex items-center flex-wrap gap-1.5" aria-label={`Projects aligned to this goal: ${linkedProjects.map(p => p.name).join(', ')}`}>
+          {linkedProjects.map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[5px] text-[0.6rem] font-medium border border-[rgba(83,201,255,0.2)] bg-[rgba(83,201,255,0.06)] text-[rgba(83,201,255,0.8)]"
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeOpacity="0.7"/></svg>
+              {p.name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -205,6 +222,10 @@ function AddGoalForm({ onAdd, onCancel }: { onAdd: (goal: Omit<GoalRecord, 'id' 
 export function GoalProgressPanel() {
   const { missionCommand, refreshRuntime } = useDashboard()
   const goals = missionCommand.goals ?? []
+  const projects = missionCommand.projects ?? []
+
+  const getLinkedProjects = (goalId: string) =>
+    projects.filter((p) => p.goalIds?.includes(goalId)).map((p) => ({ id: p.id, name: p.name }))
   const [showAdd, setShowAdd] = useState(false)
 
   async function handleUpdate(id: string, patch: Partial<GoalRecord>) {
@@ -244,7 +265,7 @@ export function GoalProgressPanel() {
       ) : (
         <div role="list" aria-label="Mission goals">
           {goals.map((goal) => (
-            <GoalRow key={goal.id} goal={goal} onUpdate={handleUpdate} />
+            <GoalRow key={goal.id} goal={goal} onUpdate={handleUpdate} linkedProjects={getLinkedProjects(goal.id)} />
           ))}
         </div>
       )}

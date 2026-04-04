@@ -94,4 +94,12 @@ export class AuthStore {
       return false
     }
   }
+
+  async rotateApiKey(): Promise<string> {
+    const cfg = await this.read()
+    if (!cfg?.setupComplete) throw new Error('Auth not configured — run setup first')
+    const newKey = crypto.randomBytes(32).toString('hex')
+    await this.write({ ...cfg, apiKey: newKey })
+    return newKey
+  }
 }

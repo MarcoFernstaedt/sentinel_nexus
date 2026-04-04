@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'echo \"\"; if curl -sf http://localhost:3001/health > /dev/null 2>&1; then echo \"✓  Nexus API is running on http://localhost:3001\"; STATUS=$(curl -sf http://localhost:3001/api/auth/status 2>/dev/null); if echo \"$STATUS\" | grep -q '\"setupComplete\":true'; then echo \"✓  Auth is configured — API key visible in Settings → Auth & Access\"; else echo \"⚠  First-run setup needed — visit http://localhost:3000/setup\"; fi; else echo \"⚠  Nexus API is offline — start it with: npm run dev:api\"; echo \"    Data is stored at ~/.openclaw/data/nexus/\"; fi; echo \"\"'"
+          }
+        ]
+      }
+    ]
+  }
+}

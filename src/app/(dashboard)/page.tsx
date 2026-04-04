@@ -1,3 +1,5 @@
+'use client'
+
 import { MetricRibbon } from '@/src/components/dashboard/MetricRibbon'
 import { MissionProgressPanel } from '@/src/components/dashboard/MissionProgressPanel'
 import { OperatorQueue } from '@/src/components/dashboard/OperatorQueue'
@@ -10,10 +12,22 @@ import { RecentActivity } from '@/src/components/dashboard/RecentActivity'
 import { AgentStatusList } from '@/src/components/dashboard/AgentStatusList'
 import { GoalProgressPanel } from '@/src/components/dashboard/GoalProgressPanel'
 import { HabitTrackerPanel } from '@/src/components/dashboard/HabitTrackerPanel'
+import { WelcomePanel } from '@/src/components/dashboard/WelcomePanel'
+import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 
 export default function DashboardPage() {
+  const { runtimeTasks, missionCommand, apiState } = useDashboard()
+  const isFirstRun =
+    apiState === 'connected' &&
+    runtimeTasks.length === 0 &&
+    (missionCommand.goals ?? []).length === 0 &&
+    (missionCommand.habits ?? []).length === 0
+
   return (
     <div className="px-5 py-5 grid gap-5 max-w-[1600px]">
+
+      {/* First-run onboarding — shown until operator creates first task or goal */}
+      {isFirstRun && <WelcomePanel />}
 
       {/* Row 1: Key metrics */}
       <MetricRibbon />

@@ -113,10 +113,6 @@ export function validateTaskCreate(
     }
   }
 
-  if (status === 'In Progress' && owner) {
-    return validateSingleActiveTask(owner, existingTasks)
-  }
-
   return { ok: true }
 }
 

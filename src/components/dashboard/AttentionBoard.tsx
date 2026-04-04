@@ -74,12 +74,17 @@ function AttentionColumn({ col }: { col: BoardColumn }) {
 }
 
 export function AttentionBoard() {
-  const { runtimeTasks } = useDashboard()
+  const { runtimeTasks, missionCommand } = useDashboard()
   const { tasks: localTasks, projects } = useProjectsStore()
   const isOffline = runtimeTasks.length === 0
 
   const headingId = 'attention-board-heading'
 
+  // API mode: look up project name from missionCommand.projects
+  const getApiProjectName = (projectId?: string) =>
+    projectId ? missionCommand.projects.find((p) => p.id === projectId)?.name : undefined
+
+  // Local mode: look up from local store
   const getProjectName = (projectId?: string) =>
     projectId ? projects.find((p) => p.id === projectId)?.title : undefined
 
@@ -99,6 +104,7 @@ export function AttentionBoard() {
         tasks: activeTasks.map((t) => ({
           id: t.id, title: t.title, owner: t.owner,
           badge: t.stage ?? t.status, badgeTone: 'live',
+          projectName: getApiProjectName(t.projectId),
         })),
       },
       {
@@ -107,6 +113,7 @@ export function AttentionBoard() {
         tasks: waitingTasks.map((t) => ({
           id: t.id, title: t.title, owner: t.owner,
           badge: 'Waiting', badgeTone: 'pending',
+          projectName: getApiProjectName(t.projectId),
         })),
       },
       {
@@ -115,6 +122,7 @@ export function AttentionBoard() {
         tasks: blockedTasks.map((t) => ({
           id: t.id, title: t.title, owner: t.owner,
           badge: 'Blocked', badgeTone: 'warning',
+          projectName: getApiProjectName(t.projectId),
         })),
       },
       {
@@ -123,6 +131,7 @@ export function AttentionBoard() {
         tasks: readyTasks.map((t) => ({
           id: t.id, title: t.title, owner: t.owner,
           badge: 'Ready', badgeTone: 'default',
+          projectName: getApiProjectName(t.projectId),
         })),
       },
     ]

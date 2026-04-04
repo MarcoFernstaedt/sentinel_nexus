@@ -169,6 +169,7 @@ export interface RuntimeNote extends BaseRecordMeta {
   title: string
   body: string
   tag: string
+  projectId?: string
   updatedAt: string
 }
 
