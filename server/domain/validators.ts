@@ -58,39 +58,14 @@ export function validateTaskTransition(
 }
 
 // ---------------------------------------------------------------------------
-// Single active task per owner
-// ---------------------------------------------------------------------------
-
-export function validateSingleActiveTask(
-  owner: string,
-  tasks: TaskRecord[],
-  excludeId?: string,
-): ValidationResult {
-  const conflict = tasks.find(
-    (t) => t.owner === owner && t.status === 'In Progress' && t.id !== excludeId,
-  )
-  if (conflict) {
-    return {
-      ok: false,
-      code: 'OWNER_ALREADY_ACTIVE',
-      message: `Owner "${owner}" already has an active task in progress: "${conflict.title}" (${conflict.id}).`,
-      details: { conflictingTaskId: conflict.id, conflictingTaskTitle: conflict.title },
-    }
-  }
-  return { ok: true }
-}
-
-// ---------------------------------------------------------------------------
 // Task create validation
 // ---------------------------------------------------------------------------
 
 export function validateTaskCreate(
   input: { status?: TaskStatus; owner?: string; blockedReason?: string; summary?: string },
-  existingTasks: TaskRecord[],
+  _existingTasks: TaskRecord[],
 ): ValidationResult {
   const status = input.status ?? 'Queued'
-  const owner = (input.owner ?? '').trim()
-
   if (status === 'Blocked') {
     const reason = (input.blockedReason ?? '').trim()
     if (!reason) {
@@ -111,10 +86,6 @@ export function validateTaskCreate(
         message: 'A task created with Done status requires a summary.',
       }
     }
-  }
-
-  if (status === 'In Progress' && owner) {
-    return validateSingleActiveTask(owner, existingTasks)
   }
 
   return { ok: true }

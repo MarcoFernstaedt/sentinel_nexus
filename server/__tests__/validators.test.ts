@@ -202,37 +202,6 @@ describe('validateTaskTransition — business rules', () => {
 })
 
 // ---------------------------------------------------------------------------
-// validateSingleActiveTask
-// ---------------------------------------------------------------------------
-
-describe('validateSingleActiveTask', () => {
-  it('allows In Progress when no other active task for owner', () => {
-    const tasks = [makeTask({ id: 'task-2', owner: 'Sentinel', status: 'Queued' })]
-    const result = validateSingleActiveTask('Sentinel', tasks)
-    expect(result.ok).toBe(true)
-  })
-
-  it('rejects when owner already has an In Progress task', () => {
-    const tasks = [makeTask({ id: 'task-existing', owner: 'Sentinel', status: 'In Progress' })]
-    const result = validateSingleActiveTask('Sentinel', tasks)
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.code).toBe('OWNER_ALREADY_ACTIVE')
-  })
-
-  it('excludes the task being updated from the conflict check', () => {
-    const tasks = [makeTask({ id: 'task-self', owner: 'Sentinel', status: 'In Progress' })]
-    const result = validateSingleActiveTask('Sentinel', tasks, 'task-self')
-    expect(result.ok).toBe(true)
-  })
-
-  it('allows In Progress for a different owner', () => {
-    const tasks = [makeTask({ id: 'task-other', owner: 'Platform', status: 'In Progress' })]
-    const result = validateSingleActiveTask('Sentinel', tasks)
-    expect(result.ok).toBe(true)
-  })
-})
-
-// ---------------------------------------------------------------------------
 // validateTaskCreate
 // ---------------------------------------------------------------------------
 
@@ -240,13 +209,6 @@ describe('validateTaskCreate', () => {
   it('allows creating a Queued task with no extra requirements', () => {
     const result = validateTaskCreate({ status: 'Queued', owner: 'Sentinel' }, [])
     expect(result.ok).toBe(true)
-  })
-
-  it('rejects creating an In Progress task when owner already active', () => {
-    const existing = [makeTask({ owner: 'Sentinel', status: 'In Progress' })]
-    const result = validateTaskCreate({ status: 'In Progress', owner: 'Sentinel' }, existing)
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.code).toBe('OWNER_ALREADY_ACTIVE')
   })
 
   it('allows creating In Progress task when owner has no active task', () => {
