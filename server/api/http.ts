@@ -66,8 +66,8 @@ export function json(response: ServerResponse, statusCode: number, payload: unkn
   response.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Nexus-Key',
   })
   response.end(JSON.stringify(payload))
 }

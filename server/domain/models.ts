@@ -240,6 +240,34 @@ export interface TeamMemberRecord extends BaseRecordMeta {
   focus: string
 }
 
+export interface SubAgentRecord {
+  id: string
+  name: string
+  role: string
+  status: 'active' | 'standby' | 'blocked' | 'offline' | 'idle'
+  currentTask?: string
+  lastActivityAt: string
+}
+
+export interface AgentRecord extends BaseRecordMeta {
+  id: string
+  name: string
+  role: string
+  missionResponsibility: string
+  currentTask: string
+  currentMode: 'autonomous' | 'supervised' | 'paused' | 'maintenance'
+  model: string
+  status: 'active' | 'standby' | 'blocked' | 'offline' | 'idle'
+  alignmentStatus: 'on-track' | 'blocked' | 'idle' | 'off-track'
+  lastActivityAt: string
+  subAgents: SubAgentRecord[]
+  contributingTo: string[]
+  linkedProjectId?: string
+  linkedMissionArea: string
+  load: number
+  notes?: string
+}
+
 export interface OfficeRecord extends BaseRecordMeta {
   id: string
   label: string
@@ -276,6 +304,7 @@ export interface MissionCommandSnapshot {
   memories: MemoryRecord[]
   artifacts: ArtifactRecord[]
   team: TeamMemberRecord[]
+  agents: AgentRecord[]
   office: OfficeRecord[]
   searchIndex: SearchEntryRecord[]
   habits: HabitRecord[]

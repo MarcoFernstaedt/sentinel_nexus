@@ -1,10 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, GoalRecord, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
+import type { AgentRecord, ArtifactRecord, CalendarEventRecord, ChatModeId, GoalRecord, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
 import { ConflictError, HttpError, ValidationError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
-import { ChatService, GoalsService, HabitsService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
+import { AgentsService, ArtifactsService, ChatService, GoalsService, HabitsService, MissionCommandService, NotesService, ProjectsService, SearchService, StatusService, TasksService, TeamService } from '../application/services.js'
 import type { AuthStore } from '../infrastructure/authStore.js'
 import { requireAuth, buildSessionCookieHeader, clearSessionCookieHeader } from '../middleware/auth.js'
+import { authLimiter, apiLimiter } from '../infrastructure/rateLimiter.js'
 
 interface Services {
   chatService: ChatService
@@ -14,6 +15,11 @@ interface Services {
   missionCommandService: MissionCommandService
   goalsService: GoalsService
   habitsService: HabitsService
+  projectsService: ProjectsService
+  teamService: TeamService
+  artifactsService: ArtifactsService
+  agentsService: AgentsService
+  searchService: SearchService
   activityRepository: ActivityRepository
   authStore: AuthStore
 }
@@ -45,6 +51,15 @@ export function createRouter(services: Services) {
       // ── Auth endpoints (public) ──────────────────────────────────
       if (url.pathname.startsWith('/api/auth/')) {
         await handleAuth(method, url.pathname, request, response, services.authStore)
+        return
+      }
+
+      // ── Global API rate limit ────────────────────────────────────
+      const clientIp = (request.headers['x-forwarded-for'] as string | undefined)
+        ?.split(',')[0]?.trim() ?? '127.0.0.1'
+      const apiCheck = apiLimiter.consume(clientIp)
+      if (!apiCheck.allowed) {
+        json(response, 429, { error: 'too_many_requests', retryAfterMs: apiCheck.retryAfterMs })
         return
       }
 
@@ -373,6 +388,246 @@ export function createRouter(services: Services) {
         return
       }
 
+      // ── Projects (full CRUD) ────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/projects') {
+        json(response, 200, await services.projectsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/projects') {
+        const body = await readJson<Partial<ProjectRecord>>(request)
+        if (!body.name?.trim()) return badRequest(response, 'name is required')
+        if (!body.owner?.trim()) return badRequest(response, 'owner is required')
+        const allowedStatuses: ProjectRecord['status'][] = ['active', 'watch', 'blocked', 'parked', 'done']
+        const status = body.status && allowedStatuses.includes(body.status) ? body.status : 'active'
+        json(response, 201, await services.projectsService.create({
+          name: body.name.trim(),
+          area: body.area?.trim() ?? '',
+          status,
+          objective: body.objective?.trim() ?? '',
+          missionAlignment: body.missionAlignment?.trim() ?? '',
+          goalIds: Array.isArray(body.goalIds) ? body.goalIds : [],
+          progressPercent: Math.min(100, Math.max(0, Number(body.progressPercent) || 0)),
+          owner: body.owner.trim(),
+          targetDate: body.targetDate?.trim() || undefined,
+        }))
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/projects/')) {
+        const projectId = url.pathname.split('/').at(-1)
+        if (!projectId) return badRequest(response, 'projectId is required')
+        const deleted = await services.projectsService.delete(projectId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Team (full CRUD) ─────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/team') {
+        json(response, 200, await services.teamService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/team') {
+        const body = await readJson<Partial<TeamMemberRecord>>(request)
+        if (!body.name?.trim()) return badRequest(response, 'name is required')
+        const allowedStatuses: TeamMemberRecord['status'][] = ['active', 'limited-visibility', 'offline']
+        const status = body.status && allowedStatuses.includes(body.status) ? body.status : 'active'
+        json(response, 201, await services.teamService.create({
+          name: body.name.trim(),
+          role: body.role?.trim() ?? '',
+          status,
+          focus: body.focus?.trim() ?? '',
+        }))
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/team/')) {
+        const memberId = url.pathname.split('/').at(-1)
+        if (!memberId) return badRequest(response, 'memberId is required')
+        const deleted = await services.teamService.delete(memberId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Memories (list, update, delete) ─────────────────────────
+      if (method === 'GET' && url.pathname === '/api/memories') {
+        json(response, 200, await services.missionCommandService.listMemories())
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/memories/')) {
+        const memId = url.pathname.split('/').at(-1)
+        if (!memId) return badRequest(response, 'memoryId is required')
+        const body = await readJson<{ title?: string; summary?: string; kind?: MemoryRecord['kind']; tags?: string[] }>(request)
+        const patch: Parameters<typeof services.missionCommandService.updateMemory>[1] = {}
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.summary !== undefined) patch.summary = body.summary.trim()
+        const allowedKinds: MemoryRecord['kind'][] = ['working-memory', 'long-term-memory']
+        if (body.kind !== undefined && allowedKinds.includes(body.kind)) patch.kind = body.kind
+        if (Array.isArray(body.tags)) patch.tags = body.tags.map(String)
+        const updated = await services.missionCommandService.updateMemory(memId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/memories/')) {
+        const memId = url.pathname.split('/').at(-1)
+        if (!memId) return badRequest(response, 'memoryId is required')
+        const deleted = await services.missionCommandService.deleteMemory(memId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Calendar (list, update) ──────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/calendar') {
+        json(response, 200, await services.missionCommandService.listCalendarEvents())
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/calendar/')) {
+        const calId = url.pathname.split('/').at(-1)
+        if (!calId) return badRequest(response, 'calendarId is required')
+        const body = await readJson<{ status?: CalendarEventRecord['status']; title?: string; detail?: string; endsAt?: string }>(request)
+        const patch: Parameters<typeof services.missionCommandService.updateCalendarEvent>[1] = {}
+        const allowedCalStatuses: CalendarEventRecord['status'][] = ['scheduled', 'next-up', 'done']
+        if (body.status !== undefined && allowedCalStatuses.includes(body.status)) patch.status = body.status
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.detail !== undefined) patch.detail = body.detail.trim()
+        if (body.endsAt !== undefined) patch.endsAt = body.endsAt.trim()
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        const updated = await services.missionCommandService.updateCalendarEvent(calId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      // ── Artifacts (full CRUD) ────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/artifacts') {
+        json(response, 200, await services.artifactsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/artifacts') {
+        const body = await readJson<{ title?: string; type?: ArtifactRecord['type']; location?: string; summary?: string; relatedProjectId?: string }>(request)
+        if (!body.title?.trim()) return badRequest(response, 'title is required')
+        const allowedTypes: ArtifactRecord['type'][] = ['doc', 'artifact', 'reference']
+        const type = body.type && allowedTypes.includes(body.type) ? body.type : 'doc'
+        json(response, 201, await services.artifactsService.create({
+          title: body.title,
+          type,
+          location: body.location?.trim() ?? '',
+          summary: body.summary?.trim() ?? '',
+          relatedProjectId: body.relatedProjectId?.trim() || undefined,
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/artifacts/')) {
+        const artId = url.pathname.split('/').at(-1)
+        if (!artId) return badRequest(response, 'artifactId is required')
+        const body = await readJson<{ title?: string; type?: ArtifactRecord['type']; location?: string; summary?: string; relatedProjectId?: string }>(request)
+        const patch: Parameters<typeof services.artifactsService.update>[1] = {}
+        if (body.title !== undefined) patch.title = body.title.trim()
+        const allowedTypes: ArtifactRecord['type'][] = ['doc', 'artifact', 'reference']
+        if (body.type !== undefined && allowedTypes.includes(body.type)) patch.type = body.type
+        if (body.location !== undefined) patch.location = body.location.trim()
+        if (body.summary !== undefined) patch.summary = body.summary.trim()
+        if (body.relatedProjectId !== undefined) patch.relatedProjectId = body.relatedProjectId.trim() || undefined
+        const updated = await services.artifactsService.update(artId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/artifacts/')) {
+        const artId = url.pathname.split('/').at(-1)
+        if (!artId) return badRequest(response, 'artifactId is required')
+        const deleted = await services.artifactsService.delete(artId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Agents (full CRUD) ───────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/agents') {
+        json(response, 200, await services.agentsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/agents') {
+        const body = await readJson<Partial<AgentRecord>>(request)
+        if (!body.name?.trim()) return badRequest(response, 'name is required')
+        const allowedModes: AgentRecord['currentMode'][] = ['autonomous', 'supervised', 'paused', 'maintenance']
+        const allowedStatuses: AgentRecord['status'][] = ['active', 'standby', 'blocked', 'offline', 'idle']
+        const allowedAlignments: AgentRecord['alignmentStatus'][] = ['on-track', 'blocked', 'idle', 'off-track']
+        json(response, 201, await services.agentsService.create({
+          name: body.name.trim(),
+          role: body.role?.trim() ?? '',
+          missionResponsibility: body.missionResponsibility?.trim() ?? '',
+          currentTask: body.currentTask?.trim() ?? 'Standby',
+          currentMode: body.currentMode && allowedModes.includes(body.currentMode) ? body.currentMode : 'supervised',
+          model: body.model?.trim() ?? '',
+          status: body.status && allowedStatuses.includes(body.status) ? body.status : 'standby',
+          alignmentStatus: body.alignmentStatus && allowedAlignments.includes(body.alignmentStatus) ? body.alignmentStatus : 'on-track',
+          lastActivityAt: new Date().toISOString(),
+          subAgents: Array.isArray(body.subAgents) ? body.subAgents : [],
+          contributingTo: Array.isArray(body.contributingTo) ? body.contributingTo : [],
+          linkedProjectId: body.linkedProjectId?.trim() || undefined,
+          linkedMissionArea: body.linkedMissionArea?.trim() ?? '',
+          load: Math.min(100, Math.max(0, Number(body.load) || 0)),
+          notes: body.notes?.trim() || undefined,
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.match(/^\/api\/agents\/[^/]+$/) && !url.pathname.endsWith('/approve') && !url.pathname.endsWith('/reject')) {
+        const agentId = url.pathname.split('/').at(-1)
+        if (!agentId) return badRequest(response, 'agentId is required')
+        const body = await readJson<Partial<AgentRecord>>(request)
+        const patch: Partial<AgentRecord> = {}
+        const allowedStatuses: AgentRecord['status'][] = ['active', 'standby', 'blocked', 'offline', 'idle']
+        const allowedModes: AgentRecord['currentMode'][] = ['autonomous', 'supervised', 'paused', 'maintenance']
+        const allowedAlignments: AgentRecord['alignmentStatus'][] = ['on-track', 'blocked', 'idle', 'off-track']
+        if (body.status !== undefined && allowedStatuses.includes(body.status)) patch.status = body.status
+        if (body.currentMode !== undefined && allowedModes.includes(body.currentMode)) patch.currentMode = body.currentMode
+        if (body.alignmentStatus !== undefined && allowedAlignments.includes(body.alignmentStatus)) patch.alignmentStatus = body.alignmentStatus
+        if (body.currentTask !== undefined) patch.currentTask = body.currentTask.trim()
+        if (body.load !== undefined) patch.load = Math.min(100, Math.max(0, Number(body.load)))
+        if (body.notes !== undefined) patch.notes = body.notes.trim() || undefined
+        if (body.linkedProjectId !== undefined) patch.linkedProjectId = body.linkedProjectId.trim() || undefined
+        if (Array.isArray(body.subAgents)) patch.subAgents = body.subAgents
+        if (Array.isArray(body.contributingTo)) patch.contributingTo = body.contributingTo
+        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one valid field required')
+        const updated = await services.agentsService.update(agentId, patch)
+        if (!updated) return notFound(response)
+        json(response, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/agents/')) {
+        const agentId = url.pathname.split('/').at(-1)
+        if (!agentId) return badRequest(response, 'agentId is required')
+        const deleted = await services.agentsService.delete(agentId)
+        if (!deleted) return notFound(response)
+        json(response, 200, { ok: true })
+        return
+      }
+
+      // ── Search ───────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/search') {
+        const q = url.searchParams.get('q')?.trim()
+        if (!q) return badRequest(response, 'query param q is required')
+        const limitParam = Number(url.searchParams.get('limit') ?? '20')
+        const limit = Number.isFinite(limitParam) ? Math.min(50, Math.max(1, limitParam)) : 20
+        json(response, 200, await services.searchService.search(q, limit))
+        return
+      }
+
       // ── Activity ────────────────────────────────────────────────
       if (method === 'POST' && url.pathname === '/api/activity') {
         const body = await readJson<{ title?: string; detail?: string; type?: string }>(request)
@@ -430,6 +685,12 @@ async function handleAuth(
 
   // POST /api/auth/setup
   if (method === 'POST' && pathname === '/api/auth/setup') {
+    const ip = (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const rl = authLimiter.consume(ip)
+    if (!rl.allowed) {
+      json(response, 429, { error: 'too_many_requests', message: 'Too many auth attempts. Try again later.', retryAfterMs: rl.retryAfterMs })
+      return
+    }
     if (await authStore.isSetupComplete()) {
       json(response, 409, { error: 'already_setup', message: 'Setup already complete' })
       return
@@ -445,6 +706,12 @@ async function handleAuth(
 
   // POST /api/auth/login
   if (method === 'POST' && pathname === '/api/auth/login') {
+    const ip = (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const rl = authLimiter.consume(ip)
+    if (!rl.allowed) {
+      json(response, 429, { error: 'too_many_requests', message: 'Too many auth attempts. Try again later.', retryAfterMs: rl.retryAfterMs })
+      return
+    }
     const config = await authStore.read()
     if (!config?.setupComplete) {
       json(response, 503, { error: 'setup_required', message: 'Setup not complete' })

@@ -23,7 +23,7 @@ export interface AppConfig {
 }
 
 export function getAppConfig(): AppConfig {
-  const driver = (process.env.NEXUS_DB_DRIVER ?? 'file-json') as NexusDatabaseConfig['driver']
+  const driver = (process.env.NEXUS_DB_DRIVER ?? 'sqlite') as NexusDatabaseConfig['driver']
   const dataDirectory = process.env.NEXUS_DB_DIR
     ? path.resolve(expandHomePath(process.env.NEXUS_DB_DIR))
     : defaultDbDir

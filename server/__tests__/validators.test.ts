@@ -242,11 +242,11 @@ describe('validateTaskCreate', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('rejects creating an In Progress task when owner already active', () => {
+  it('allows creating a second In Progress task for the same owner (multi-task support)', () => {
+    // Single-task-per-owner enforcement was intentionally removed
     const existing = [makeTask({ owner: 'Sentinel', status: 'In Progress' })]
     const result = validateTaskCreate({ status: 'In Progress', owner: 'Sentinel' }, existing)
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.code).toBe('OWNER_ALREADY_ACTIVE')
+    expect(result.ok).toBe(true)
   })
 
   it('allows creating In Progress task when owner has no active task', () => {

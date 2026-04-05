@@ -5,6 +5,7 @@ import path from 'node:path'
 import { createSeedData } from '../domain/seeds.js'
 import type {
   ActivityRecord,
+  AgentRecord,
   ArtifactRecord,
   CalendarEventRecord,
   ChatMessageRecord,
@@ -18,6 +19,7 @@ import type {
   ProjectRecord,
   RecordSource,
   SearchEntryRecord,
+  SubAgentRecord,
   TaskRecord,
   TaskStage,
   TeamMemberRecord,
@@ -68,6 +70,7 @@ function rowToNote(row: Record<string, unknown>): NoteRecord {
     title: toStr(row['title']),
     body: toStr(row['body']),
     tag: toStr(row['tag']),
+    projectId: row['project_id'] ? toStr(row['project_id']) : undefined,
     updatedAt: toStr(row['updated_at']),
     source: toStr(row['source'], 'runtime') as RecordSource,
   }
@@ -201,6 +204,28 @@ function rowToTeam(row: Record<string, unknown>): TeamMemberRecord {
   }
 }
 
+function rowToAgent(row: Record<string, unknown>): AgentRecord {
+  return {
+    id: toStr(row['id']),
+    name: toStr(row['name']),
+    role: toStr(row['role']),
+    missionResponsibility: toStr(row['mission_responsibility']),
+    currentTask: toStr(row['current_task']),
+    currentMode: toStr(row['current_mode'], 'supervised') as AgentRecord['currentMode'],
+    model: toStr(row['model']),
+    status: toStr(row['status'], 'standby') as AgentRecord['status'],
+    alignmentStatus: toStr(row['alignment_status'], 'on-track') as AgentRecord['alignmentStatus'],
+    lastActivityAt: toStr(row['last_activity_at']),
+    subAgents: toArr(row['sub_agents']) as SubAgentRecord[],
+    contributingTo: toArr(row['contributing_to']) as string[],
+    linkedProjectId: row['linked_project_id'] ? toStr(row['linked_project_id']) : undefined,
+    linkedMissionArea: toStr(row['linked_mission_area']),
+    load: toInt(row['load']),
+    notes: row['notes'] ? toStr(row['notes']) : undefined,
+    source: toStr(row['source'], 'runtime') as RecordSource,
+  }
+}
+
 function rowToOffice(row: Record<string, unknown>): OfficeRecord {
   return {
     id: toStr(row['id']),
@@ -292,6 +317,21 @@ function teamToRow(r: TeamMemberRecord): Record<string, unknown> {
   return { id: r.id, name: r.name, role: r.role, status: r.status, focus: r.focus, source: r.source }
 }
 
+function agentToRow(r: AgentRecord): Record<string, unknown> {
+  return {
+    id: r.id, name: r.name, role: r.role,
+    mission_responsibility: r.missionResponsibility,
+    current_task: r.currentTask, current_mode: r.currentMode,
+    model: r.model, status: r.status, alignment_status: r.alignmentStatus,
+    last_activity_at: r.lastActivityAt,
+    sub_agents: JSON.stringify(r.subAgents),
+    contributing_to: JSON.stringify(r.contributingTo),
+    linked_project_id: r.linkedProjectId ?? null,
+    linked_mission_area: r.linkedMissionArea,
+    load: r.load, notes: r.notes ?? null, source: r.source,
+  }
+}
+
 function officeToRow(r: OfficeRecord): Record<string, unknown> {
   return { id: r.id, label: r.label, value: r.value, detail: r.detail, source: r.source }
 }
@@ -317,6 +357,15 @@ function upsertAll(db: Database.Database, table: string, rows: Record<string, un
   }
 }
 
+function upsertOne(db: Database.Database, table: string, row: Record<string, unknown>): void {
+  upsertAll(db, table, [row])
+}
+
+function deleteById(db: Database.Database, table: string, id: string): boolean {
+  const result = db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id)
+  return result.changes > 0
+}
+
 // ── SqliteStore ───────────────────────────────────────────────────
 
 export class SqliteStore {
@@ -329,14 +378,15 @@ export class SqliteStore {
     this.schemaPath = schemaPath
   }
 
-  private open(): Database.Database {
+  open(): Database.Database {
     if (this.db) return this.db
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true })
     const db = new Database(this.dbPath)
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
+    db.pragma('synchronous = NORMAL')
 
-    // Apply schema
+    // Apply schema (idempotent — uses CREATE TABLE IF NOT EXISTS)
     const schema = fs.readFileSync(this.schemaPath, 'utf8')
     db.exec(schema)
 
@@ -344,14 +394,23 @@ export class SqliteStore {
     return db
   }
 
+  close(): void {
+    if (this.db) {
+      this.db.close()
+      this.db = null
+    }
+  }
+
+  // ── Full snapshot read ────────────────────────────────────────
+
   async read(): Promise<NexusDataStore> {
     const db = this.open()
 
     // Auto-migrate from JSON file if DB is empty
     await this.migrateFromJsonIfNeeded(db)
 
-    const chatMessages = (db.prepare('SELECT * FROM chat_messages').all() as Record<string, unknown>[]).map(rowToMessage)
-    const notes = (db.prepare('SELECT * FROM notes').all() as Record<string, unknown>[]).map(rowToNote)
+    const chatMessages = (db.prepare('SELECT * FROM chat_messages ORDER BY timestamp ASC').all() as Record<string, unknown>[]).map(rowToMessage)
+    const notes = (db.prepare('SELECT * FROM notes ORDER BY updated_at DESC').all() as Record<string, unknown>[]).map(rowToNote)
     const tasks = (db.prepare('SELECT * FROM tasks').all() as Record<string, unknown>[]).map(rowToTask)
     const activity = (db.prepare('SELECT * FROM activity ORDER BY timestamp DESC').all() as Record<string, unknown>[]).map(rowToActivity)
 
@@ -363,10 +422,11 @@ export class SqliteStore {
 
     const goals = (db.prepare('SELECT * FROM goals').all() as Record<string, unknown>[]).map(rowToGoal)
     const projects = (db.prepare('SELECT * FROM projects').all() as Record<string, unknown>[]).map(rowToProject)
-    const calendar = (db.prepare('SELECT * FROM calendar').all() as Record<string, unknown>[]).map(rowToCalendar)
-    const memories = (db.prepare('SELECT * FROM memories').all() as Record<string, unknown>[]).map(rowToMemory)
-    const artifacts = (db.prepare('SELECT * FROM artifacts').all() as Record<string, unknown>[]).map(rowToArtifact)
+    const calendar = (db.prepare('SELECT * FROM calendar ORDER BY starts_at ASC').all() as Record<string, unknown>[]).map(rowToCalendar)
+    const memories = (db.prepare('SELECT * FROM memories ORDER BY updated_at DESC').all() as Record<string, unknown>[]).map(rowToMemory)
+    const artifacts = (db.prepare('SELECT * FROM artifacts ORDER BY updated_at DESC').all() as Record<string, unknown>[]).map(rowToArtifact)
     const team = (db.prepare('SELECT * FROM team').all() as Record<string, unknown>[]).map(rowToTeam)
+    const agents = (db.prepare('SELECT * FROM agents').all() as Record<string, unknown>[]).map(rowToAgent)
     const office = (db.prepare('SELECT * FROM office').all() as Record<string, unknown>[]).map(rowToOffice)
     const searchIndex = (db.prepare('SELECT * FROM search_index').all() as Record<string, unknown>[]).map(rowToSearchEntry)
     const habits = (db.prepare('SELECT * FROM habits').all() as Record<string, unknown>[]).map(rowToHabit)
@@ -376,9 +436,11 @@ export class SqliteStore {
       notes,
       tasks,
       activity,
-      missionCommand: { mission, goals, projects, calendar, memories, artifacts, team, office, searchIndex, habits },
+      missionCommand: { mission, goals, projects, calendar, memories, artifacts, team, agents, office, searchIndex, habits },
     }
   }
+
+  // ── Bulk write (used for seeding and migration) ───────────────
 
   async write(store: NexusDataStore): Promise<void> {
     const db = this.open()
@@ -397,6 +459,7 @@ export class SqliteStore {
       db.exec('DELETE FROM memories')
       db.exec('DELETE FROM artifacts')
       db.exec('DELETE FROM team')
+      db.exec('DELETE FROM agents')
       db.exec('DELETE FROM office')
       db.exec('DELETE FROM search_index')
       db.exec('DELETE FROM habits')
@@ -412,11 +475,216 @@ export class SqliteStore {
       upsertAll(db, 'memories', mc.memories.map(memoryToRow))
       upsertAll(db, 'artifacts', mc.artifacts.map(artifactToRow))
       upsertAll(db, 'team', mc.team.map(teamToRow))
+      upsertAll(db, 'agents', (mc.agents ?? []).map(agentToRow))
       upsertAll(db, 'office', mc.office.map(officeToRow))
       upsertAll(db, 'search_index', mc.searchIndex.map(searchEntryToRow))
       upsertAll(db, 'habits', (mc.habits ?? []).map(habitToRow))
     })()
   }
+
+  // ── Targeted entity methods (no full read/write cycle) ────────
+
+  // Chat
+  insertMessages(messages: ChatMessageRecord[]): void {
+    const db = this.open()
+    db.transaction(() => { upsertAll(db, 'chat_messages', messages.map(messageToRow)) })()
+  }
+
+  // Notes
+  insertNote(note: NoteRecord): void {
+    upsertOne(this.open(), 'notes', noteToRow(note))
+  }
+
+  // Tasks
+  insertTask(task: TaskRecord): void {
+    upsertOne(this.open(), 'tasks', taskToRow(task))
+  }
+
+  updateTask(id: string, patch: Partial<TaskRecord>): TaskRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: TaskRecord = { ...rowToTask(existing), ...patch }
+    upsertOne(db, 'tasks', taskToRow(merged))
+    return merged
+  }
+
+  // Activity
+  insertActivity(entry: ActivityRecord): void {
+    upsertOne(this.open(), 'activity', activityToRow(entry))
+  }
+
+  trimActivity(limit: number): void {
+    const db = this.open()
+    db.prepare(`
+      DELETE FROM activity WHERE id NOT IN (
+        SELECT id FROM activity ORDER BY timestamp DESC LIMIT ?
+      )
+    `).run(limit)
+  }
+
+  // Mission
+  upsertMission(mission: MissionRecord): void {
+    upsertOne(this.open(), 'mission', missionToRow(mission))
+  }
+
+  // Goals
+  insertGoal(goal: GoalRecord): void {
+    upsertOne(this.open(), 'goals', goalToRow(goal))
+  }
+
+  updateGoal(id: string, patch: Partial<GoalRecord>): GoalRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM goals WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: GoalRecord = { ...rowToGoal(existing), ...patch }
+    upsertOne(db, 'goals', goalToRow(merged))
+    return merged
+  }
+
+  deleteGoal(id: string): boolean {
+    return deleteById(this.open(), 'goals', id)
+  }
+
+  // Projects
+  insertProject(project: ProjectRecord): void {
+    upsertOne(this.open(), 'projects', projectToRow(project))
+  }
+
+  updateProject(id: string, patch: Partial<ProjectRecord>): ProjectRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: ProjectRecord = { ...rowToProject(existing), ...patch }
+    upsertOne(db, 'projects', projectToRow(merged))
+    return merged
+  }
+
+  deleteProject(id: string): boolean {
+    return deleteById(this.open(), 'projects', id)
+  }
+
+  // Calendar
+  insertCalendarEvent(event: CalendarEventRecord): void {
+    upsertOne(this.open(), 'calendar', calendarToRow(event))
+  }
+
+  updateCalendarEvent(id: string, patch: Partial<CalendarEventRecord>): CalendarEventRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM calendar WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: CalendarEventRecord = { ...rowToCalendar(existing), ...patch }
+    upsertOne(db, 'calendar', calendarToRow(merged))
+    return merged
+  }
+
+  // Memories
+  insertMemory(memory: MemoryRecord): void {
+    upsertOne(this.open(), 'memories', memoryToRow(memory))
+  }
+
+  updateMemory(id: string, patch: Partial<MemoryRecord>): MemoryRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM memories WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: MemoryRecord = { ...rowToMemory(existing), ...patch }
+    upsertOne(db, 'memories', memoryToRow(merged))
+    return merged
+  }
+
+  deleteMemory(id: string): boolean {
+    return deleteById(this.open(), 'memories', id)
+  }
+
+  // Artifacts
+  insertArtifact(artifact: ArtifactRecord): void {
+    upsertOne(this.open(), 'artifacts', artifactToRow(artifact))
+  }
+
+  updateArtifact(id: string, patch: Partial<ArtifactRecord>): ArtifactRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM artifacts WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: ArtifactRecord = { ...rowToArtifact(existing), ...patch }
+    upsertOne(db, 'artifacts', artifactToRow(merged))
+    return merged
+  }
+
+  deleteArtifact(id: string): boolean {
+    return deleteById(this.open(), 'artifacts', id)
+  }
+
+  // Team
+  insertTeamMember(member: TeamMemberRecord): void {
+    upsertOne(this.open(), 'team', teamToRow(member))
+  }
+
+  updateTeamMember(id: string, patch: Partial<TeamMemberRecord>): TeamMemberRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM team WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: TeamMemberRecord = { ...rowToTeam(existing), ...patch }
+    upsertOne(db, 'team', teamToRow(merged))
+    return merged
+  }
+
+  deleteTeamMember(id: string): boolean {
+    return deleteById(this.open(), 'team', id)
+  }
+
+  // Agents
+  insertAgent(agent: AgentRecord): void {
+    upsertOne(this.open(), 'agents', agentToRow(agent))
+  }
+
+  updateAgent(id: string, patch: Partial<AgentRecord>): AgentRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM agents WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: AgentRecord = { ...rowToAgent(existing), ...patch }
+    upsertOne(db, 'agents', agentToRow(merged))
+    return merged
+  }
+
+  deleteAgent(id: string): boolean {
+    return deleteById(this.open(), 'agents', id)
+  }
+
+  // Habits
+  insertHabit(habit: HabitRecord): void {
+    upsertOne(this.open(), 'habits', habitToRow(habit))
+  }
+
+  updateHabit(id: string, patch: Partial<HabitRecord>): HabitRecord | null {
+    const db = this.open()
+    const existing = db.prepare('SELECT * FROM habits WHERE id = ?').get(id) as Record<string, unknown> | undefined
+    if (!existing) return null
+    const merged: HabitRecord = { ...rowToHabit(existing), ...patch }
+    upsertOne(db, 'habits', habitToRow(merged))
+    return merged
+  }
+
+  deleteHabit(id: string): boolean {
+    return deleteById(this.open(), 'habits', id)
+  }
+
+  // Search
+  searchEntities(query: string, limit = 20): SearchEntryRecord[] {
+    const db = this.open()
+    const q = `%${query.toLowerCase()}%`
+    return (db.prepare(`
+      SELECT * FROM search_index
+      WHERE lower(title) LIKE ? OR lower(summary) LIKE ?
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `).all(q, q, limit) as Record<string, unknown>[]).map(rowToSearchEntry)
+  }
+
+  upsertSearchEntry(entry: SearchEntryRecord): void {
+    upsertOne(this.open(), 'search_index', searchEntryToRow(entry))
+  }
+
+  // ── Migration ──────────────────────────────────────────────────
 
   private async migrateFromJsonIfNeeded(db: Database.Database): Promise<void> {
     // Only migrate if the DB has zero tasks AND a JSON file exists

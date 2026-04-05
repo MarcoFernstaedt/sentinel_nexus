@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import process from 'node:process'
 import type {
   ActivityRecord,
+  AgentRecord,
+  ArtifactRecord,
   CalendarEventRecord,
   ChatModeId,
   ChatMessageRecord,
@@ -19,6 +21,7 @@ import type {
   RuntimeScheduleVisibility,
   RuntimeVisibilitySurface,
   RuntimeWorkstreamSnapshot,
+  SearchEntryRecord,
   TaskRecord,
   TaskStage,
   TaskStatus,
@@ -27,7 +30,21 @@ import type {
 import type { AppConfig } from '../config/env.js'
 import { ConflictError, ValidationError } from '../api/http.js'
 import { validateCalendarCreate, validateMemoryCreate, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
-import { ActivityRepository, ChatRepository, GoalsRepository, HabitsRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import {
+  ActivityRepository,
+  AgentsRepository,
+  ArtifactsRepository,
+  ChatRepository,
+  GoalsRepository,
+  HabitsRepository,
+  MissionCommandRepository,
+  NotesRepository,
+  ProjectsRepository,
+  SearchRepository,
+  StatusRepository,
+  TasksRepository,
+  TeamRepository,
+} from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -321,12 +338,13 @@ export class NotesService {
     return this.repository.list()
   }
 
-  async create(input: Pick<NoteRecord, 'title' | 'body' | 'tag'>) {
+  async create(input: Pick<NoteRecord, 'title' | 'body' | 'tag'> & { projectId?: string }) {
     const note = await this.repository.create({
       id: `note-${crypto.randomUUID()}`,
       title: input.title.trim(),
       body: input.body.trim(),
       tag: input.tag.trim() || 'general',
+      projectId: input.projectId?.trim() || undefined,
       updatedAt: timestampNow(),
       source: 'runtime',
     })
@@ -784,6 +802,50 @@ export class MissionCommandService {
     } as ActivityRecord)
     return created
   }
+
+  async listMemories(): Promise<MemoryRecord[]> {
+    return this.repository.listMemories()
+  }
+
+  async updateMemory(id: string, patch: Partial<Pick<MemoryRecord, 'title' | 'summary' | 'kind' | 'tags'>>): Promise<MemoryRecord | null> {
+    const updated = await this.repository.updateMemory(id, { ...patch, updatedAt: new Date().toISOString() })
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Memory updated: ${updated.title}`,
+        detail: updated.kind,
+        timestamp: new Date().toISOString(),
+        status: 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async deleteMemory(id: string): Promise<boolean> {
+    const deleted = await this.repository.deleteMemory(id)
+    if (deleted) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: 'Memory deleted',
+        detail: id,
+        timestamp: new Date().toISOString(),
+        status: 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return deleted
+  }
+
+  async listCalendarEvents(): Promise<CalendarEventRecord[]> {
+    return this.repository.listCalendarEvents()
+  }
+
+  async updateCalendarEvent(id: string, patch: Partial<Pick<CalendarEventRecord, 'status' | 'title' | 'detail' | 'endsAt'>>): Promise<CalendarEventRecord | null> {
+    return this.repository.updateCalendarEvent(id, patch)
+  }
 }
 
 export class GoalsService {
@@ -892,5 +954,213 @@ export class HabitsService {
 
   async delete(id: string): Promise<boolean> {
     return this.repository.delete(id)
+  }
+}
+
+// ── ProjectsService ───────────────────────────────────────────────
+
+export class ProjectsService {
+  constructor(
+    private readonly repository: ProjectsRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  list(): Promise<ProjectRecord[]> {
+    return this.repository.list()
+  }
+
+  get(id: string): Promise<ProjectRecord | null> {
+    return this.repository.get(id)
+  }
+
+  async create(input: Omit<ProjectRecord, 'id' | 'source'>): Promise<ProjectRecord> {
+    const project: ProjectRecord = {
+      ...input,
+      id: `project-${crypto.randomUUID()}`,
+      source: 'runtime',
+    }
+    const created = await this.repository.create(project)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Project created: ${created.name}`,
+      detail: `${created.area} · ${created.status}`,
+      timestamp: timestampNow(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async update(id: string, patch: Partial<ProjectRecord>): Promise<ProjectRecord | null> {
+    const updated = await this.repository.update(id, patch)
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Project updated: ${updated.name}`,
+        detail: patch.status ? `Status → ${patch.status}` : patch.progressPercent !== undefined ? `Progress → ${patch.progressPercent}%` : 'Project patched.',
+        timestamp: timestampNow(),
+        status: updated.status === 'blocked' ? 'watch' : updated.status === 'done' ? 'done' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
+  }
+}
+
+// ── TeamService ───────────────────────────────────────────────────
+
+export class TeamService {
+  constructor(
+    private readonly repository: TeamRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  list(): Promise<TeamMemberRecord[]> {
+    return this.repository.list()
+  }
+
+  async create(input: Omit<TeamMemberRecord, 'id' | 'source'>): Promise<TeamMemberRecord> {
+    const member: TeamMemberRecord = {
+      ...input,
+      id: `team-${crypto.randomUUID()}`,
+      source: 'runtime',
+    }
+    const created = await this.repository.create(member)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Team member added: ${created.name}`,
+      detail: created.role,
+      timestamp: timestampNow(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async update(id: string, patch: Partial<TeamMemberRecord>): Promise<TeamMemberRecord | null> {
+    return this.repository.update(id, patch)
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
+  }
+}
+
+// ── ArtifactsService ──────────────────────────────────────────────
+
+export class ArtifactsService {
+  constructor(
+    private readonly repository: ArtifactsRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  list(): Promise<ArtifactRecord[]> {
+    return this.repository.list()
+  }
+
+  async create(input: Pick<ArtifactRecord, 'title' | 'type' | 'location' | 'summary'> & { relatedProjectId?: string }): Promise<ArtifactRecord> {
+    const artifact: ArtifactRecord = {
+      id: `artifact-${crypto.randomUUID()}`,
+      title: input.title.trim(),
+      type: input.type,
+      location: input.location.trim(),
+      updatedAt: timestampNow(),
+      summary: input.summary.trim(),
+      relatedProjectId: input.relatedProjectId?.trim() || undefined,
+      source: 'runtime',
+    }
+    const created = await this.repository.create(artifact)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Artifact saved: ${created.title}`,
+      detail: `${created.type} · ${created.location}`,
+      timestamp: timestampNow(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async update(id: string, patch: Partial<Pick<ArtifactRecord, 'title' | 'type' | 'location' | 'summary' | 'relatedProjectId'>>): Promise<ArtifactRecord | null> {
+    return this.repository.update(id, { ...patch, updatedAt: timestampNow() })
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
+  }
+}
+
+// ── AgentsService ─────────────────────────────────────────────────
+
+export class AgentsService {
+  constructor(
+    private readonly repository: AgentsRepository,
+    private readonly activityRepository: ActivityRepository,
+  ) {}
+
+  list(): Promise<AgentRecord[]> {
+    return this.repository.list()
+  }
+
+  get(id: string): Promise<AgentRecord | null> {
+    return this.repository.get(id)
+  }
+
+  async create(input: Omit<AgentRecord, 'id' | 'source'>): Promise<AgentRecord> {
+    const agent: AgentRecord = {
+      ...input,
+      id: `agent-${crypto.randomUUID()}`,
+      source: 'runtime',
+    }
+    const created = await this.repository.create(agent)
+    await this.activityRepository.append({
+      id: `activity-${crypto.randomUUID()}`,
+      type: 'status',
+      title: `Agent registered: ${created.name}`,
+      detail: `${created.role} · ${created.model}`,
+      timestamp: timestampNow(),
+      status: 'logged',
+      source: 'runtime',
+    } as ActivityRecord)
+    return created
+  }
+
+  async update(id: string, patch: Partial<AgentRecord>): Promise<AgentRecord | null> {
+    const updated = await this.repository.update(id, { ...patch, lastActivityAt: timestampNow() })
+    if (updated) {
+      await this.activityRepository.append({
+        id: `activity-${crypto.randomUUID()}`,
+        type: 'status',
+        title: `Agent updated: ${updated.name}`,
+        detail: patch.status ? `Status → ${patch.status}` : patch.currentTask ? `Task → ${patch.currentTask}` : 'Agent patched.',
+        timestamp: timestampNow(),
+        status: updated.status === 'blocked' ? 'watch' : updated.status === 'offline' ? 'watch' : 'logged',
+        source: 'runtime',
+      } as ActivityRecord)
+    }
+    return updated
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.repository.delete(id)
+  }
+}
+
+// ── SearchService ─────────────────────────────────────────────────
+
+export class SearchService {
+  constructor(private readonly repository: SearchRepository) {}
+
+  search(query: string, limit?: number): Promise<SearchEntryRecord[]> {
+    if (!query.trim()) return Promise.resolve([])
+    return this.repository.search(query.trim(), limit)
   }
 }
