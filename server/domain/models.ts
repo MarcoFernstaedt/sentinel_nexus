@@ -107,6 +107,22 @@ export interface RuntimeScheduleVisibility {
   meetings: RuntimeScheduleSurface
 }
 
+export interface RuntimeBuildHealthSnapshot {
+  state: 'healthy' | 'watch' | 'unknown'
+  label: 'Healthy' | 'Watch' | 'Unknown'
+  detail: string
+  web: {
+    built: boolean
+    buildId: string | null
+    builtAt: string | null
+    stage: string | null
+  }
+  api: {
+    built: boolean
+    builtAt: string | null
+  }
+}
+
 export interface RuntimeMissionAlignmentSnapshot {
   sourceDocument: string
   priorities: string[]
@@ -150,6 +166,7 @@ export interface RuntimeContextSnapshot {
     visibility: RuntimeVisibilitySurface[]
     documents: RuntimeDocumentSurface[]
     schedule: RuntimeScheduleVisibility
+    buildHealth: RuntimeBuildHealthSnapshot
     missionAlignment: RuntimeMissionAlignmentSnapshot
     suggestions: string[]
   }

@@ -8,6 +8,9 @@ import { NextActionsPanel } from '@/src/components/dashboard/NextActionsPanel'
 import { AttentionBoard } from '@/src/components/dashboard/AttentionBoard'
 import { RecentActivity } from '@/src/components/dashboard/RecentActivity'
 import { AgentStatusList } from '@/src/components/dashboard/AgentStatusList'
+import { ScheduleHealthPanel } from '@/src/components/dashboard/ScheduleHealthPanel'
+import { ExecutionProofPanel } from '@/src/components/dashboard/ExecutionProofPanel'
+import { RuntimePulsePanel } from '@/src/components/dashboard/RuntimePulsePanel'
 
 export default function DashboardPage() {
   return (
@@ -21,6 +24,15 @@ export default function DashboardPage() {
 
       {/* Row 2.5: Operator queue — tasks assigned to operator or pending approval */}
       <OperatorQueue />
+
+      {/* Row 2.75: Reminder / schedule truth surfaces */}
+      <ScheduleHealthPanel />
+
+      {/* Row 2.9: Current mission and proof */}
+      <ExecutionProofPanel />
+
+      {/* Row 2.95: Small runtime truth strip */}
+      <RuntimePulsePanel />
 
       {/* Row 3: Immediate operator guidance + intelligence */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] gap-4 items-start">

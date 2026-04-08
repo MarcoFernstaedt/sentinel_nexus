@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { ChevronRight, CircleAlert, CheckCircle2, Clock3, Target } from 'lucide-react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
 import { useDashboard } from './DashboardDataProvider'
+import { RuntimeTaskDetailSheet } from './RuntimeTaskDetailSheet'
 import type { RuntimeTask } from '@/src/features/chat/model/types'
 
 function rankTask(task: RuntimeTask): number {
@@ -31,9 +33,16 @@ function detailForAction(task: RuntimeTask): string {
   return `${task.owner} · ${task.lane}`
 }
 
-function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean }) {
+function helperTextForAction(task: RuntimeTask): string | null {
+  if (task.status === 'Blocked') return task.waitingFor ? `To unblock: ${task.waitingFor}` : 'Open details to see the blocker context.'
+  if (task.needsUserInput && task.waitingFor) return `Needed now: ${task.waitingFor}`
+  return null
+}
+
+function ActionCard({ task, primary, onOpen }: { task: RuntimeTask; primary?: boolean; onOpen: (task: RuntimeTask) => void }) {
   const label = titleForAction(task)
   const detail = detailForAction(task)
+  const helper = helperTextForAction(task)
   const actionSummary = `${label}: ${task.title}. ${detail}`
   const icon = task.status === 'Blocked'
     ? <CircleAlert size={14} className="text-accent-warn" aria-hidden />
@@ -62,12 +71,27 @@ function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean })
         </StatusBadge>
       </div>
       <p className="text-[0.68rem] text-text-2 leading-relaxed">{detail}</p>
-      <div className="flex items-center gap-2 text-[0.62rem] text-text-3 font-mono">
-        <span>{task.owner}</span>
-        <span>·</span>
-        <span>{task.lane}</span>
-        <span>·</span>
-        <span>{task.id}</span>
+      {helper ? (
+        <p className="text-[0.65rem] leading-relaxed text-text-1 rounded-[8px] border border-soft bg-[rgba(255,255,255,0.02)] px-2.5 py-2">
+          {helper}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[0.62rem] text-text-3 font-mono min-w-0">
+          <span>{task.owner}</span>
+          <span>·</span>
+          <span>{task.lane}</span>
+          <span>·</span>
+          <span className="truncate">{task.id}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onOpen(task)}
+          className="text-[0.64rem] font-medium text-accent-cyan hover:text-text-0 transition-colors"
+          aria-label={`Open details for ${task.title}`}
+        >
+          Open details
+        </button>
       </div>
     </div>
   )
@@ -75,6 +99,7 @@ function ActionCard({ task, primary }: { task: RuntimeTask; primary?: boolean })
 
 export function NextActionsPanel() {
   const { runtimeTasks } = useDashboard()
+  const [selectedTask, setSelectedTask] = useState<RuntimeTask | null>(null)
 
   const actionable = runtimeTasks
     .filter((task) => task.status !== 'Done')
@@ -85,35 +110,38 @@ export function NextActionsPanel() {
   const headingId = 'next-actions-heading'
 
   return (
-    <Surface
-      header={
-        <SectionHeading
-          id={headingId}
-          eyebrow="Operator"
-          title="Next Actions"
-          description="The clearest immediate actions surfaced from live task state"
-        />
-      }
-      labelledBy={headingId}
-    >
-      {primary ? (
-        <div className="grid gap-3">
-          <ActionCard task={primary} primary />
-          {next.length > 0 && (
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.12em] text-text-3 font-medium">
-                <ChevronRight size={12} aria-hidden />
-                <span>After that</span>
+    <>
+        <Surface
+        header={
+          <SectionHeading
+            id={headingId}
+            eyebrow="Operator"
+            title="Next Actions"
+            description="The clearest immediate actions surfaced from live task state"
+          />
+        }
+        labelledBy={headingId}
+      >
+        {primary ? (
+          <div className="grid gap-3">
+            <ActionCard task={primary} primary onOpen={setSelectedTask} />
+            {next.length > 0 && (
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.12em] text-text-3 font-medium">
+                  <ChevronRight size={12} aria-hidden />
+                  <span>After that</span>
+                </div>
+                {next.map((task) => (
+                  <ActionCard key={task.id} task={task} onOpen={setSelectedTask} />
+                ))}
               </div>
-              {next.map((task) => (
-                <ActionCard key={task.id} task={task} />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-[0.72rem] text-text-3 text-center py-4">No immediate actions surfaced</p>
-      )}
-    </Surface>
+            )}
+          </div>
+        ) : (
+          <p className="text-[0.72rem] text-text-3 text-center py-4">No immediate actions surfaced</p>
+        )}
+      </Surface>
+      <RuntimeTaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
+    </>
   )
 }

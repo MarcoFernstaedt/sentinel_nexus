@@ -1,9 +1,21 @@
 # Nexus runtime plan
 
+> **Superseded as a stack-description document.** Preserve this file for runtime-truth principles and planning history, but do **not** treat its original frontend-stack wording as current reality.
+>
+> Current operator entry points:
+> - `README.md`
+> - `docs/current-state.md`
+> - `docs/ui-architecture-roadmap.md`
+>
+> Current live stack:
+> - Next.js frontend on port `3000`
+> - TypeScript Node API on port `3001`
+> - File-backed Nexus-owned persistence under `~/.openclaw/data/nexus`
+>
 ## Current state
 Nexus is already a same-repo full-stack app:
 
-- React/Vite frontend on port `3000`
+- Next.js frontend on port `3000`
 - TypeScript Node API on port `3001`
 - File-backed Nexus-owned persistence under `~/.openclaw/data/nexus`
 - Truthful runtime/bootstrap/task/note/chat surfaces through `/api/*`
@@ -25,10 +37,10 @@ Do not expand into broad memory, cross-user collaboration, generic admin surface
 ## Source of truth split
 
 ### Frontend now
-- Vite/React shell
+- Next.js app-router shell
 - Local prompt history and offline fallback
 - Operator-facing mode labels
-- Same-origin API access in dev via Vite proxy
+- Same-origin API access by default, with optional explicit API-base override
 - Explicit live-vs-seeded truth labels
 
 ### Backend now

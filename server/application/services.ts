@@ -1,4 +1,5 @@
 import { existsSync, statSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import type {
@@ -12,6 +13,7 @@ import type {
   NexusStatusSnapshot,
   NoteRecord,
   ProjectRecord,
+  RuntimeBuildHealthSnapshot,
   RuntimeContextSnapshot,
   RuntimeDocumentSurface,
   RuntimeScheduleVisibility,
@@ -54,9 +56,19 @@ function describeTaskState(task: TaskRecord) {
   return task.summary?.trim() || `${task.stage} stage in ${task.lane}.`
 }
 
+function safeFileTimestamp(path: string): string | null {
+  if (!existsSync(path)) return null
+
+  try {
+    return statSync(path).mtime.toISOString()
+  } catch {
+    return null
+  }
+}
+
 function createDocumentSurface(path: string, label: string, summary: string): RuntimeDocumentSurface {
   const exists = existsSync(path)
-  const updatedAt = exists ? statSync(path).mtime.toISOString() : null
+  const updatedAt = safeFileTimestamp(path)
 
   return {
     id: `document-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
@@ -68,10 +80,100 @@ function createDocumentSurface(path: string, label: string, summary: string): Ru
   }
 }
 
-function createScheduleVisibility(mission: MissionCommandSnapshot, documents: RuntimeDocumentSurface[]): RuntimeScheduleVisibility {
+interface CronJobStateSnapshot {
+  name: string
+  enabled: boolean
+  nextRunAtMs?: number
+  lastRunAtMs?: number
+  lastRunStatus?: string
+  lastDeliveryStatus?: string
+  consecutiveErrors?: number
+}
+
+async function readCronJobState(workspaceRoot: string): Promise<CronJobStateSnapshot[] | null> {
+  const cronJobsPath = join(workspaceRoot, '..', 'cron', 'jobs.json')
+
+  try {
+    const raw = await readFile(cronJobsPath, 'utf8')
+    const parsed = JSON.parse(raw) as { jobs?: Array<Record<string, unknown>> }
+    if (!Array.isArray(parsed.jobs)) return []
+
+    return parsed.jobs.map((job) => {
+      const state = typeof job.state === 'object' && job.state ? job.state as Record<string, unknown> : {}
+      return {
+        name: typeof job.name === 'string' ? job.name : 'unnamed-job',
+        enabled: job.enabled !== false,
+        nextRunAtMs: typeof state.nextRunAtMs === 'number' ? state.nextRunAtMs : undefined,
+        lastRunAtMs: typeof state.lastRunAtMs === 'number' ? state.lastRunAtMs : undefined,
+        lastRunStatus: typeof state.lastRunStatus === 'string' ? state.lastRunStatus : undefined,
+        lastDeliveryStatus: typeof state.lastDeliveryStatus === 'string' ? state.lastDeliveryStatus : undefined,
+        consecutiveErrors: typeof state.consecutiveErrors === 'number' ? state.consecutiveErrors : undefined,
+      }
+    })
+  } catch {
+    return null
+  }
+}
+
+function formatCronTimestamp(timestampMs?: number): string | null {
+  if (!timestampMs) return null
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/Phoenix',
+    }).format(new Date(timestampMs))
+  } catch {
+    return null
+  }
+}
+
+async function createScheduleVisibility(
+  workspaceRoot: string,
+  mission: MissionCommandSnapshot,
+  documents: RuntimeDocumentSurface[],
+): Promise<RuntimeScheduleVisibility> {
   const upcoming = mission.calendar.filter((item) => item.status !== 'done')
   const meetings = upcoming.filter((item) => item.type === 'meeting')
   const heartbeatVisible = documents.some((document) => document.path.endsWith('HEARTBEAT.md') && document.exists)
+  const cronJobs = await readCronJobState(workspaceRoot)
+
+  const enabledJobs = cronJobs?.filter((job) => job.enabled) ?? []
+  const failingJobs = enabledJobs.filter((job) => job.lastRunStatus === 'error' || (job.consecutiveErrors ?? 0) > 0)
+  const deliveryIssues = enabledJobs.filter(
+    (job) => job.lastDeliveryStatus === 'not-delivered' || job.lastDeliveryStatus === 'unknown',
+  )
+  const nextRunJob = enabledJobs
+    .filter((job) => typeof job.nextRunAtMs === 'number')
+    .sort((left, right) => (left.nextRunAtMs ?? Number.MAX_SAFE_INTEGER) - (right.nextRunAtMs ?? Number.MAX_SAFE_INTEGER))[0]
+
+  const nextRunLabel = nextRunJob ? formatCronTimestamp(nextRunJob.nextRunAtMs) : null
+  const automationState: 'connected' | 'derived' | 'not-connected' = cronJobs
+    ? failingJobs.length > 0 || deliveryIssues.length > 0
+      ? 'connected'
+      : 'connected'
+    : heartbeatVisible
+      ? 'derived'
+      : 'not-connected'
+
+  const automationSummary = cronJobs
+    ? `${enabledJobs.length} enabled job${enabledJobs.length === 1 ? '' : 's'} · ${failingJobs.length} failing · ${deliveryIssues.length} delivery issue${deliveryIssues.length === 1 ? '' : 's'}`
+    : heartbeatVisible
+      ? 'Workspace heartbeat instructions are visible, but host cron/job inventory is not.'
+      : 'No heartbeat file is visible, and host cron/job inventory is not attached.'
+
+  const automationDetail = cronJobs
+    ? failingJobs[0]
+      ? `${failingJobs[0].name} is failing${failingJobs[0].lastRunStatus ? ` (${failingJobs[0].lastRunStatus})` : ''}.${nextRunLabel ? ` Next run ${nextRunLabel}.` : ''}`
+      : deliveryIssues[0]
+        ? `${deliveryIssues[0].name} last delivery was ${deliveryIssues[0].lastDeliveryStatus}.${nextRunLabel ? ` Next run ${nextRunLabel}.` : ''}`
+        : nextRunJob
+          ? `Next scheduled job: ${nextRunJob.name} at ${nextRunLabel ?? 'unknown time'}.`
+          : 'Cron inventory is visible, but no enabled jobs currently expose a next run.'
+    : 'Nexus can see HEARTBEAT.md presence in the workspace, but it cannot yet enumerate OpenClaw cron jobs or host schedulers truthfully.'
 
   return {
     calendar: {
@@ -84,11 +186,9 @@ function createScheduleVisibility(mission: MissionCommandSnapshot, documents: Ru
     scheduledAutomation: {
       id: 'scheduled-automation',
       label: 'Scheduled automation',
-      state: heartbeatVisible ? 'derived' : 'not-connected',
-      summary: heartbeatVisible
-        ? 'Workspace heartbeat instructions are visible, but host cron/job inventory is not.'
-        : 'No heartbeat file is visible, and host cron/job inventory is not attached.',
-      detail: 'Nexus can see HEARTBEAT.md presence in the workspace, but it cannot yet enumerate OpenClaw cron jobs or host schedulers truthfully.',
+      state: automationState,
+      summary: automationSummary,
+      detail: automationDetail,
     },
     meetings: {
       id: 'meetings',
@@ -100,12 +200,98 @@ function createScheduleVisibility(mission: MissionCommandSnapshot, documents: Ru
   }
 }
 
+async function deriveBuildHealth(workspaceRoot: string): Promise<RuntimeBuildHealthSnapshot> {
+  const webBuildIdPath = join(workspaceRoot, '.next', 'BUILD_ID')
+  const webBuildDiagnosticsPath = join(workspaceRoot, '.next', 'diagnostics', 'build-diagnostics.json')
+  const apiBuildPath = join(workspaceRoot, 'dist-server', 'index.js')
+
+  const webBuiltAt = safeFileTimestamp(webBuildIdPath)
+  const apiBuiltAt = safeFileTimestamp(apiBuildPath)
+
+  let webBuildId: string | null = null
+  if (existsSync(webBuildIdPath)) {
+    try {
+      webBuildId = (await readFile(webBuildIdPath, 'utf8')).trim() || null
+    } catch {
+      webBuildId = null
+    }
+  }
+
+  let webStage: string | null = null
+  if (existsSync(webBuildDiagnosticsPath)) {
+    try {
+      const diagnostics = JSON.parse(await readFile(webBuildDiagnosticsPath, 'utf8')) as { buildStage?: unknown }
+      webStage = typeof diagnostics.buildStage === 'string' ? diagnostics.buildStage : null
+    } catch {
+      webStage = null
+    }
+  }
+
+  const webBuilt = Boolean(webBuiltAt)
+  const apiBuilt = Boolean(apiBuiltAt)
+
+  if (webBuilt && apiBuilt) {
+    return {
+      state: 'healthy',
+      label: 'Healthy',
+      detail: `Web and API build artifacts are present.${webStage ? ` Latest Next.js stage: ${webStage}.` : ''}`,
+      web: {
+        built: true,
+        buildId: webBuildId,
+        builtAt: webBuiltAt,
+        stage: webStage,
+      },
+      api: {
+        built: true,
+        builtAt: apiBuiltAt,
+      },
+    }
+  }
+
+  if (webBuilt || apiBuilt) {
+    return {
+      state: 'watch',
+      label: 'Watch',
+      detail: webBuilt
+        ? 'Frontend build artifacts are present, but the API build artifact is missing.'
+        : 'API build artifact is present, but the frontend build artifact is missing.',
+      web: {
+        built: webBuilt,
+        buildId: webBuildId,
+        builtAt: webBuiltAt,
+        stage: webStage,
+      },
+      api: {
+        built: apiBuilt,
+        builtAt: apiBuiltAt,
+      },
+    }
+  }
+
+  return {
+    state: 'unknown',
+    label: 'Unknown',
+    detail: 'No build artifacts are currently present, so Nexus cannot claim a verified build state.',
+    web: {
+      built: false,
+      buildId: webBuildId,
+      builtAt: webBuiltAt,
+      stage: webStage,
+    },
+    api: {
+      built: false,
+      builtAt: apiBuiltAt,
+    },
+  }
+}
+
 async function collectWorkspaceDocuments(workspaceRoot: string): Promise<RuntimeDocumentSurface[]> {
   return [
     createDocumentSurface(join(workspaceRoot, 'README.md'), 'README', 'Primary repo readme and operator-facing overview.'),
     createDocumentSurface(join(workspaceRoot, 'docs', 'ui-architecture-roadmap.md'), 'UI roadmap', 'Transitional direction toward a future Next.js + Tailwind + shadcn-style shell.'),
     createDocumentSurface(join(workspaceRoot, 'HEARTBEAT.md'), 'Heartbeat', 'Workspace heartbeat checklist and proactive operating instructions.'),
     createDocumentSurface(join(workspaceRoot, 'USER.md'), 'User context', 'Operator priorities, constraints, and execution bias.'),
+    createDocumentSurface(join(workspaceRoot, 'ops', 'execution_update_form.md'), 'Execution update form', 'Lightweight proof/blocker/waiting/handoff template for truthful Nexus task updates.'),
   ]
 }
 
@@ -211,8 +397,9 @@ function createWorkstreams(tasks: TaskRecord[]): RuntimeWorkstreamSnapshot[] {
     }
 
     current.taskCount += 1
-    if (task.status !== 'Blocked' && task.status !== 'Done' && !task.needsUserInput) current.activeCount += 1
-    if (task.needsUserInput && task.status !== 'Done') current.waitingCount += 1
+    const needsOperator = task.needsUserInput || task.needsApproval
+    if (task.status !== 'Blocked' && task.status !== 'Done' && !needsOperator) current.activeCount += 1
+    if (needsOperator && task.status !== 'Done') current.waitingCount += 1
     if (task.status === 'Blocked') current.blockedCount += 1
     if (task.status === 'Done') current.completedCount += 1
     if (task.readyToReport) current.readyToReportCount += 1
@@ -528,8 +715,10 @@ export class StatusService {
     )
     const attentionCounts = counts.tasks.reduce(
       (accumulator, task) => {
-        if (task.status !== 'Blocked' && task.status !== 'Done' && !task.needsUserInput) accumulator.active += 1
-        if (task.needsUserInput && task.status !== 'Done') accumulator.waitingOnUser += 1
+        const needsOperator = task.needsUserInput || task.needsApproval
+
+        if (task.status !== 'Blocked' && task.status !== 'Done' && !needsOperator) accumulator.active += 1
+        if (needsOperator && task.status !== 'Done') accumulator.waitingOnUser += 1
         if (task.status === 'Blocked') accumulator.blocked += 1
         if (task.readyToReport) accumulator.readyToReport += 1
         return accumulator
@@ -546,7 +735,8 @@ export class StatusService {
     const documents = await collectWorkspaceDocuments(this.config.workspaceRoot)
     const visibility = buildVisibilitySurfaces(counts.tasks, workstreams, documents)
     const missionAlignment = await buildMissionAlignment(this.config.workspaceRoot)
-    const schedule = createScheduleVisibility(counts.missionCommand, documents)
+    const schedule = await createScheduleVisibility(this.config.workspaceRoot, counts.missionCommand, documents)
+    const buildHealth = await deriveBuildHealth(this.config.workspaceRoot)
 
     return {
       capturedAt: timestampNow(),
@@ -579,6 +769,7 @@ export class StatusService {
         visibility,
         documents,
         schedule,
+        buildHealth,
         missionAlignment,
         suggestions: buildSuggestions(counts.tasks, documents, workstreams),
       },

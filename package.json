@@ -12,7 +12,7 @@
     "build:all": "npm run build && npm run build:api",
     "test": "vitest run server/__tests__",
     "test:watch": "vitest server/__tests__",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings=0",
     "start": "node scripts/start.mjs",
     "start:web": "next start --hostname 0.0.0.0 --port 3000",
     "start:api": "node --env-file-if-exists=.env --env-file-if-exists=.env.example dist-server/index.js"

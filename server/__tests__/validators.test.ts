@@ -3,7 +3,6 @@ import type { CalendarEventRecord, MemoryRecord, TaskRecord } from '../domain/mo
 import {
   validateCalendarCreate,
   validateMemoryCreate,
-  validateSingleActiveTask,
   validateTaskCreate,
   validateTaskTransition,
 } from '../domain/validators.js'
