@@ -5,17 +5,21 @@ import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
 import { useDashboard } from './DashboardDataProvider'
 
-function toneForState(state: 'connected' | 'not-connected' | 'derived' | 'live' | 'available' | 'unavailable') {
+function toneForState(state: 'connected' | 'not-connected' | 'derived' | 'live' | 'available' | 'unavailable' | 'baseline-only' | 'partial' | 'quiet' | 'not-exposed') {
   if (state === 'connected' || state === 'live' || state === 'available') return 'live' as const
-  if (state === 'derived') return 'warning' as const
+  if (state === 'derived' || state === 'partial' || state === 'baseline-only') return 'warning' as const
   return 'pending' as const
 }
 
-function labelForState(state: 'connected' | 'not-connected' | 'derived' | 'live' | 'available' | 'unavailable') {
+function labelForState(state: 'connected' | 'not-connected' | 'derived' | 'live' | 'available' | 'unavailable' | 'baseline-only' | 'partial' | 'quiet' | 'not-exposed') {
   if (state === 'connected') return 'Connected'
   if (state === 'live') return 'Live'
   if (state === 'available') return 'Available'
   if (state === 'derived') return 'Derived'
+  if (state === 'partial') return 'Partial'
+  if (state === 'baseline-only') return 'Baseline only'
+  if (state === 'not-exposed') return 'Not exposed'
+  if (state === 'quiet') return 'Quiet'
   if (state === 'unavailable') return 'Unavailable'
   return 'Not Connected'
 }
@@ -40,7 +44,7 @@ export function ScheduleHealthPanel() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[0.78rem] font-medium text-text-0 leading-tight">{item.label}</p>
-                <p className="mt-1 text-[0.72rem] text-text-2 leading-snug">{item.summary}</p>
+                <p className="mt-1 text-[0.72rem] text-text-2 leading-snug">{item.summary ?? item.detail}</p>
               </div>
               <StatusBadge tone={toneForState(item.state)}>{labelForState(item.state)}</StatusBadge>
             </div>

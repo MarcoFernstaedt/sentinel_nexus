@@ -17,6 +17,9 @@ import type {
   RuntimeContextSnapshot,
   RuntimeDocumentSurface,
   RuntimeScheduleVisibility,
+  RuntimeUpstreamPresenceSnapshot,
+  RuntimeUpstreamSessionSnapshot,
+  RuntimeUpstreamSubagentRunSnapshot,
   RuntimeVisibilitySurface,
   RuntimeWorkstreamSnapshot,
   TaskRecord,
@@ -77,6 +80,144 @@ function createDocumentSurface(path: string, label: string, summary: string): Ru
     exists,
     summary,
     updatedAt,
+  }
+}
+
+function isoFromEpoch(timestamp?: number): string | null {
+  if (!timestamp || !Number.isFinite(timestamp)) return null
+  try {
+    return new Date(timestamp).toISOString()
+  } catch {
+    return null
+  }
+}
+
+function classifySessionKind(sessionKey: string): RuntimeUpstreamSessionSnapshot['kind'] {
+  if (sessionKey.includes(':subagent:')) return 'subagent'
+  if (sessionKey.includes(':cron:')) return 'cron'
+  if (sessionKey.includes(':main') || sessionKey.includes(':telegram:') || sessionKey.includes(':discord:')) return 'main'
+  return 'other'
+}
+
+function classifySessionStatus(value: unknown): RuntimeUpstreamSessionSnapshot['status'] {
+  if (value === 'running') return 'running'
+  if (value === 'done' || value === 'ended' || value === 'complete') return 'ended'
+  if (typeof value === 'string' && value.length > 0) return 'idle'
+  return 'unknown'
+}
+
+function classifyRunStatus(run: Record<string, unknown>): RuntimeUpstreamSubagentRunSnapshot['status'] {
+  if (typeof run.endedAt !== 'number') return 'running'
+  const outcome = typeof run.outcome === 'object' && run.outcome ? run.outcome as Record<string, unknown> : {}
+  const outcomeStatus = typeof outcome.status === 'string' ? outcome.status : null
+  if (outcomeStatus === 'ok') return 'completed'
+  if (outcomeStatus === 'error' || outcomeStatus === 'failed') return 'failed'
+  return 'unknown'
+}
+
+async function readUpstreamPresence(workspaceRoot: string): Promise<RuntimeUpstreamPresenceSnapshot> {
+  const sessionIndexPath = join(workspaceRoot, '..', 'agents', 'main', 'sessions', 'sessions.json')
+  const subagentRunsPath = join(workspaceRoot, '..', 'subagents', 'runs.json')
+
+  let sessions: RuntimeUpstreamSessionSnapshot[] = []
+  let subagentRuns: RuntimeUpstreamSubagentRunSnapshot[] = []
+
+  try {
+    const raw = await readFile(sessionIndexPath, 'utf8')
+    const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>
+    sessions = Object.entries(parsed)
+      .map(([sessionKey, value]) => {
+        if (!value || typeof value !== 'object') return null
+        const sessionId = typeof value.sessionId === 'string' ? value.sessionId : null
+        if (!sessionId) return null
+        const label = typeof value.label === 'string'
+          ? value.label
+          : typeof value.requesterDisplayKey === 'string'
+            ? value.requesterDisplayKey
+            : sessionKey
+        return {
+          sessionKey,
+          sessionId,
+          label,
+          kind: classifySessionKind(sessionKey),
+          status: classifySessionStatus(value.status),
+          updatedAt: typeof value.updatedAt === 'number' ? isoFromEpoch(value.updatedAt) : null,
+          source: 'openclaw-session-index' as const,
+        }
+      })
+      .filter((entry): entry is RuntimeUpstreamSessionSnapshot => Boolean(entry))
+      .sort((left, right) => (right.updatedAt ?? '').localeCompare(left.updatedAt ?? ''))
+      .slice(0, 6)
+  } catch {
+    sessions = []
+  }
+
+  try {
+    const raw = await readFile(subagentRunsPath, 'utf8')
+    const parsed = JSON.parse(raw) as { runs?: Record<string, Record<string, unknown>> }
+    subagentRuns = Object.values(parsed.runs ?? {})
+      .map((value) => {
+        const runId = typeof value.runId === 'string' ? value.runId : null
+        const sessionKey = typeof value.childSessionKey === 'string' ? value.childSessionKey : 'unknown-subagent-session'
+        if (!runId) return null
+        const label = typeof value.label === 'string'
+          ? value.label
+          : typeof value.task === 'string'
+            ? value.task.slice(0, 72)
+            : sessionKey
+        return {
+          runId,
+          sessionKey,
+          label,
+          status: classifyRunStatus(value),
+          startedAt: typeof value.startedAt === 'number' ? isoFromEpoch(value.startedAt) : null,
+          endedAt: typeof value.endedAt === 'number' ? isoFromEpoch(value.endedAt) : null,
+          source: 'openclaw-subagent-runs' as const,
+        }
+      })
+      .filter((entry): entry is RuntimeUpstreamSubagentRunSnapshot => Boolean(entry))
+      .sort((left, right) => (right.startedAt ?? '').localeCompare(left.startedAt ?? ''))
+      .slice(0, 6)
+  } catch {
+    subagentRuns = []
+  }
+
+  const sessionIndexAvailable = existsSync(sessionIndexPath)
+  const subagentRunsAvailable = existsSync(subagentRunsPath)
+  const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000
+  const sixtyMinutesAgo = Date.now() - 60 * 60 * 1000
+
+  const sessionSnapshot = sessionIndexAvailable
+    ? JSON.parse(await readFile(sessionIndexPath, 'utf8')) as Record<string, Record<string, unknown>>
+    : {}
+  const sessionEntries = Object.values(sessionSnapshot).filter((value) => value && typeof value === 'object') as Array<Record<string, unknown>>
+  const runningSessions = sessionEntries.filter((value) => value.status === 'running').length
+  const recentlyUpdatedSessions = sessionEntries.filter((value) => typeof value.updatedAt === 'number' && value.updatedAt >= fifteenMinutesAgo).length
+
+  const subagentSnapshot = subagentRunsAvailable
+    ? JSON.parse(await readFile(subagentRunsPath, 'utf8')) as { runs?: Record<string, Record<string, unknown>> }
+    : { runs: {} }
+  const runEntries = Object.values(subagentSnapshot.runs ?? {})
+  const activeSubagentRuns = runEntries.filter((value) => typeof value.endedAt !== 'number').length
+  const recentlyCompletedSubagentRuns = runEntries.filter((value) => typeof value.endedAt === 'number' && value.endedAt >= sixtyMinutesAgo).length
+
+  return {
+    source: sessionIndexAvailable || subagentRunsAvailable ? 'openclaw-host-files' : 'unavailable',
+    sessionIndexAvailable,
+    subagentRunsAvailable,
+    totalSessions: sessionEntries.length,
+    runningSessions,
+    recentlyUpdatedSessions,
+    activeSubagentRuns,
+    recentlyCompletedSubagentRuns,
+    latestSessionAt: sessions[0]?.updatedAt ?? null,
+    latestSubagentAt: (subagentRuns.find((entry) => entry.status === 'running') ?? subagentRuns[0])?.startedAt ?? null,
+    sessions,
+    subagentRuns,
+    caveat:
+      sessionIndexAvailable || subagentRunsAvailable
+        ? 'This is host-file truth from OpenClaw session and subagent registries. It shows recent/running inventory, not full per-turn live presence or token-stream state.'
+        : 'OpenClaw host session registries are not visible from this workspace, so upstream presence cannot be surfaced truthfully.',
   }
 }
 
@@ -299,6 +440,7 @@ function buildVisibilitySurfaces(
   tasks: TaskRecord[],
   workstreams: RuntimeWorkstreamSnapshot[],
   documents: RuntimeDocumentSurface[],
+  upstreamPresence: RuntimeUpstreamPresenceSnapshot,
 ): RuntimeVisibilitySurface[] {
   const runtimeTasks = tasks.filter((task) => task.source === 'runtime').length
   const seededTasks = tasks.filter((task) => task.source === 'seeded-demo').length
@@ -326,8 +468,14 @@ function buildVisibilitySurfaces(
     {
       id: 'agent-roster',
       label: 'Sub-agent roster',
-      state: 'not-exposed',
-      detail: 'No runtime event/session feed exists yet, so Nexus does not invent sub-agent presence.',
+      state: upstreamPresence.activeSubagentRuns > 0
+        ? 'live'
+        : upstreamPresence.sessionIndexAvailable || upstreamPresence.subagentRunsAvailable
+          ? 'partial'
+          : 'not-exposed',
+      detail: upstreamPresence.sessionIndexAvailable || upstreamPresence.subagentRunsAvailable
+        ? `${upstreamPresence.activeSubagentRuns} active subagent run${upstreamPresence.activeSubagentRuns === 1 ? '' : 's'} · ${upstreamPresence.recentlyUpdatedSessions} session${upstreamPresence.recentlyUpdatedSessions === 1 ? '' : 's'} updated in the last 15m from OpenClaw host files.`
+        : 'No OpenClaw session or subagent registry is visible here, so Nexus does not invent sub-agent presence.',
     },
   ]
 }
@@ -733,7 +881,8 @@ export class StatusService {
     const lastMessage = counts.chatMessages.at(-1) ?? null
     const workstreams = createWorkstreams(counts.tasks)
     const documents = await collectWorkspaceDocuments(this.config.workspaceRoot)
-    const visibility = buildVisibilitySurfaces(counts.tasks, workstreams, documents)
+    const upstreamPresence = await readUpstreamPresence(this.config.workspaceRoot)
+    const visibility = buildVisibilitySurfaces(counts.tasks, workstreams, documents, upstreamPresence)
     const missionAlignment = await buildMissionAlignment(this.config.workspaceRoot)
     const schedule = await createScheduleVisibility(this.config.workspaceRoot, counts.missionCommand, documents)
     const buildHealth = await deriveBuildHealth(this.config.workspaceRoot)
@@ -767,6 +916,7 @@ export class StatusService {
         latestActivityAt: counts.activity[0]?.timestamp ?? null,
         workstreams,
         visibility,
+        upstreamPresence,
         documents,
         schedule,
         buildHealth,

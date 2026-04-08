@@ -83,7 +83,7 @@ Why this matters:
 ## Runtime truth rules
 - Operator-facing labels may differ from internal mode IDs when needed for compatibility.
 - Task/workstream/project visibility should be derived from stored task truth, not invented UI objects.
-- Sub-agent roster visibility stays unavailable until a real runtime event/session feed exists.
+- Sub-agent roster visibility may use upstream OpenClaw host registries when they are truly visible, but it must be labeled as inventory/recentness truth rather than a full live runtime feed.
 - Seeded/demo records must remain visibly labeled as seeded baseline.
 
 ## Next practical path

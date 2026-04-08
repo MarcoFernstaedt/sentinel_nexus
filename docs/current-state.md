@@ -36,12 +36,13 @@ Nexus now truthfully exposes:
 - real runtime/build/status surfaces from the backend
 - task stage breakdowns and attention counts
 - task-derived workstreams instead of invented agent presence
+- host-file-backed OpenClaw session/subagent inventory when `~/.openclaw/agents/main/sessions/sessions.json` and `~/.openclaw/subagents/runs.json` are visible
 - workspace-document visibility with explicit existence checks
 - schedule/reminder health from OpenClaw cron state when available
 - report-ready, waiting-on-user, blocked, and active task separation
 
 ## Known remaining gaps
-- No real runtime event/session feed yet, so sub-agent roster visibility must remain explicitly unavailable.
+- There is still no official upstream runtime event API for per-turn live presence, queue depth, or token-stream activity; the new roster view is truthful inventory/recentness, not full live telemetry.
 - Calendar visibility is still mission-memory-derived unless a real external integration is attached.
 - SQLite/Postgres remain future options; the current production-safe default is the file-backed Nexus store.
 

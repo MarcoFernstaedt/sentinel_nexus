@@ -84,6 +84,42 @@ export interface RuntimeVisibilitySurface {
   detail: string
 }
 
+export interface RuntimeUpstreamSessionSnapshot {
+  sessionKey: string
+  sessionId: string
+  label: string
+  kind: 'main' | 'subagent' | 'cron' | 'other'
+  status: 'running' | 'idle' | 'ended' | 'unknown'
+  updatedAt: string | null
+  source: 'openclaw-session-index'
+}
+
+export interface RuntimeUpstreamSubagentRunSnapshot {
+  runId: string
+  sessionKey: string
+  label: string
+  status: 'running' | 'completed' | 'failed' | 'unknown'
+  startedAt: string | null
+  endedAt: string | null
+  source: 'openclaw-subagent-runs'
+}
+
+export interface RuntimeUpstreamPresenceSnapshot {
+  source: 'openclaw-host-files' | 'unavailable'
+  sessionIndexAvailable: boolean
+  subagentRunsAvailable: boolean
+  totalSessions: number
+  runningSessions: number
+  recentlyUpdatedSessions: number
+  activeSubagentRuns: number
+  recentlyCompletedSubagentRuns: number
+  latestSessionAt: string | null
+  latestSubagentAt: string | null
+  sessions: RuntimeUpstreamSessionSnapshot[]
+  subagentRuns: RuntimeUpstreamSubagentRunSnapshot[]
+  caveat: string
+}
+
 export interface RuntimeDocumentSurface {
   id: string
   label: string
@@ -164,6 +200,7 @@ export interface RuntimeContextSnapshot {
     latestActivityAt: string | null
     workstreams: RuntimeWorkstreamSnapshot[]
     visibility: RuntimeVisibilitySurface[]
+    upstreamPresence: RuntimeUpstreamPresenceSnapshot
     documents: RuntimeDocumentSurface[]
     schedule: RuntimeScheduleVisibility
     buildHealth: RuntimeBuildHealthSnapshot
