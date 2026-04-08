@@ -92,6 +92,14 @@ function isoFromEpoch(timestamp?: number): string | null {
   }
 }
 
+async function readJsonFileOr<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as T
+  } catch {
+    return fallback
+  }
+}
+
 function classifySessionKind(sessionKey: string): RuntimeUpstreamSessionSnapshot['kind'] {
   if (sessionKey.includes(':subagent:')) return 'subagent'
   if (sessionKey.includes(':cron:')) return 'cron'
@@ -115,88 +123,139 @@ function classifyRunStatus(run: Record<string, unknown>): RuntimeUpstreamSubagen
   return 'unknown'
 }
 
+function classifyObservedActivity(eventType: string | null, messageRole: string | null): RuntimeUpstreamSessionSnapshot['lastObservedActivity'] {
+  if (eventType === 'message') {
+    if (messageRole === 'assistant') return 'assistant-message'
+    if (messageRole === 'user') return 'operator-message'
+    if (messageRole === 'toolResult') return 'tool-result'
+    if (messageRole === 'system') return 'system-event'
+    return 'unknown'
+  }
+
+  if (eventType) return 'non-message-event'
+  return 'unknown'
+}
+
+async function readSessionTranscriptTail(
+  sessionFilePath: string | null,
+): Promise<Pick<RuntimeUpstreamSessionSnapshot, 'lastObservedEventAt' | 'lastObservedEventType' | 'lastObservedMessageRole' | 'lastObservedActivity'>> {
+  if (!sessionFilePath || !existsSync(sessionFilePath)) {
+    return {
+      lastObservedEventAt: null,
+      lastObservedEventType: null,
+      lastObservedMessageRole: null,
+      lastObservedActivity: 'unknown',
+    }
+  }
+
+  try {
+    const raw = await readFile(sessionFilePath, 'utf8')
+    const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean)
+    const lastLine = lines.at(-1)
+    if (!lastLine) {
+      return {
+        lastObservedEventAt: null,
+        lastObservedEventType: null,
+        lastObservedMessageRole: null,
+        lastObservedActivity: 'unknown',
+      }
+    }
+
+    const parsed = JSON.parse(lastLine) as Record<string, unknown>
+    const eventType = typeof parsed.type === 'string' ? parsed.type : null
+    const message = parsed.message
+    const messageRole = eventType === 'message' && message && typeof message === 'object' && typeof (message as Record<string, unknown>).role === 'string'
+      ? (message as Record<string, unknown>).role
+      : null
+
+    return {
+      lastObservedEventAt: typeof parsed.timestamp === 'string' ? parsed.timestamp : null,
+      lastObservedEventType: eventType,
+      lastObservedMessageRole:
+        messageRole === 'assistant' || messageRole === 'user' || messageRole === 'toolResult' || messageRole === 'system'
+          ? messageRole
+          : null,
+      lastObservedActivity: classifyObservedActivity(eventType, typeof messageRole === 'string' ? messageRole : null),
+    }
+  } catch {
+    return {
+      lastObservedEventAt: null,
+      lastObservedEventType: null,
+      lastObservedMessageRole: null,
+      lastObservedActivity: 'unknown',
+    }
+  }
+}
+
 async function readUpstreamPresence(workspaceRoot: string): Promise<RuntimeUpstreamPresenceSnapshot> {
   const sessionIndexPath = join(workspaceRoot, '..', 'agents', 'main', 'sessions', 'sessions.json')
   const subagentRunsPath = join(workspaceRoot, '..', 'subagents', 'runs.json')
 
-  let sessions: RuntimeUpstreamSessionSnapshot[] = []
-  let subagentRuns: RuntimeUpstreamSubagentRunSnapshot[] = []
-
-  try {
-    const raw = await readFile(sessionIndexPath, 'utf8')
-    const parsed = JSON.parse(raw) as Record<string, Record<string, unknown>>
-    sessions = Object.entries(parsed)
-      .map(([sessionKey, value]) => {
-        if (!value || typeof value !== 'object') return null
-        const sessionId = typeof value.sessionId === 'string' ? value.sessionId : null
-        if (!sessionId) return null
-        const label = typeof value.label === 'string'
-          ? value.label
-          : typeof value.requesterDisplayKey === 'string'
-            ? value.requesterDisplayKey
-            : sessionKey
-        return {
-          sessionKey,
-          sessionId,
-          label,
-          kind: classifySessionKind(sessionKey),
-          status: classifySessionStatus(value.status),
-          updatedAt: typeof value.updatedAt === 'number' ? isoFromEpoch(value.updatedAt) : null,
-          source: 'openclaw-session-index' as const,
-        }
-      })
-      .filter((entry): entry is RuntimeUpstreamSessionSnapshot => Boolean(entry))
-      .sort((left, right) => (right.updatedAt ?? '').localeCompare(left.updatedAt ?? ''))
-      .slice(0, 6)
-  } catch {
-    sessions = []
-  }
-
-  try {
-    const raw = await readFile(subagentRunsPath, 'utf8')
-    const parsed = JSON.parse(raw) as { runs?: Record<string, Record<string, unknown>> }
-    subagentRuns = Object.values(parsed.runs ?? {})
-      .map((value) => {
-        const runId = typeof value.runId === 'string' ? value.runId : null
-        const sessionKey = typeof value.childSessionKey === 'string' ? value.childSessionKey : 'unknown-subagent-session'
-        if (!runId) return null
-        const label = typeof value.label === 'string'
-          ? value.label
-          : typeof value.task === 'string'
-            ? value.task.slice(0, 72)
-            : sessionKey
-        return {
-          runId,
-          sessionKey,
-          label,
-          status: classifyRunStatus(value),
-          startedAt: typeof value.startedAt === 'number' ? isoFromEpoch(value.startedAt) : null,
-          endedAt: typeof value.endedAt === 'number' ? isoFromEpoch(value.endedAt) : null,
-          source: 'openclaw-subagent-runs' as const,
-        }
-      })
-      .filter((entry): entry is RuntimeUpstreamSubagentRunSnapshot => Boolean(entry))
-      .sort((left, right) => (right.startedAt ?? '').localeCompare(left.startedAt ?? ''))
-      .slice(0, 6)
-  } catch {
-    subagentRuns = []
-  }
-
   const sessionIndexAvailable = existsSync(sessionIndexPath)
   const subagentRunsAvailable = existsSync(subagentRunsPath)
+  const sessionSnapshot = sessionIndexAvailable
+    ? await readJsonFileOr<Record<string, Record<string, unknown>>>(sessionIndexPath, {})
+    : {}
+  const subagentSnapshot = subagentRunsAvailable
+    ? await readJsonFileOr<{ runs?: Record<string, Record<string, unknown>> }>(subagentRunsPath, { runs: {} })
+    : { runs: {} }
+
+  const sessions = (await Promise.all(
+    Object.entries(sessionSnapshot).map(async ([sessionKey, value]) => {
+      if (!value || typeof value !== 'object') return null
+      const sessionId = typeof value.sessionId === 'string' ? value.sessionId : null
+      if (!sessionId) return null
+      const label = typeof value.label === 'string'
+        ? value.label
+        : typeof value.requesterDisplayKey === 'string'
+          ? value.requesterDisplayKey
+          : sessionKey
+      const transcriptTail = await readSessionTranscriptTail(typeof value.sessionFile === 'string' ? value.sessionFile : null)
+      return {
+        sessionKey,
+        sessionId,
+        label,
+        kind: classifySessionKind(sessionKey),
+        status: classifySessionStatus(value.status),
+        updatedAt: typeof value.updatedAt === 'number' ? isoFromEpoch(value.updatedAt) : null,
+        ...transcriptTail,
+        source: 'openclaw-session-index' as const,
+      }
+    }),
+  ))
+    .filter((entry): entry is RuntimeUpstreamSessionSnapshot => Boolean(entry))
+    .sort((left, right) => (right.updatedAt ?? '').localeCompare(left.updatedAt ?? ''))
+    .slice(0, 6)
+
+  const subagentRuns = Object.values(subagentSnapshot.runs ?? {})
+    .map((value) => {
+      const runId = typeof value.runId === 'string' ? value.runId : null
+      const sessionKey = typeof value.childSessionKey === 'string' ? value.childSessionKey : 'unknown-subagent-session'
+      if (!runId) return null
+      const label = typeof value.label === 'string'
+        ? value.label
+        : typeof value.task === 'string'
+          ? value.task.slice(0, 72)
+          : sessionKey
+      return {
+        runId,
+        sessionKey,
+        label,
+        status: classifyRunStatus(value),
+        startedAt: typeof value.startedAt === 'number' ? isoFromEpoch(value.startedAt) : null,
+        endedAt: typeof value.endedAt === 'number' ? isoFromEpoch(value.endedAt) : null,
+        source: 'openclaw-subagent-runs' as const,
+      }
+    })
+    .filter((entry): entry is RuntimeUpstreamSubagentRunSnapshot => Boolean(entry))
+    .sort((left, right) => (right.startedAt ?? '').localeCompare(left.startedAt ?? ''))
+    .slice(0, 6)
+
   const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000
   const sixtyMinutesAgo = Date.now() - 60 * 60 * 1000
-
-  const sessionSnapshot = sessionIndexAvailable
-    ? JSON.parse(await readFile(sessionIndexPath, 'utf8')) as Record<string, Record<string, unknown>>
-    : {}
   const sessionEntries = Object.values(sessionSnapshot).filter((value) => value && typeof value === 'object') as Array<Record<string, unknown>>
   const runningSessions = sessionEntries.filter((value) => value.status === 'running').length
   const recentlyUpdatedSessions = sessionEntries.filter((value) => typeof value.updatedAt === 'number' && value.updatedAt >= fifteenMinutesAgo).length
-
-  const subagentSnapshot = subagentRunsAvailable
-    ? JSON.parse(await readFile(subagentRunsPath, 'utf8')) as { runs?: Record<string, Record<string, unknown>> }
-    : { runs: {} }
   const runEntries = Object.values(subagentSnapshot.runs ?? {})
   const activeSubagentRuns = runEntries.filter((value) => typeof value.endedAt !== 'number').length
   const recentlyCompletedSubagentRuns = runEntries.filter((value) => typeof value.endedAt === 'number' && value.endedAt >= sixtyMinutesAgo).length
@@ -216,7 +275,7 @@ async function readUpstreamPresence(workspaceRoot: string): Promise<RuntimeUpstr
     subagentRuns,
     caveat:
       sessionIndexAvailable || subagentRunsAvailable
-        ? 'This is host-file truth from OpenClaw session and subagent registries. It shows recent/running inventory, not full per-turn live presence or token-stream state.'
+        ? 'This is host-file truth from OpenClaw session and subagent registries, plus each visible session transcript tail\'s last observed event. It improves liveness posture, but it is still not a full official event API, queue-depth feed, or token-stream state.'
         : 'OpenClaw host session registries are not visible from this workspace, so upstream presence cannot be surfaced truthfully.',
   }
 }

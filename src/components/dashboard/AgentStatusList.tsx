@@ -45,6 +45,31 @@ function labelForWorkstream(workstream: {
   return 'Tracked'
 }
 
+
+function formatObservedActivity(session: {
+  lastObservedActivity: 'assistant-message' | 'operator-message' | 'tool-result' | 'system-event' | 'non-message-event' | 'unknown'
+  lastObservedEventAt: string | null
+  lastObservedEventType: string | null
+  lastObservedMessageRole: 'assistant' | 'user' | 'toolResult' | 'system' | null
+}) {
+  const observedAt = formatRelative(session.lastObservedEventAt)
+
+  switch (session.lastObservedActivity) {
+    case 'assistant-message':
+      return `Last observed assistant message ${observedAt}`
+    case 'operator-message':
+      return `Last observed operator message ${observedAt}`
+    case 'tool-result':
+      return `Last observed tool result ${observedAt}`
+    case 'system-event':
+      return `Last observed system event ${observedAt}`
+    case 'non-message-event':
+      return `Last observed ${session.lastObservedEventType ?? 'event'} ${observedAt}`
+    default:
+      return 'No transcript-tail activity signal available yet'
+  }
+}
+
 export function AgentStatusList() {
   const { runtimeContext, runtimeTasks, apiState } = useDashboard()
   const headingId = 'agent-status-heading'
@@ -192,6 +217,9 @@ export function AgentStatusList() {
                   </div>
                 </div>
                 <p className="text-[0.64rem] text-text-2 leading-relaxed">{upstreamPresence?.caveat}</p>
+                <p className="text-[0.62rem] text-text-3 leading-relaxed">
+                  When a session transcript file is visible, Nexus shows the last observed event role/type instead of only saying “recent” or “running”.
+                </p>
                 <div className="grid gap-2">
                   {(upstreamPresence?.subagentRuns.length ?? 0) > 0 ? (
                     upstreamPresence?.subagentRuns.slice(0, 3).map((run) => (
@@ -217,6 +245,7 @@ export function AgentStatusList() {
                         </div>
                         <p className="text-[0.6rem] font-mono text-text-3 truncate">{session.sessionKey}</p>
                         <p className="text-[0.6rem] text-text-2">Updated {formatRelative(session.updatedAt)}</p>
+                        <p className="text-[0.6rem] text-text-3">{formatObservedActivity(session)}</p>
                       </div>
                     ))
                   )}

@@ -75,6 +75,16 @@ export interface RuntimeUpstreamSessionSnapshot {
   kind: 'main' | 'subagent' | 'cron' | 'other'
   status: 'running' | 'idle' | 'ended' | 'unknown'
   updatedAt: string | null
+  lastObservedEventAt: string | null
+  lastObservedEventType: string | null
+  lastObservedMessageRole: 'assistant' | 'user' | 'toolResult' | 'system' | null
+  lastObservedActivity:
+    | 'assistant-message'
+    | 'operator-message'
+    | 'tool-result'
+    | 'system-event'
+    | 'non-message-event'
+    | 'unknown'
   source: 'openclaw-session-index'
 }
 
