@@ -184,6 +184,18 @@ export interface NexusStatusSnapshot {
   cards: StatusCard[]
 }
 
+export interface RuntimeEventSnapshot {
+  event: 'bootstrap'
+  capturedAt: string
+  status: NexusStatusSnapshot
+  runtime: RuntimeContextSnapshot
+  messages: ChatMessageRecord[]
+  notes: NoteRecord[]
+  tasks: TaskRecord[]
+  activity: ActivityRecord[]
+  missionCommand: MissionCommandSnapshot
+}
+
 export interface MissionRecord extends BaseRecordMeta {
   id: string
   title: string

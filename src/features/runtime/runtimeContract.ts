@@ -1,6 +1,6 @@
 export const nexusRuntimeContract = {
   apiBasePath: '/api',
-  eventStreamPath: 'not-wired-yet (polling bootstrap/status endpoints)',
+  eventStreamPath: '/api/runtime/events',
   db: {
     owner: 'Nexus only',
     engine: 'file-json (current) -> SQLite/Postgres later',
@@ -36,7 +36,7 @@ export const nexusRuntimeContract = {
     },
     modeAndAgentVisibility: {
       status: 'backend-live',
-      nextEndpoint: 'GET /api/runtime/context',
+      nextEndpoint: 'GET /api/runtime/context + GET /api/runtime/events',
       scope: 'Mode, active agent/session, task-derived workstreams, and runtime source-of-truth.',
     },
   },

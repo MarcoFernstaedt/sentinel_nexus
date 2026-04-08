@@ -318,3 +318,8 @@ export interface BootstrapPayload {
   activity: ActivityItem[]
   missionCommand: MissionCommandSnapshot
 }
+
+export interface RuntimeEventSnapshot extends BootstrapPayload {
+  event: 'bootstrap'
+  capturedAt: string
+}

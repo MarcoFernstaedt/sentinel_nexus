@@ -16,6 +16,35 @@ interface Services {
 const allowedTaskStatuses: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
 const allowedTaskStages: TaskStage[] = ['queued', 'inspecting', 'editing', 'validating', 'committing', 'pushing', 'done']
 
+function writeSseEvent(response: ServerResponse, event: string, payload: unknown) {
+  response.write(`event: ${event}\n`)
+  response.write(`data: ${JSON.stringify(payload)}\n\n`)
+}
+
+async function createRuntimeEventSnapshot(services: Services) {
+  const [status, runtime, messages, notes, tasks, activity, missionCommand] = await Promise.all([
+    services.statusService.snapshot(),
+    services.statusService.runtimeContext(),
+    services.chatService.list(),
+    services.notesService.list(),
+    services.tasksService.list(),
+    services.activityRepository.list(8),
+    services.statusService.missionCommand(),
+  ])
+
+  return {
+    event: 'bootstrap' as const,
+    capturedAt: new Date().toISOString(),
+    status,
+    runtime,
+    messages,
+    notes,
+    tasks,
+    activity,
+    missionCommand,
+  }
+}
+
 export function createRouter(services: Services) {
   return async function route(request: IncomingMessage, response: ServerResponse) {
     try {
@@ -53,6 +82,51 @@ export function createRouter(services: Services) {
 
       if (method === 'GET' && url.pathname === '/api/runtime/context') {
         json(response, 200, await services.statusService.runtimeContext())
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/runtime/events') {
+        response.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'X-Accel-Buffering': 'no',
+        })
+        response.flushHeaders?.()
+
+        let closed = false
+        let lastPayload = ''
+
+        const publishSnapshot = async () => {
+          const snapshot = await createRuntimeEventSnapshot(services)
+          const nextPayload = JSON.stringify(snapshot)
+          if (nextPayload === lastPayload) return
+          lastPayload = nextPayload
+          writeSseEvent(response, 'bootstrap', snapshot)
+        }
+
+        const heartbeat = setInterval(() => {
+          if (!closed) response.write(': keepalive\n\n')
+        }, 15000)
+
+        const poller = setInterval(() => {
+          void publishSnapshot().catch(() => {
+            if (closed) return
+            writeSseEvent(response, 'error', { message: 'runtime snapshot failed' })
+          })
+        }, 2000)
+
+        request.on('close', () => {
+          closed = true
+          clearInterval(heartbeat)
+          clearInterval(poller)
+          response.end()
+        })
+
+        await publishSnapshot()
         return
       }
 

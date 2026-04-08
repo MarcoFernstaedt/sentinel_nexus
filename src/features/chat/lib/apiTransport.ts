@@ -6,6 +6,7 @@ import type {
   ChatMode,
   RuntimeContext,
   RuntimeStatusSnapshot,
+  RuntimeEventSnapshot,
   TransportPreview,
 } from '../model/types'
 
@@ -65,6 +66,33 @@ export async function fetchStatus(): Promise<RuntimeStatusSnapshot> {
   const response = await fetch(apiUrl('/api/status'))
   if (!response.ok) throw new Error('Failed to load runtime status')
   return response.json()
+}
+
+export function subscribeToRuntimeEvents(
+  onSnapshot: (snapshot: RuntimeEventSnapshot) => void,
+  handlers?: { onOpen?: () => void; onError?: () => void },
+) {
+  const source = new EventSource(apiUrl('/api/runtime/events'))
+
+  source.addEventListener('open', () => {
+    handlers?.onOpen?.()
+  })
+
+  source.addEventListener('bootstrap', (event) => {
+    try {
+      onSnapshot(JSON.parse((event as MessageEvent<string>).data) as RuntimeEventSnapshot)
+    } catch {
+      handlers?.onError?.()
+    }
+  })
+
+  source.addEventListener('error', () => {
+    handlers?.onError?.()
+  })
+
+  return () => {
+    source.close()
+  }
 }
 
 export async function submitMessageToApi(input: string, mode: ChatMode): Promise<SubmitResponse> {

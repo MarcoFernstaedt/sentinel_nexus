@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocalStorageState } from '../../../hooks/useLocalStorageState'
 import {
   chatModes,
@@ -18,6 +18,7 @@ import {
   fetchStatus,
   patchTaskInApi,
   submitMessageToApi,
+  subscribeToRuntimeEvents,
 } from '../lib/apiTransport'
 import {
   parseStoredInputHistory,
@@ -38,6 +39,7 @@ import type {
   RuntimeNote,
   RuntimeStatusSnapshot,
   RuntimeTask,
+  RuntimeEventSnapshot,
   TransportPreview,
 } from '../model/types'
 
@@ -89,23 +91,23 @@ export function useLocalChat() {
   const [apiState, setApiState] = useState<'connected' | 'local-fallback'>('local-fallback')
   const [isSyncingRuntime, setIsSyncingRuntime] = useState(false)
 
+  const applyBootstrap = useCallback((bootstrap: BootstrapPayload | RuntimeEventSnapshot) => {
+    if (bootstrap.messages.length > 0) {
+      setMessages(bootstrap.messages)
+    }
+
+    setRuntimeStatus(bootstrap.status)
+    setRuntimeContext(bootstrap.runtime)
+    setRecentActivity(bootstrap.activity ?? [])
+    setRuntimeNotes(bootstrap.notes ?? [])
+    setRuntimeTasks(bootstrap.tasks ?? [])
+    setMissionCommand(bootstrap.missionCommand ?? emptyMissionCommand)
+    setTransportPreview(createTransportPreview(bootstrap.status))
+    setApiState('connected')
+  }, [setMessages])
+
   useEffect(() => {
     let cancelled = false
-
-    const applyBootstrap = (bootstrap: BootstrapPayload) => {
-      if (bootstrap.messages.length > 0) {
-        setMessages(bootstrap.messages)
-      }
-
-      setRuntimeStatus(bootstrap.status)
-      setRuntimeContext(bootstrap.runtime)
-      setRecentActivity(bootstrap.activity ?? [])
-      setRuntimeNotes(bootstrap.notes ?? [])
-      setRuntimeTasks(bootstrap.tasks ?? [])
-      setMissionCommand(bootstrap.missionCommand ?? emptyMissionCommand)
-      setTransportPreview(createTransportPreview(bootstrap.status))
-      setApiState('connected')
-    }
 
     const syncFromApi = async (preferBootstrap: boolean) => {
       setIsSyncingRuntime(true)
@@ -153,15 +155,34 @@ export function useLocalChat() {
     }
 
     void syncFromApi(true)
+
+    const unsubscribe = subscribeToRuntimeEvents(
+      (snapshot) => {
+        if (cancelled) return
+        applyBootstrap(snapshot)
+      },
+      {
+        onOpen: () => {
+          if (cancelled) return
+          setApiState('connected')
+        },
+        onError: () => {
+          if (cancelled) return
+          setApiState((current) => (current === 'connected' ? current : 'local-fallback'))
+        },
+      },
+    )
+
     const interval = window.setInterval(() => {
       void syncFromApi(false)
     }, RUNTIME_SYNC_MS)
 
     return () => {
       cancelled = true
+      unsubscribe()
       window.clearInterval(interval)
     }
-  }, [setMessages])
+  }, [applyBootstrap, setMessages])
 
   const activeMode = useMemo(
     () => chatModes.find((mode) => mode.id === activeModeId) ?? chatModes[0],
