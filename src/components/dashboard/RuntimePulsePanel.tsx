@@ -64,7 +64,7 @@ export function RuntimePulsePanel() {
       labelledBy={headingId}
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="grid gap-2 rounded-lg border border-soft bg-[rgba(255,255,255,0.02)] p-4">
+        <div className="grid gap-2 rounded-[14px] border border-soft bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-text-1">
               <Clock3 className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function RuntimePulsePanel() {
           </p>
         </div>
 
-        <div className="grid gap-2 rounded-lg border border-soft bg-[rgba(255,255,255,0.02)] p-4">
+        <div className="grid gap-2 rounded-[14px] border border-soft bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-text-1">
               <Hammer className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function RuntimePulsePanel() {
           <p className="text-[0.72rem] leading-relaxed text-text-3">{buildProof}</p>
         </div>
 
-        <div className="grid gap-2 rounded-lg border border-soft bg-[rgba(255,255,255,0.02)] p-4">
+        <div className="grid gap-2 rounded-[14px] border border-soft bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-text-1">
               <UserRound className="h-4 w-4" />

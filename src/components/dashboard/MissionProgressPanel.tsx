@@ -32,20 +32,22 @@ export function MissionProgressPanel() {
 
   return (
     <div className={cn(
-      'rounded-lg border border-[rgba(126,255,210,0.16)] bg-[rgba(5,14,10,0.55)]',
-      'shadow-panel backdrop-blur-sm p-5',
+      'relative overflow-hidden rounded-[22px] border border-[rgba(126,255,210,0.16)] bg-[linear-gradient(135deg,rgba(10,25,20,0.88),rgba(8,15,22,0.96)_58%,rgba(6,11,16,0.98))]',
+      'shadow-elevated backdrop-blur-xl p-5 md:p-6',
     )}>
-      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
+      <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-[rgba(113,203,255,0.08)] blur-3xl" aria-hidden />
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start">
 
         {/* Left: mission + command intent */}
-        <div className="flex-1 min-w-0 grid gap-3">
+        <div className="flex-1 min-w-0 grid gap-4">
           <div className="flex items-start gap-2">
             <Target size={12} className="text-accent-mint flex-shrink-0 mt-[3px]" aria-hidden />
             <div>
               <p className="text-[0.58rem] uppercase tracking-[0.16em] text-accent-mint-dim font-medium mb-1">
                 Mission
               </p>
-              <p className="text-[0.74rem] text-text-1 leading-relaxed italic line-clamp-2">
+              <p className="max-w-[60ch] text-[0.84rem] text-text-1 leading-relaxed italic line-clamp-3">
                 {missionContext.statement}
               </p>
             </div>
@@ -54,14 +56,14 @@ export function MissionProgressPanel() {
             <p className="text-[0.58rem] uppercase tracking-[0.14em] text-text-3 font-medium">
               Commander's Intent
             </p>
-            <p className="text-[0.68rem] text-text-2 leading-relaxed line-clamp-2">
+            <p className="max-w-[64ch] text-[0.72rem] text-text-2 leading-relaxed line-clamp-3">
               {missionContext.commandIntent}
             </p>
           </div>
         </div>
 
         {/* Center: progress */}
-        <div className="flex flex-col gap-3 lg:min-w-[200px] lg:w-[200px]">
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.03)] p-4 lg:min-w-[240px] lg:w-[240px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="flex items-center justify-between">
             <span className="text-[0.58rem] uppercase tracking-[0.14em] text-text-3 font-medium">
               Mission Progress
@@ -70,7 +72,7 @@ export function MissionProgressPanel() {
               {pct}%
             </span>
           </div>
-          <div className="w-full h-[5px] rounded-full bg-[rgba(126,255,210,0.08)] overflow-hidden">
+          <div className="w-full h-[6px] rounded-full bg-[rgba(126,255,210,0.08)] overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-accent-mint to-accent-cyan transition-[width] duration-700"
               style={{ width: `${pct}%` }}
@@ -93,7 +95,7 @@ export function MissionProgressPanel() {
         </div>
 
         {/* Right: target date + agents */}
-        <div className="flex flex-col gap-3 lg:min-w-[140px] lg:items-end">
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.025)] p-4 lg:min-w-[190px] lg:items-end shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-text-3" aria-hidden />
             <span className="text-[0.62rem] font-mono text-text-2">

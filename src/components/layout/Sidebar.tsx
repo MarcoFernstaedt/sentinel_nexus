@@ -53,7 +53,7 @@ function NavItem({ href, label, icon: Icon, collapsed, active, onNavigate }: Nav
         'border-l-2 text-sm font-medium',
         collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-4 py-2.5',
         active
-          ? 'border-accent-mint bg-[rgba(14,45,33,0.52)] text-text-0'
+          ? 'border-accent-mint bg-[linear-gradient(90deg,rgba(18,52,40,0.7),rgba(11,24,31,0.22))] text-text-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
           : 'border-transparent text-text-2 hover:text-text-1 hover:bg-white/[0.03]',
       )}
       aria-current={active ? 'page' : undefined}
@@ -119,8 +119,8 @@ export function Sidebar() {
       className={cn(
         'h-dvh flex-shrink-0 flex-col',
         'border-r border-soft',
-        'bg-gradient-to-b from-[rgba(3,9,13,0.97)] to-[rgba(5,11,16,0.90)]',
-        'backdrop-blur-[20px]',
+        'bg-[linear-gradient(180deg,rgba(5,10,15,0.98),rgba(5,10,15,0.9))]',
+        'backdrop-blur-[24px] shadow-[18px_0_40px_rgba(0,0,0,0.22)]',
         'overflow-hidden',
         // Mobile: overlay when open, hidden when closed
         mobileNavOpen
@@ -135,7 +135,7 @@ export function Sidebar() {
       {/* Header */}
       <div
         className={cn(
-          'flex flex-shrink-0 items-center border-b border-soft',
+          'flex flex-shrink-0 items-center border-b border-soft bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]',
           collapsed ? 'justify-center px-0 py-4' : 'px-5 py-4 gap-3',
         )}
       >

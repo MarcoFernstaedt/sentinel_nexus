@@ -13,22 +13,23 @@ export function MetricCard({ label, value, detail, className, emphasis = false }
   return (
     <article
       className={cn(
-        'grid gap-2.5 rounded-lg border p-4',
-        'shadow-panel transition-shadow duration-200',
+        'relative grid gap-3 overflow-hidden rounded-xl border p-4 lg:p-5',
+        'shadow-panel backdrop-blur-xl transition-[transform,box-shadow,border-color] duration-200',
         emphasis
-          ? 'bg-gradient-to-br from-[rgba(13,37,29,0.94)] to-[rgba(8,18,22,0.90)] border-[rgba(98,255,196,0.22)]'
-          : 'bg-surface-0 border-soft',
+          ? 'border-[rgba(98,255,196,0.22)] bg-[linear-gradient(180deg,rgba(15,38,31,0.94),rgba(8,18,22,0.92))]'
+          : 'border-soft bg-[linear-gradient(180deg,rgba(11,19,27,0.88),rgba(7,13,19,0.82))]',
         className,
       )}
     >
-      <span className="text-[0.68rem] uppercase tracking-[0.14em] text-[#87c8b2] font-medium">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60" aria-hidden />
+      <span className="text-[0.64rem] uppercase tracking-[0.18em] text-[#87c8b2] font-medium">
         {label}
       </span>
-      <strong className="text-[1.1rem] font-semibold text-text-0 font-mono leading-none">
+      <strong className="text-[1.28rem] font-semibold text-text-0 font-mono leading-none tracking-[-0.02em]">
         {value}
       </strong>
       {detail ? (
-        <small className="text-[0.72rem] text-[#a9cabb] leading-relaxed font-normal">
+        <small className="text-[0.72rem] text-[#a9cabb] leading-relaxed font-normal max-w-[28ch]">
           {detail}
         </small>
       ) : null}

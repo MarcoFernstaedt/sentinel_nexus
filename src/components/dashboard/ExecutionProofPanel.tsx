@@ -110,7 +110,8 @@ export function ExecutionProofPanel() {
     >
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {proofItems.map((item) => (
-          <div key={item.label} className="rounded-[10px] border border-soft bg-[rgba(6,12,18,0.72)] p-3 grid gap-2">
+          <div key={item.label} className="relative overflow-hidden rounded-[14px] border border-soft bg-[linear-gradient(180deg,rgba(10,18,26,0.86),rgba(7,13,19,0.8))] p-3.5 grid gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" aria-hidden />
             <div className="flex items-center justify-between gap-2">
               <span className="text-[0.66rem] uppercase tracking-[0.12em] text-text-3 font-medium">
                 {item.label}

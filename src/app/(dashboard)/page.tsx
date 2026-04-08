@@ -14,7 +14,7 @@ import { RuntimePulsePanel } from '@/src/components/dashboard/RuntimePulsePanel'
 
 export default function DashboardPage() {
   return (
-    <div className="px-5 py-5 grid gap-5 max-w-[1600px]">
+    <div className="mx-auto grid max-w-[1680px] gap-5 px-4 py-4 md:px-5 md:py-5 2xl:px-7 2xl:py-6">
 
       {/* Row 1: Key metrics */}
       <MetricRibbon />

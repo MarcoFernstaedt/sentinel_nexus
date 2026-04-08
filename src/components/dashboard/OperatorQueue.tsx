@@ -18,7 +18,7 @@ function ApprovalCard({ task, onApprove, onReject, loading }: {
   loading: boolean
 }) {
   return (
-    <div className="grid gap-2 p-3 rounded-[8px] border border-[rgba(255,203,97,0.20)] bg-[rgba(255,203,97,0.04)]">
+    <div className="grid gap-2.5 p-3.5 rounded-[12px] border border-[rgba(255,203,97,0.20)] bg-[linear-gradient(180deg,rgba(255,203,97,0.08),rgba(255,203,97,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
       <p className="text-[0.73rem] font-medium text-text-0 leading-tight line-clamp-2">
         {task.title}
       </p>
@@ -69,7 +69,7 @@ function MyTaskCard({ task }: { task: RuntimeTask }) {
   const tone = badgeToneMap[task.status] ?? 'pending'
 
   return (
-    <div className="grid gap-1.5 p-2.5 rounded-[8px] border border-soft bg-[rgba(6,12,18,0.70)]">
+    <div className="grid gap-2 p-3 rounded-[12px] border border-soft bg-[linear-gradient(180deg,rgba(10,18,26,0.84),rgba(7,13,19,0.78))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
       <p className="text-[0.73rem] font-medium text-text-0 leading-tight line-clamp-2">
         {task.title}
       </p>

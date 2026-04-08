@@ -4,14 +4,16 @@
 :root {
   /* Backgrounds */
   --bg-0: #020508;
-  --bg-1: #061016;
-  --bg-2: #0a1720;
+  --bg-1: #07111a;
+  --bg-2: #0b1621;
 
   /* Surface layers */
-  --surface-0: rgba(7, 14, 19, 0.74);
-  --surface-1: rgba(9, 17, 24, 0.86);
-  --surface-2: rgba(11, 20, 28, 0.94);
-  --surface-3: rgba(14, 25, 34, 0.98);
+  --surface-0: rgba(8, 14, 20, 0.74);
+  --surface-1: rgba(10, 18, 26, 0.86);
+  --surface-2: rgba(11, 21, 30, 0.94);
+  --surface-3: rgba(14, 25, 36, 0.98);
+  --surface-glass: linear-gradient(180deg, rgba(12, 21, 30, 0.92) 0%, rgba(7, 13, 19, 0.9) 100%);
+  --surface-glass-strong: linear-gradient(180deg, rgba(15, 26, 37, 0.96) 0%, rgba(8, 14, 21, 0.94) 100%);
 
   /* Borders */
   --border-soft:   rgba(126, 255, 210, 0.10);
@@ -41,14 +43,19 @@
 
   /* Shadows */
   --shadow-panel:
-    0 2px 4px rgba(0, 0, 0, 0.18),
-    0 8px 24px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 30px rgba(0, 0, 0, 0.26),
+    0 30px 70px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.025);
   --shadow-elevated:
-    0 8px 32px rgba(0, 0, 0, 0.30),
+    0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(0, 0, 0, 0.34),
+    0 40px 100px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
   --shadow-card-hover:
-    0 8px 32px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 40px rgba(0, 0, 0, 0.32),
+    0 36px 84px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   /* Typography */
@@ -71,9 +78,10 @@ body {
   min-height: 100dvh;
   background-color: var(--bg-0);
   background-image:
-    radial-gradient(ellipse 60% 35% at 12% 2%, rgba(65, 255, 165, 0.07) 0%, transparent 100%),
-    radial-gradient(ellipse 40% 28% at 88% 6%, rgba(83, 201, 255, 0.07) 0%, transparent 100%),
-    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 50%, #03070b 100%);
+    radial-gradient(circle at top left, rgba(65, 255, 165, 0.09), transparent 32%),
+    radial-gradient(circle at top right, rgba(83, 201, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 50% 14%, rgba(255, 255, 255, 0.03), transparent 28%),
+    linear-gradient(180deg, #020508 0%, var(--bg-1) 38%, #040a10 68%, #020406 100%);
   background-attachment: fixed;
   color: var(--text-0);
   font-family: var(--font-sans);
@@ -83,6 +91,18 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6, p, ul, ol, figure { margin: 0; }
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035) 0%, transparent 16%),
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,0.045), transparent 22%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
 
 /* ── Scrollbars ─────────────────────────────────────────────── */
 * {
@@ -116,5 +136,6 @@ h1, h2, h3, h4, h5, h6, p, ul, ol, figure { margin: 0; }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
