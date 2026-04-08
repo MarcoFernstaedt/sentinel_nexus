@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
-import { ConflictError, HttpError, ValidationError, badRequest, internalServerError, json, notFound, readJson } from './http.js'
+import { ConflictError, HttpError, ValidationError, assertOriginAllowed, badRequest, internalServerError, json, notFound, readJson, writeSseHeaders } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
 import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
 
@@ -11,6 +11,10 @@ interface Services {
   statusService: StatusService
   missionCommandService: MissionCommandService
   activityRepository: ActivityRepository
+}
+
+interface RouterOptions {
+  allowedOrigins: string[]
 }
 
 const allowedTaskStatuses: TaskStatus[] = ['Queued', 'In Progress', 'Blocked', 'Done']
@@ -45,19 +49,22 @@ async function createRuntimeEventSnapshot(services: Services) {
   }
 }
 
-export function createRouter(services: Services) {
+export function createRouter(services: Services, options: RouterOptions) {
   return async function route(request: IncomingMessage, response: ServerResponse) {
     try {
       const method = request.method ?? 'GET'
       const url = new URL(request.url ?? '/', 'http://localhost')
 
       if (method === 'OPTIONS') {
-        json(response, 204, {})
+        assertOriginAllowed(request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 204, {})
         return
       }
 
+      assertOriginAllowed(request, options.allowedOrigins)
+
       if (method === 'GET' && url.pathname === '/health') {
-        json(response, 200, { ok: true })
+        json(response, request, options.allowedOrigins, 200, { ok: true })
         return
       }
 
@@ -71,30 +78,22 @@ export function createRouter(services: Services) {
           services.activityRepository.list(8),
           services.statusService.missionCommand(),
         ])
-        json(response, 200, { status, runtime, messages, notes, tasks, activity, missionCommand })
+        json(response, request, options.allowedOrigins, 200, { status, runtime, messages, notes, tasks, activity, missionCommand })
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/status') {
-        json(response, 200, await services.statusService.snapshot())
+        json(response, request, options.allowedOrigins, 200, await services.statusService.snapshot())
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/runtime/context') {
-        json(response, 200, await services.statusService.runtimeContext())
+        json(response, request, options.allowedOrigins, 200, await services.statusService.runtimeContext())
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/runtime/events') {
-        response.writeHead(200, {
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'X-Accel-Buffering': 'no',
-        })
+        writeSseHeaders(response, request, options.allowedOrigins)
         response.flushHeaders?.()
 
         let closed = false
@@ -131,37 +130,37 @@ export function createRouter(services: Services) {
       }
 
       if (method === 'GET' && url.pathname === '/api/activity') {
-        json(response, 200, await services.activityRepository.list(12))
+        json(response, request, options.allowedOrigins, 200, await services.activityRepository.list(12))
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/chat/messages') {
-        json(response, 200, await services.chatService.list())
+        json(response, request, options.allowedOrigins, 200, await services.chatService.list())
         return
       }
 
       if (method === 'POST' && url.pathname === '/api/chat/messages') {
         const body = await readJson<{ body?: string; modeId?: ChatModeId; author?: string }>(request)
-        if (!body.body?.trim()) return badRequest(response, 'body is required')
-        if (!body.modeId) return badRequest(response, 'modeId is required')
-        json(response, 201, await services.chatService.submit({ body: body.body, modeId: body.modeId, author: body.author }))
+        if (!body.body?.trim()) return badRequest(response, request, options.allowedOrigins, 'body is required')
+        if (!body.modeId) return badRequest(response, request, options.allowedOrigins, 'modeId is required')
+        json(response, request, options.allowedOrigins, 201, await services.chatService.submit({ body: body.body, modeId: body.modeId, author: body.author }))
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/notes') {
-        json(response, 200, await services.notesService.list())
+        json(response, request, options.allowedOrigins, 200, await services.notesService.list())
         return
       }
 
       if (method === 'POST' && url.pathname === '/api/notes') {
         const body = await readJson<{ title?: string; body?: string; tag?: string }>(request)
-        if (!body.title?.trim() || !body.body?.trim()) return badRequest(response, 'title and body are required')
-        json(response, 201, await services.notesService.create({ title: body.title, body: body.body, tag: body.tag ?? 'general' }))
+        if (!body.title?.trim() || !body.body?.trim()) return badRequest(response, request, options.allowedOrigins, 'title and body are required')
+        json(response, request, options.allowedOrigins, 201, await services.notesService.create({ title: body.title, body: body.body, tag: body.tag ?? 'general' }))
         return
       }
 
       if (method === 'GET' && url.pathname === '/api/tasks') {
-        json(response, 200, await services.tasksService.list())
+        json(response, request, options.allowedOrigins, 200, await services.tasksService.list())
         return
       }
 
@@ -182,7 +181,7 @@ export function createRouter(services: Services) {
           waitingFor?: string
         }>(request)
         if (!body.title?.trim() || !body.owner?.trim() || !body.due?.trim() || !body.lane?.trim()) {
-          return badRequest(response, 'title, owner, due, and lane are required')
+          return badRequest(response, request, options.allowedOrigins, 'title, owner, due, and lane are required')
         }
         const status = body.status && allowedTaskStatuses.includes(body.status) ? body.status : 'Queued'
         const stage = body.stage && allowedTaskStages.includes(body.stage) ? body.stage : undefined
@@ -201,32 +200,32 @@ export function createRouter(services: Services) {
           waitingFor: body.waitingFor?.trim() || undefined,
           ...(stage !== undefined ? { stage } : {}),
         } as Parameters<typeof services.tasksService.create>[0]
-        json(response, 201, await services.tasksService.create(createInput))
+        json(response, request, options.allowedOrigins, 201, await services.tasksService.create(createInput))
         return
       }
 
       if (method === 'POST' && url.pathname.match(/^\/api\/tasks\/[^/]+\/approve$/)) {
         const taskId = url.pathname.split('/')[3]
-        if (!taskId) return badRequest(response, 'taskId is required')
+        if (!taskId) return badRequest(response, request, options.allowedOrigins, 'taskId is required')
         const updated = await services.tasksService.approve(taskId)
-        if (!updated) return notFound(response)
-        json(response, 200, updated)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
         return
       }
 
       if (method === 'POST' && url.pathname.match(/^\/api\/tasks\/[^/]+\/reject$/)) {
         const taskId = url.pathname.split('/')[3]
-        if (!taskId) return badRequest(response, 'taskId is required')
+        if (!taskId) return badRequest(response, request, options.allowedOrigins, 'taskId is required')
         const body = await readJson<{ reason?: string }>(request)
         const updated = await services.tasksService.reject(taskId, body.reason?.trim() || undefined)
-        if (!updated) return notFound(response)
-        json(response, 200, updated)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
         return
       }
 
       if (method === 'PATCH' && url.pathname.startsWith('/api/tasks/')) {
         const taskId = url.pathname.split('/').at(-1)
-        if (!taskId) return badRequest(response, 'taskId is required')
+        if (!taskId) return badRequest(response, request, options.allowedOrigins, 'taskId is required')
         const body = await readJson<{
           status?: TaskStatus
           stage?: TaskStage
@@ -240,12 +239,12 @@ export function createRouter(services: Services) {
         const patch: Partial<TaskRecord> = {}
 
         if (body.status !== undefined) {
-          if (!allowedTaskStatuses.includes(body.status)) return badRequest(response, 'valid status is required')
+          if (!allowedTaskStatuses.includes(body.status)) return badRequest(response, request, options.allowedOrigins, 'valid status is required')
           patch.status = body.status
         }
 
         if (body.stage !== undefined) {
-          if (!allowedTaskStages.includes(body.stage)) return badRequest(response, 'valid stage is required')
+          if (!allowedTaskStages.includes(body.stage)) return badRequest(response, request, options.allowedOrigins, 'valid stage is required')
           patch.stage = body.stage
         }
 
@@ -274,12 +273,12 @@ export function createRouter(services: Services) {
         }
 
         if (Object.keys(patch).length === 0) {
-          return badRequest(response, 'at least one valid task field is required')
+          return badRequest(response, request, options.allowedOrigins, 'at least one valid task field is required')
         }
 
         const updated = await services.tasksService.update(taskId, patch)
-        if (!updated) return notFound(response)
-        json(response, 200, updated)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
         return
       }
 
@@ -288,64 +287,64 @@ export function createRouter(services: Services) {
         const patch: { progressPercent?: number; commandIntent?: string } = {}
         if (body.progressPercent !== undefined) {
           const pct = Number(body.progressPercent)
-          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, 'progressPercent must be 0-100')
+          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, request, options.allowedOrigins, 'progressPercent must be 0-100')
           patch.progressPercent = pct
         }
         if (body.commandIntent !== undefined) patch.commandIntent = body.commandIntent.trim()
-        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
-        json(response, 200, await services.missionCommandService.patchMission(patch))
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
+        json(response, request, options.allowedOrigins, 200, await services.missionCommandService.patchMission(patch))
         return
       }
 
       if (method === 'PATCH' && url.pathname.startsWith('/api/projects/')) {
         const projectId = url.pathname.split('/').at(-1)
-        if (!projectId) return badRequest(response, 'projectId is required')
+        if (!projectId) return badRequest(response, request, options.allowedOrigins, 'projectId is required')
         const body = await readJson<{ status?: string; progressPercent?: number; objective?: string }>(request)
         const patch: Partial<ProjectRecord> = {}
         const allowedProjectStatuses: ProjectRecord['status'][] = ['active', 'watch', 'blocked', 'parked', 'done']
         if (body.status !== undefined) {
-          if (!allowedProjectStatuses.includes(body.status as ProjectRecord['status'])) return badRequest(response, `status must be one of: ${allowedProjectStatuses.join(', ')}`)
+          if (!allowedProjectStatuses.includes(body.status as ProjectRecord['status'])) return badRequest(response, request, options.allowedOrigins, `status must be one of: ${allowedProjectStatuses.join(', ')}`)
           patch.status = body.status as ProjectRecord['status']
         }
         if (body.progressPercent !== undefined) {
           const pct = Number(body.progressPercent)
-          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, 'progressPercent must be 0-100')
+          if (Number.isNaN(pct) || pct < 0 || pct > 100) return badRequest(response, request, options.allowedOrigins, 'progressPercent must be 0-100')
           patch.progressPercent = pct
         }
         if (body.objective !== undefined) patch.objective = body.objective.trim()
-        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
         const updated = await services.missionCommandService.patchProject(projectId, patch)
-        if (!updated) return notFound(response)
-        json(response, 200, updated)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
         return
       }
 
       if (method === 'PATCH' && url.pathname.startsWith('/api/team/')) {
         const memberId = url.pathname.split('/').at(-1)
-        if (!memberId) return badRequest(response, 'memberId is required')
+        if (!memberId) return badRequest(response, request, options.allowedOrigins, 'memberId is required')
         const body = await readJson<{ status?: string; focus?: string }>(request)
         const patch: Partial<TeamMemberRecord> = {}
         const allowedMemberStatuses: TeamMemberRecord['status'][] = ['active', 'limited-visibility', 'offline']
         if (body.status !== undefined) {
-          if (!allowedMemberStatuses.includes(body.status as TeamMemberRecord['status'])) return badRequest(response, `status must be one of: ${allowedMemberStatuses.join(', ')}`)
+          if (!allowedMemberStatuses.includes(body.status as TeamMemberRecord['status'])) return badRequest(response, request, options.allowedOrigins, `status must be one of: ${allowedMemberStatuses.join(', ')}`)
           patch.status = body.status as TeamMemberRecord['status']
         }
         if (body.focus !== undefined) patch.focus = body.focus.trim()
-        if (Object.keys(patch).length === 0) return badRequest(response, 'at least one field required')
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
         const updated = await services.missionCommandService.patchTeamMember(memberId, patch)
-        if (!updated) return notFound(response)
-        json(response, 200, updated)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
         return
       }
 
       if (method === 'POST' && url.pathname === '/api/calendar') {
         const body = await readJson<{ title?: string; type?: CalendarEventRecord['type']; startsAt?: string; owner?: string; detail?: string; endsAt?: string; relatedProjectId?: string }>(request)
         if (!body.title?.trim() || !body.type || !body.startsAt?.trim() || !body.owner?.trim()) {
-          return badRequest(response, 'title, type, startsAt, and owner are required')
+          return badRequest(response, request, options.allowedOrigins, 'title, type, startsAt, and owner are required')
         }
         const allowedEventTypes: CalendarEventRecord['type'][] = ['task', 'meeting', 'deadline', 'routine']
-        if (!allowedEventTypes.includes(body.type)) return badRequest(response, `type must be one of: ${allowedEventTypes.join(', ')}`)
-        json(response, 201, await services.missionCommandService.createCalendarEvent({
+        if (!allowedEventTypes.includes(body.type)) return badRequest(response, request, options.allowedOrigins, `type must be one of: ${allowedEventTypes.join(', ')}`)
+        json(response, request, options.allowedOrigins, 201, await services.missionCommandService.createCalendarEvent({
           title: body.title,
           type: body.type,
           startsAt: body.startsAt,
@@ -359,10 +358,10 @@ export function createRouter(services: Services) {
 
       if (method === 'POST' && url.pathname === '/api/memories') {
         const body = await readJson<{ title?: string; summary?: string; kind?: MemoryRecord['kind']; tags?: string[] }>(request)
-        if (!body.title?.trim() || !body.summary?.trim()) return badRequest(response, 'title and summary are required')
+        if (!body.title?.trim() || !body.summary?.trim()) return badRequest(response, request, options.allowedOrigins, 'title and summary are required')
         const allowedKinds: MemoryRecord['kind'][] = ['working-memory', 'long-term-memory']
-        if (body.kind && !allowedKinds.includes(body.kind)) return badRequest(response, `kind must be one of: ${allowedKinds.join(', ')}`)
-        json(response, 201, await services.missionCommandService.createMemory({
+        if (body.kind && !allowedKinds.includes(body.kind)) return badRequest(response, request, options.allowedOrigins, `kind must be one of: ${allowedKinds.join(', ')}`)
+        json(response, request, options.allowedOrigins, 201, await services.missionCommandService.createMemory({
           title: body.title,
           summary: body.summary,
           kind: body.kind,
@@ -373,7 +372,7 @@ export function createRouter(services: Services) {
 
       if (method === 'POST' && url.pathname === '/api/activity') {
         const body = await readJson<{ title?: string; detail?: string; type?: string }>(request)
-        if (!body.title?.trim()) return badRequest(response, 'title is required')
+        if (!body.title?.trim()) return badRequest(response, request, options.allowedOrigins, 'title is required')
         const allowedTypes = ['chat', 'task', 'note', 'status']
         const entryType = body.type && allowedTypes.includes(body.type) ? body.type as 'chat' | 'task' | 'note' | 'status' : 'status'
         const entry = await services.activityRepository.append({
@@ -385,15 +384,15 @@ export function createRouter(services: Services) {
           status: 'logged',
           source: 'runtime',
         })
-        json(response, 201, entry)
+        json(response, request, options.allowedOrigins, 201, entry)
         return
       }
 
-      notFound(response)
+      notFound(response, request, options.allowedOrigins)
     } catch (error) {
       if (error instanceof ValidationError || error instanceof ConflictError) {
         console.warn(`[nexus:reject] ${request.method ?? 'GET'} ${request.url ?? '/'} — ${error.code} — ${error.message}`)
-        json(response, error.statusCode, {
+        json(response, request, options.allowedOrigins, error.statusCode, {
           ok: false,
           code: error.code,
           message: error.message,
@@ -403,12 +402,12 @@ export function createRouter(services: Services) {
       }
 
       if (error instanceof HttpError) {
-        json(response, error.statusCode, { error: error.message })
+        json(response, request, options.allowedOrigins, error.statusCode, { error: error.message })
         return
       }
 
       console.error('Nexus API route failed', error)
-      internalServerError(response)
+      internalServerError(response, request, options.allowedOrigins)
     }
   }
 }

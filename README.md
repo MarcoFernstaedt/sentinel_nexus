@@ -53,10 +53,19 @@ See `docs/current-state.md` for the fastest operator orientation and stale-artif
 See `docs/ui-architecture-roadmap.md` for the migration notes that led to the current Next.js + Tailwind-style operator shell and the remaining cleanup path.
 
 ## Nexus DB boundary
-- `.env.example` defines `NEXUS_DB_*` variables.
-- Default persistence is file-backed JSON under `.nexus-db/`.
+- `.env.example` defines `NEXUS_DB_*` variables plus network exposure controls.
+- Default persistence is file-backed JSON under the Nexus-owned path `~/.openclaw/data/nexus`.
+- The file-backed store now forces private permissions on the data directory (`700`) and data file (`600`) on write.
 - `nexus.schema.sql` prepares a future relational schema path.
 - Route logic is isolated from storage so SQLite/Postgres can replace file storage later.
+
+## Security / production hardening
+- API and web now bind to `127.0.0.1` by default instead of all interfaces.
+- Set `NEXUS_API_HOST=0.0.0.0` and/or `NEXUS_WEB_HOST=0.0.0.0` only when you intentionally expose Nexus on LAN/VPS and have a reverse proxy or firewall in front.
+- Cross-origin browser access is deny-by-default unless you explicitly set `NEXUS_ALLOWED_ORIGINS` to a comma-separated allow-list.
+- API responses now send baseline hardening headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control`).
+- JSON write endpoints now reject unsupported content types and keep a 1 MB request-body ceiling.
+- Production posture recommendation: keep Nexus loopback-only, terminate TLS at a reverse proxy, and expose only the minimal path surface you actually need.
 
 ## Task model notes
 Tasks now support a few operator-safe metadata fields through the existing API and file-backed store:
@@ -76,6 +85,11 @@ npm install
 cp .env.example .env # optional, defaults still work without it
 npm run dev
 ```
+
+For local-only operation, the defaults are already hardened:
+- web binds to `127.0.0.1:3000`
+- API binds to `127.0.0.1:3001`
+- direct cross-origin access is off unless `NEXUS_ALLOWED_ORIGINS` is set
 
 Frontend: `http://localhost:3000`
 API: `http://localhost:3001`
@@ -97,6 +111,15 @@ npm run lint
 npm run build:all
 npm run lint
 ```
+
+## Deployment posture
+
+Recommended production posture for Marco's personal Mission Control:
+- keep both processes on loopback unless there is a real multi-device need
+- put TLS/auth/rate-limits/IP policy at a reverse proxy before any public exposure
+- set `NEXUS_ALLOWED_ORIGINS` only to the exact browser origins that need direct API access
+- keep the file-backed store on a private host account, with backups handled outside the repo
+- do not treat the current API as an internet-open multi-tenant service; it is a personal control plane
 
 ## Remaining production gaps
 

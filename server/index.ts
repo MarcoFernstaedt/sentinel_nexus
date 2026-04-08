@@ -10,16 +10,21 @@ const store = new FileBackedStore(config.database.dataDirectory)
 const activityRepository = new ActivityRepository(store)
 
 const server = http.createServer(
-  createRouter({
-    chatService: new ChatService(new ChatRepository(store), activityRepository),
-    notesService: new NotesService(new NotesRepository(store), activityRepository),
-    tasksService: new TasksService(new TasksRepository(store), activityRepository),
-    statusService: new StatusService(new StatusRepository(store), config),
-    missionCommandService: new MissionCommandService(new MissionCommandRepository(store), activityRepository),
-    activityRepository,
-  }),
+  createRouter(
+    {
+      chatService: new ChatService(new ChatRepository(store), activityRepository),
+      notesService: new NotesService(new NotesRepository(store), activityRepository),
+      tasksService: new TasksService(new TasksRepository(store), activityRepository),
+      statusService: new StatusService(new StatusRepository(store), config),
+      missionCommandService: new MissionCommandService(new MissionCommandRepository(store), activityRepository),
+      activityRepository,
+    },
+    {
+      allowedOrigins: config.allowedOrigins,
+    },
+  ),
 )
 
-server.listen(config.port, () => {
-  console.log(`Sentinel Nexus API listening on http://localhost:${config.port}`)
+server.listen(config.port, config.host, () => {
+  console.log(`Sentinel Nexus API listening on http://${config.host}:${config.port}`)
 })

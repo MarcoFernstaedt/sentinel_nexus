@@ -81,12 +81,21 @@ function normalizeStore(store: NexusDataStore): NexusDataStore {
 export class FileBackedStore {
   constructor(private readonly dataDirectory: string) {}
 
+  private get normalizedDataDirectory() {
+    return path.resolve(this.dataDirectory)
+  }
+
   private get filePath() {
-    return path.join(this.dataDirectory, 'nexus-data.json')
+    return path.join(this.normalizedDataDirectory, 'nexus-data.json')
+  }
+
+  private async ensureSecureDataDirectory() {
+    await fs.mkdir(this.normalizedDataDirectory, { recursive: true, mode: 0o700 })
+    await fs.chmod(this.normalizedDataDirectory, 0o700).catch(() => {})
   }
 
   async read(): Promise<NexusDataStore> {
-    await fs.mkdir(this.dataDirectory, { recursive: true })
+    await this.ensureSecureDataDirectory()
 
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
@@ -105,7 +114,8 @@ export class FileBackedStore {
   }
 
   async write(store: NexusDataStore): Promise<void> {
-    await fs.mkdir(this.dataDirectory, { recursive: true })
-    await fs.writeFile(this.filePath, JSON.stringify(store, null, 2) + '\n', 'utf8')
+    await this.ensureSecureDataDirectory()
+    await fs.writeFile(this.filePath, JSON.stringify(store, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 })
+    await fs.chmod(this.filePath, 0o600).catch(() => {})
   }
 }
