@@ -53,24 +53,34 @@ function NavItem({ href, label, icon: Icon, collapsed, active, onNavigate }: Nav
         'border-l-2 text-sm font-medium',
         collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-4 py-2.5',
         active
-          ? 'border-accent-mint bg-[linear-gradient(90deg,rgba(18,52,40,0.7),rgba(11,24,31,0.22))] text-text-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
+          ? [
+              'border-accent-mint',
+              'bg-[linear-gradient(90deg,rgba(0,40,26,0.80),rgba(4,14,24,0.30))]',
+              'text-text-0',
+              'shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_0_28px_rgba(0,255,179,0.07)]',
+            ]
           : 'border-transparent text-text-2 hover:text-text-1 hover:bg-white/[0.03]',
       )}
       aria-current={active ? 'page' : undefined}
     >
-      <Icon
-        size={16}
-        className={cn(
-          'flex-shrink-0 transition-colors duration-150',
-          active ? 'text-accent-mint' : 'text-text-2',
-        )}
-      />
+      <span
+        aria-hidden
+        style={active ? { filter: 'drop-shadow(0 0 5px rgba(0,255,179,0.75))' } : undefined}
+      >
+        <Icon
+          size={16}
+          className={cn(
+            'flex-shrink-0 transition-colors duration-150',
+            active ? 'text-accent-mint' : 'text-text-2',
+          )}
+        />
+      </span>
       {!collapsed && (
         <span className="leading-none tracking-[0.01em]">{label}</span>
       )}
       {active && !collapsed && (
         <span
-          className="absolute right-3 w-1 h-1 rounded-full bg-accent-mint opacity-80"
+          className="absolute right-3 w-1 h-1 rounded-full bg-accent-mint opacity-90 shadow-[0_0_5px_rgba(0,255,179,0.80)]"
           aria-hidden
         />
       )}
@@ -109,7 +119,7 @@ export function Sidebar() {
       {/* Mobile backdrop */}
       {mobileNavOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+          className="md:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-[3px]"
           onClick={() => setMobileNavOpen(false)}
           aria-hidden
         />
@@ -118,9 +128,9 @@ export function Sidebar() {
     <aside
       className={cn(
         'flex-shrink-0 flex-col self-stretch',
-        'border-r border-soft',
-        'bg-[linear-gradient(180deg,rgba(5,10,15,0.98),rgba(5,10,15,0.9))]',
-        'backdrop-blur-[24px] shadow-[18px_0_40px_rgba(0,0,0,0.22)]',
+        'border-r border-[rgba(0,255,179,0.12)]',
+        'bg-[linear-gradient(180deg,rgba(2,6,12,0.99),rgba(2,6,12,0.94))]',
+        'backdrop-blur-[24px] shadow-[18px_0_50px_rgba(0,0,0,0.34)]',
         'overflow-hidden',
         // Mobile: overlay when open, hidden when closed
         mobileNavOpen
@@ -135,13 +145,14 @@ export function Sidebar() {
       {/* Header */}
       <div
         className={cn(
-          'flex flex-shrink-0 items-center border-b border-soft bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]',
+          'flex flex-shrink-0 items-center border-b border-[rgba(0,255,179,0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.025),transparent)]',
           collapsed ? 'justify-center px-0 py-4' : 'px-5 py-4 gap-3',
         )}
       >
         {/* Logo mark */}
         <div
-          className="flex-shrink-0 w-7 h-7 rounded-[8px] border border-[rgba(126,255,210,0.28)] bg-gradient-to-br from-[rgba(36,255,156,0.18)] to-[rgba(83,201,255,0.14)] flex items-center justify-center"
+          className="flex-shrink-0 w-7 h-7 rounded-[8px] border border-[rgba(0,255,179,0.38)] bg-gradient-to-br from-[rgba(0,255,179,0.22)] to-[rgba(0,212,255,0.18)] flex items-center justify-center"
+          style={{ boxShadow: '0 0 12px rgba(0,255,179,0.15), inset 0 1px 0 rgba(255,255,255,0.08)' }}
           aria-hidden
         >
           <span className="text-[10px] font-bold text-accent-mint font-mono leading-none">SN</span>
@@ -167,7 +178,7 @@ export function Sidebar() {
           return (
             <div key={item.href}>
               {showGroup && (
-                <p className="px-4 pb-1 pt-3 text-[0.6rem] uppercase tracking-[0.18em] text-text-3 font-medium">
+                <p className="px-4 pb-1 pt-3 text-[0.6rem] uppercase tracking-[0.18em] text-[rgba(140,170,158,0.65)] font-medium">
                   {item.group}
                 </p>
               )}
@@ -186,7 +197,7 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className={cn(
-        'flex-shrink-0 border-t border-soft',
+        'flex-shrink-0 border-t border-[rgba(0,255,179,0.12)]',
         collapsed ? 'flex flex-col items-center gap-2 py-3' : 'flex items-center justify-between px-4 py-3',
       )}>
         {/* Connection indicator */}
@@ -196,12 +207,14 @@ export function Sidebar() {
         )}>
           <span className="relative flex h-2 w-2">
             {isOnline && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#7ef7cd] opacity-50" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00ffb3] opacity-50" />
             )}
             <span
               className={cn(
                 'relative inline-flex rounded-full h-2 w-2',
-                isOnline ? 'bg-[#7ef7cd]' : 'bg-accent-warn',
+                isOnline
+                  ? 'bg-[#00ffb3] shadow-[0_0_6px_rgba(0,255,179,0.80)]'
+                  : 'bg-accent-warn shadow-[0_0_6px_rgba(255,170,0,0.70)]',
               )}
             />
           </span>
@@ -223,7 +236,8 @@ export function Sidebar() {
             'flex items-center justify-center rounded-[8px] w-7 h-7',
             'border border-soft bg-surface-0',
             'text-text-3 hover:text-text-1 hover:border-med',
-            'transition-colors duration-150',
+            'transition-all duration-150',
+            'hover:shadow-[0_0_10px_rgba(0,255,179,0.14)]',
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={`Press [ to toggle (${collapsed ? 'expand' : 'collapse'})`}
