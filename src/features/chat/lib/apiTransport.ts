@@ -180,11 +180,14 @@ export async function createNoteInApi(input: { title: string; body: string; tag:
 
 export function createTransportPreview(status: RuntimeStatusSnapshot): TransportPreview {
   const apiCard = status.cards[0]
+  const summary = apiCard
+    ? `${apiCard.value}: ${apiCard.detail}`
+    : 'Runtime status is available, but summary cards are not populated yet.'
 
   return {
     provider: `Nexus API · ${status.storage.driver}`,
     state: 'ready-for-runtime',
-    summary: `${apiCard.value}: ${apiCard.detail}`,
+    summary,
     runtimeTarget: {
       apiBasePath: nexusRuntimeContract.apiBasePath,
       eventStreamPath: nexusRuntimeContract.eventStreamPath,
