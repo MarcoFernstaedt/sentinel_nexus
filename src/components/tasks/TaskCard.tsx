@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/src/lib/cn'
+import { formatMonthDayLabel } from '@/src/lib/date'
 import type { Task } from '@/src/types/projects'
 
 interface TaskCardProps {
@@ -61,7 +62,7 @@ export function TaskCard({ task, onSelect }: TaskCardProps) {
         </span>
         {task.dueDate && (
           <span className="text-[0.6rem] font-mono text-text-3 whitespace-nowrap flex-shrink-0">
-            {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(task.dueDate))}
+            {formatMonthDayLabel(task.dueDate, task.dueDate)}
           </span>
         )}
       </div>

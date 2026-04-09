@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { X, Calendar, User, GitBranch, CheckCircle2, Zap } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
+import { formatDateLabel } from '@/src/lib/date'
 import { ProjectStatusBadge } from '@/src/components/projects/ProjectStatusBadge'
 import type { Task } from '@/src/types/projects'
 
@@ -14,11 +15,7 @@ interface TaskDetailSlideOverProps {
 
 function formatDate(iso?: string) {
   if (!iso) return null
-  try {
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso))
-  } catch {
-    return null
-  }
+  return formatDateLabel(iso, undefined, iso)
 }
 
 function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {

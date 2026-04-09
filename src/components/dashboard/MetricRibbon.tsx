@@ -4,14 +4,10 @@ import { MetricCard } from '@/src/components/ui/MetricCard'
 import { useDashboard } from './DashboardDataProvider'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
+import { formatMonthYearLabel } from '@/src/lib/date'
 
 function formatLocalMissionTarget(targetDate?: string | null, fallbackTitle?: string) {
-  if (!targetDate) return fallbackTitle ?? 'No live mission target yet'
-
-  const parsed = new Date(`${targetDate}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) return fallbackTitle ?? 'No live mission target yet'
-
-  return parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+  return formatMonthYearLabel(targetDate, fallbackTitle ?? 'No live mission target yet')
 }
 
 export function MetricRibbon() {

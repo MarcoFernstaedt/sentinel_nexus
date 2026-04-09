@@ -5,6 +5,7 @@ import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
+import { formatDateLabel } from '@/src/lib/date'
 
 function SettingRow({
   label,
@@ -45,10 +46,7 @@ export default function SettingsPage() {
   const systemHeadingId      = 'settings-system-heading'
 
   const agentCount = agents.length
-  const parsedTargetDate = missionContext.targetDate ? new Date(missionContext.targetDate) : null
-  const targetDate = parsedTargetDate && !Number.isNaN(parsedTargetDate.getTime())
-    ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(parsedTargetDate)
-    : '—'
+  const targetDate = formatDateLabel(missionContext.targetDate)
 
   return (
     <div className="px-5 py-5 space-y-5">

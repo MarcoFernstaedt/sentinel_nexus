@@ -1,13 +1,10 @@
 import { Target, Calendar, TrendingUp } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
+import { formatDateLabel } from '@/src/lib/date'
 import type { Agent, MissionContext } from '@/src/types/agents'
 
 function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatDateLabel(iso, undefined, 'Pending')
 }
 
 type AlignmentSummary = {

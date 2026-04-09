@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Calendar, Users, CheckSquare } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
+import { formatDateLabel } from '@/src/lib/date'
 import { ProjectStatusBadge, PriorityBadge } from './ProjectStatusBadge'
 import type { Project, Task } from '@/src/types/projects'
 
@@ -31,11 +32,7 @@ function ProgressBar({ value }: { value: number }) {
 
 function formatDate(iso?: string) {
   if (!iso) return null
-  try {
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso))
-  } catch {
-    return null
-  }
+  return formatDateLabel(iso, undefined, iso)
 }
 
 export function ProjectCard({ project, tasks }: ProjectCardProps) {

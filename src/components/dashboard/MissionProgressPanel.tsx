@@ -4,6 +4,7 @@ import { Calendar, Target, Users } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
+import { formatDateLabel } from '@/src/lib/date'
 
 const ALIGNMENT_DOT: Record<string, string> = {
   'on-track':  'bg-accent-mint shadow-[0_0_4px_rgba(126,255,210,0.6)]',
@@ -13,11 +14,7 @@ const ALIGNMENT_DOT: Record<string, string> = {
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: 'short', day: 'numeric', year: 'numeric',
-    }).format(new Date(iso + 'T00:00:00'))
-  } catch { return iso }
+  return formatDateLabel(iso, undefined, 'Pending')
 }
 
 export function MissionProgressPanel() {
