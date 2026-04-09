@@ -117,18 +117,18 @@ export function Sidebar() {
 
     <aside
       className={cn(
-        'h-dvh flex-shrink-0 flex-col',
+        'flex-shrink-0 flex-col self-stretch',
         'border-r border-soft',
         'bg-[linear-gradient(180deg,rgba(5,10,15,0.98),rgba(5,10,15,0.9))]',
         'backdrop-blur-[24px] shadow-[18px_0_40px_rgba(0,0,0,0.22)]',
         'overflow-hidden',
         // Mobile: overlay when open, hidden when closed
         mobileNavOpen
-          ? 'flex fixed inset-y-0 left-0 z-50 w-[240px] shadow-elevated'
+          ? 'fixed inset-y-0 left-0 z-50 flex w-[min(82vw,280px)] shadow-elevated'
           : 'hidden',
         // Desktop: always shown, width based on collapsed state
-        'md:flex md:relative md:transition-[width] md:duration-200 md:ease-out md:shadow-none',
-        collapsed ? 'md:w-[56px]' : 'md:w-[220px]',
+        'md:sticky md:top-0 md:flex md:h-dvh md:relative md:transition-[width] md:duration-200 md:ease-out md:shadow-none',
+        collapsed ? 'md:w-[64px]' : 'md:w-[232px]',
       )}
       aria-label="Main navigation"
     >

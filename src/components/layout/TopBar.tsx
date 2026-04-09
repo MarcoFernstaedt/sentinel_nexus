@@ -52,7 +52,7 @@ export function TopBar() {
   return (
     <header
       className={cn(
-        'flex h-14 flex-shrink-0 items-center px-4 md:px-5 gap-4',
+        'sticky top-0 z-30 flex min-h-14 flex-shrink-0 flex-wrap items-center gap-3 px-3 py-2 sm:flex-nowrap sm:px-4 md:px-5',
         'border-b border-soft',
         'bg-[linear-gradient(180deg,rgba(9,16,23,0.96),rgba(5,10,15,0.86))]',
         'backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.18)]',
@@ -73,7 +73,7 @@ export function TopBar() {
       </button>
 
       {/* Left: breadcrumb */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-3 basis-0">
         <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-[10px] border border-[rgba(126,255,210,0.16)] bg-[rgba(126,255,210,0.06)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <span className="text-[0.62rem] font-mono font-semibold tracking-[0.08em] text-accent-mint">SN</span>
         </div>
@@ -88,7 +88,7 @@ export function TopBar() {
       </div>
 
       {/* Right: clock + status */}
-      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+      <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto md:gap-3 flex-shrink-0">
         <div className="hidden sm:grid gap-0.5 rounded-full border border-soft bg-[rgba(255,255,255,0.03)] px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           <span className="text-[0.54rem] uppercase tracking-[0.18em] text-text-3">Reference Time</span>
           <span className="text-[0.72rem] font-mono text-text-2 tabular-nums">

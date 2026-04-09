@@ -234,7 +234,7 @@ export function AttentionBoard() {
         }
         labelledBy={headingId}
       >
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {columns.map((col) => (
             <AttentionColumn key={col.label} col={col} onOpen={!isOffline ? setSelectedTaskId : undefined} />
           ))}

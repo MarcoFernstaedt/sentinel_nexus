@@ -37,7 +37,7 @@ export function MissionProgressPanel() {
     )}>
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
       <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-[rgba(113,203,255,0.08)] blur-3xl" aria-hidden />
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="relative flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-start lg:gap-6">
 
         {/* Left: mission + command intent */}
         <div className="flex-1 min-w-0 grid gap-4">
@@ -63,7 +63,7 @@ export function MissionProgressPanel() {
         </div>
 
         {/* Center: progress */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.03)] p-4 lg:min-w-[240px] lg:w-[240px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+        <div className="flex w-full flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.03)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:max-w-[28rem] lg:min-w-[240px] lg:w-[240px] lg:max-w-none">
           <div className="flex items-center justify-between">
             <span className="text-[0.58rem] uppercase tracking-[0.14em] text-text-3 font-medium">
               Mission Progress
@@ -95,7 +95,7 @@ export function MissionProgressPanel() {
         </div>
 
         {/* Right: target date + agents */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.025)] p-4 lg:min-w-[190px] lg:items-end shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+        <div className="flex w-full flex-col gap-3 rounded-2xl border border-white/[0.05] bg-[rgba(255,255,255,0.025)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:max-w-[24rem] lg:min-w-[190px] lg:max-w-none lg:items-end">
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-text-3" aria-hidden />
             <span className="text-[0.62rem] font-mono text-text-2">

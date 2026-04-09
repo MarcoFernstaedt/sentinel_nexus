@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-border-soft: var(--border-soft);
+  --color-border-med: var(--border-med);
+  --color-border-strong: var(--border-strong);
+  --color-soft: var(--border-soft);
+  --color-med: var(--border-med);
+  --color-strong: var(--border-strong);
+
+  --color-text-0: var(--text-0);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --color-accent-mint: var(--accent-mint);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-warn: var(--accent-warn);
+  --color-accent-alert: var(--accent-alert);
+  --color-accent-mint-dim: var(--accent-mint-dim);
+  --color-accent-cyan-dim: var(--accent-cyan-dim);
+
+  --shadow-panel: var(--shadow-panel);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-card-hover: var(--shadow-card-hover);
+}
+
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Backgrounds */

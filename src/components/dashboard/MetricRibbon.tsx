@@ -5,6 +5,15 @@ import { useDashboard } from './DashboardDataProvider'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 
+function formatLocalMissionTarget(targetDate?: string | null, fallbackTitle?: string) {
+  if (!targetDate) return fallbackTitle ?? 'No live mission target yet'
+
+  const parsed = new Date(`${targetDate}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return fallbackTitle ?? 'No live mission target yet'
+
+  return parsed.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
+
 export function MetricRibbon() {
   const { missionCommand, runtimeTasks, apiState } = useDashboard()
   const { projects: localProjects, tasks: localTasks } = useProjectsStore()
@@ -12,6 +21,7 @@ export function MetricRibbon() {
 
   const { mission, goals, projects: apiProjects } = missionCommand
   const isOffline = apiState === 'local-fallback'
+  const localTargetLabel = formatLocalMissionTarget(missionContext.targetDate, missionContext.statement)
 
   // Local-derived values (always available)
   const localProgress      = missionContext.progressPercent
@@ -25,13 +35,13 @@ export function MetricRibbon() {
   const apiActiveTasks     = runtimeTasks.filter((t) => t.status === 'In Progress').length
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
         label="Mission Progress"
         value={`${isOffline ? localProgress : mission.progressPercent}%`}
         detail={
           isOffline
-            ? `Target ${new Date(missionContext.targetDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`
+            ? `Target ${localTargetLabel}`
             : mission.targetDate !== 'Pending'
             ? `Target ${mission.targetDate}`
             : mission.title
