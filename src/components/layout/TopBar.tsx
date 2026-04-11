@@ -7,15 +7,17 @@ import { cn } from '@/src/lib/cn'
 import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 
 const routeLabels: Record<string, { label: string; eyebrow: string }> = {
-  '/':           { label: 'Dashboard',  eyebrow: 'Overview' },
-  '/projects':   { label: 'Projects',   eyebrow: 'Execution' },
-  '/tasks':      { label: 'Tasks',      eyebrow: 'Execution Board' },
-  '/calendar':   { label: 'Calendar',   eyebrow: 'Schedule' },
-  '/tracking':   { label: 'Tracking',   eyebrow: 'Execution Enforcement' },
-  '/agents':     { label: 'Agents',     eyebrow: 'Agent Roster' },
-  '/notes':      { label: 'Notes',      eyebrow: 'Operator Notes' },
-  '/docs':       { label: 'Docs',       eyebrow: 'Artifact Vault' },
-  '/settings':   { label: 'Settings',   eyebrow: 'Configuration' },
+  '/':            { label: 'Dashboard',  eyebrow: 'Overview' },
+  '/chat':        { label: 'Chat',       eyebrow: 'Command Channel' },
+  '/projects':    { label: 'Projects',   eyebrow: 'Execution' },
+  '/tasks':       { label: 'Tasks',      eyebrow: 'Execution Board' },
+  '/calendar':    { label: 'Calendar',   eyebrow: 'Schedule' },
+  '/tracking':    { label: 'Tracking',   eyebrow: 'Execution Enforcement' },
+  '/agents':      { label: 'Agents',     eyebrow: 'Agent Roster' },
+  '/notes':       { label: 'Notes',      eyebrow: 'Operator Notes' },
+  '/docs':        { label: 'Docs',       eyebrow: 'Artifact Vault' },
+  '/telemetry':   { label: 'Telemetry',  eyebrow: 'System Health' },
+  '/settings':    { label: 'Settings',   eyebrow: 'Configuration' },
 }
 
 function useUtcClock() {
