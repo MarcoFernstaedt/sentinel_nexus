@@ -97,8 +97,8 @@ export default function SettingsPage() {
           labelledBy={systemHeadingId}
         >
           <SectionLabel>Build</SectionLabel>
-          <SettingRow label="Version"      value="Mission Control v1.0"              badge="dev" badgeTone="pending" />
-          <SettingRow label="Branch"       value="claude/mission-control-foundation-pdjBS" mono />
+          <SettingRow label="Version"      value="Sentinel Nexus v1"                    badge="alpha" badgeTone="pending" />
+          <SettingRow label="Branch"       value="claude/nexus-platform-hardening-NNr1S" mono />
           <SettingRow label="Stack"        value="Next.js 15 · React 19 · Tailwind CSS v4" />
           <SettingRow label="Runtime"      value="Node.js 20 · Edge-ready"           />
 
