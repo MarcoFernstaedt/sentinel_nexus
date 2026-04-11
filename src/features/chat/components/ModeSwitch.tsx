@@ -1,4 +1,5 @@
 import type { ChatMode, ChatModeId } from '../model/types'
+import { cn } from '@/src/lib/cn'
 
 type ModeSwitchProps = {
   modes: ChatMode[]
@@ -8,39 +9,44 @@ type ModeSwitchProps = {
 
 export function ModeSwitch({ modes, activeModeId, onSelect }: ModeSwitchProps) {
   return (
-    <section className="mode-switch-shell" aria-labelledby="mode-switch-heading">
-      <div className="mode-switch-shell__header">
-        <div>
-          <p className="eyebrow">Mode routing</p>
-          <h3 id="mode-switch-heading">Choose operating mode</h3>
-        </div>
-        <span className="muted-copy">Sentinel, Software Engineer, and Acquisition Operator each preserve a distinct voice and decision bias.</span>
-      </div>
-      <div className="mode-switch" role="tablist" aria-label="Sentinel chat modes">
-        {modes.map((mode) => {
-          const isActive = mode.id === activeModeId
-          const panelId = `mode-panel-${mode.id}`
-          const tabId = `mode-tab-${mode.id}`
-
-          return (
-            <button
-              key={mode.id}
-              id={tabId}
-              type="button"
-              className={`mode-switch__item ${isActive ? 'is-active' : ''}`}
-              role="tab"
-              aria-selected={isActive}
-              aria-controls={panelId}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => onSelect(mode.id)}
-            >
-              <span>{mode.label}</span>
-              <strong>{mode.accent}</strong>
-              <small>{mode.intent}</small>
-            </button>
-          )
-        })}
-      </div>
-    </section>
+    <div
+      className="flex-shrink-0 flex items-center gap-1 px-4 py-3 border-b border-soft overflow-x-auto"
+      role="tablist"
+      aria-label="Sentinel chat modes"
+    >
+      {modes.map((mode) => {
+        const isActive = mode.id === activeModeId
+        return (
+          <button
+            key={mode.id}
+            id={`mode-tab-${mode.id}`}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={`mode-panel-${mode.id}`}
+            tabIndex={isActive ? 0 : -1}
+            onClick={() => onSelect(mode.id)}
+            className={cn(
+              'flex flex-col items-start gap-0.5 px-3 py-2 rounded-[10px]',
+              'border transition-all duration-150 text-left flex-shrink-0',
+              isActive
+                ? 'border-[rgba(126,255,210,0.30)] bg-[rgba(126,255,210,0.07)] text-text-0'
+                : 'border-transparent text-text-2 hover:text-text-1 hover:bg-white/[0.03]',
+            )}
+          >
+            <span className="text-[0.72rem] font-semibold leading-none">{mode.label}</span>
+            <span className={cn(
+              'text-[0.6rem] font-medium leading-none',
+              isActive ? 'text-accent-mint' : 'text-text-3',
+            )}>
+              {mode.accent}
+            </span>
+            <span className="text-[0.62rem] text-text-3 leading-tight max-w-[160px] hidden sm:block">
+              {mode.intent}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }

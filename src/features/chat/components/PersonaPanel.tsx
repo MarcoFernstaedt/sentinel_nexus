@@ -1,4 +1,12 @@
 import type { ActivityItem, ChatMode, RuntimeContext, RuntimeStatusSnapshot, TransportPreview } from '../model/types'
+import { cn } from '@/src/lib/cn'
+
+function formatLastSyncLabel(timestamp: string | undefined) {
+  if (!timestamp) return 'Waiting for API'
+  const parsed = Date.parse(timestamp)
+  if (Number.isNaN(parsed)) return timestamp
+  return new Date(parsed).toLocaleTimeString([], { hour12: false })
+}
 
 type PersonaPanelProps = {
   activeMode: ChatMode
@@ -11,17 +19,13 @@ type PersonaPanelProps = {
   onPromptSelect: (prompt: string) => void
 }
 
-function formatLastSyncLabel(timestamp: string | undefined) {
-  if (!timestamp) {
-    return 'Waiting for API'
-  }
-
-  const parsed = Date.parse(timestamp)
-  if (Number.isNaN(parsed)) {
-    return timestamp
-  }
-
-  return new Date(parsed).toLocaleTimeString([], { hour12: false })
+function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="border-b border-soft px-4 py-3 last:border-0">
+      <p className="text-[0.58rem] uppercase tracking-[0.16em] text-text-3 font-medium mb-2">{title}</p>
+      {children}
+    </section>
+  )
 }
 
 export function PersonaPanel({
@@ -41,98 +45,97 @@ export function PersonaPanel({
   const lastSyncLabel = formatLastSyncLabel(runtimeStatus?.capturedAt)
 
   return (
-    <aside className="persona-panel panel" aria-labelledby="persona-panel-heading">
-      <div className="panel-block panel-block--hero">
-        <p className="eyebrow">Sentinel presence</p>
-        <h2 id="persona-panel-heading">{activeMode.label}</h2>
-        <p className="muted-copy">{activeMode.intent}</p>
-        <p className="persona-quote">{activeMode.personaLine}</p>
+    <aside
+      className="flex flex-col h-full overflow-y-auto border-l border-soft bg-[rgba(5,10,15,0.5)]"
+      aria-labelledby="persona-panel-heading"
+    >
+      {/* Hero block */}
+      <div className="px-4 py-4 border-b border-soft bg-[linear-gradient(180deg,rgba(126,255,210,0.05),transparent)]">
+        <p className="text-[0.58rem] uppercase tracking-[0.18em] text-accent-mint-dim font-medium mb-1">
+          Sentinel presence
+        </p>
+        <h2 id="persona-panel-heading" className="text-[0.88rem] font-semibold text-text-0 mb-0.5">
+          {activeMode.label}
+        </h2>
+        <p className="text-[0.72rem] text-text-2 leading-relaxed mb-2">{activeMode.intent}</p>
+        <p className="text-[0.7rem] text-accent-mint italic leading-relaxed">"{activeMode.personaLine}"</p>
       </div>
 
-      <section className="panel-block panel-block--dense" aria-labelledby="chat-transport-heading">
-        <div className="split-row">
-          <div>
-            <p className="eyebrow">Chat transport</p>
-            <strong id="chat-transport-heading">{transportPreview.provider}</strong>
-          </div>
-          <span className="status-pill">{transportPreview.state}</span>
+      {/* Transport */}
+      <PanelSection title="Chat transport">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="text-[0.78rem] font-semibold text-text-0">{transportPreview.provider}</span>
+          <span className={cn(
+            'text-[0.6rem] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full border',
+            transportPreview.state === 'ready-for-runtime'
+              ? 'border-[rgba(126,255,210,0.3)] bg-[rgba(126,255,210,0.08)] text-accent-mint'
+              : 'border-[rgba(255,203,97,0.3)] bg-[rgba(255,203,97,0.06)] text-accent-warn',
+          )}>
+            {transportPreview.state}
+          </span>
         </div>
-        <p className="muted-copy">{transportPreview.summary}</p>
-      </section>
+        <p className="text-[0.68rem] text-text-2 leading-relaxed">{transportPreview.summary}</p>
+      </PanelSection>
 
-      <section className="panel-block panel-block--dense" aria-labelledby="runtime-session-heading">
-        <div className="split-row">
-          <div>
-            <p className="eyebrow">Runtime session</p>
-            <strong id="runtime-session-heading">{runtimeLabel}</strong>
-          </div>
-          <span className="status-pill status-pill--subtle">Last sync {lastSyncLabel}</span>
+      {/* Runtime session */}
+      <PanelSection title="Runtime session">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <span className="text-[0.76rem] font-semibold text-text-0 leading-tight">{runtimeLabel}</span>
+          <span className="text-[0.6rem] text-text-3 font-mono flex-shrink-0">sync {lastSyncLabel}</span>
         </div>
-        <p className="muted-copy">
+        <p className="text-[0.68rem] text-text-2">
           {runtimeContext
-            ? `Messages ${runtimeContext.chat.messageCount} · Notes ${runtimeContext.surfaces.notesCount} · Tasks ${runtimeContext.surfaces.tasksCount} · Activity ${runtimeContext.surfaces.activityCount}`
-            : 'No server-derived session data yet. The shell will keep running locally.'}
+            ? `Msgs ${runtimeContext.chat.messageCount} · Notes ${runtimeContext.surfaces.notesCount} · Tasks ${runtimeContext.surfaces.tasksCount}`
+            : 'No server session yet — running locally.'}
         </p>
-      </section>
+      </PanelSection>
 
-      <section className="panel-block panel-block--dense" aria-labelledby="progress-log-heading">
-        <p className="eyebrow">Recent progress log</p>
-        <strong id="progress-log-heading">{recentActivity.length.toString().padStart(2, '0')} visible updates</strong>
-        <div className="detail-stack muted-copy" role="list" aria-live="polite" aria-label="Recent progress items">
+      {/* Recent activity */}
+      <PanelSection title={`Recent progress — ${recentActivity.length} items`}>
+        <div className="flex flex-col gap-1" role="list" aria-live="polite">
           {recentActivity.length > 0 ? (
             recentActivity.slice(0, 4).map((item) => (
-              <span key={item.id} role="listitem">
-                [{item.type}] {item.title} — {item.detail}
-              </span>
+              <div key={item.id} role="listitem" className="text-[0.66rem] text-text-2 leading-snug">
+                <span className="text-text-3 font-mono">[{item.type}]</span>{' '}
+                <span className="text-text-1">{item.title}</span>
+                {item.detail && <span className="text-text-3"> — {item.detail}</span>}
+              </div>
             ))
           ) : (
-            <span role="listitem">No activity has been logged by the backend yet.</span>
+            <p role="listitem" className="text-[0.66rem] text-text-3">No activity logged yet.</p>
           )}
         </div>
-      </section>
+      </PanelSection>
 
-      <section className="panel-block" aria-labelledby="runtime-target-heading">
-        <div className="split-row">
-          <div>
-            <p className="eyebrow">Runtime target</p>
-            <strong id="runtime-target-heading">{transportPreview.runtimeTarget.apiBasePath}</strong>
-          </div>
-          <span className="status-pill status-pill--subtle">swap-ready</span>
-        </div>
-        <div className="detail-stack muted-copy" role="list" aria-label="Runtime target details">
-          <span role="listitem">Session scope: {transportPreview.runtimeTarget.sessionScope}</span>
-          <span role="listitem">Event stream: {transportPreview.runtimeTarget.eventStreamPath}</span>
-          <span role="listitem">Nexus DB: {transportPreview.runtimeTarget.dbFilePath}</span>
-        </div>
-      </section>
-
-      <section className="panel-block" aria-labelledby="prompt-memory-heading">
-        <p className="eyebrow">Prompt memory</p>
-        <strong id="prompt-memory-heading">{historyCount.toString().padStart(2, '0')} recalled entries available</strong>
-        <p className="muted-copy">
-          Prompt recall is already local, so runtime-backed chat can preserve cadence later without retraining the operator surface.
+      {/* History count */}
+      <PanelSection title="Prompt memory">
+        <p className="text-[0.76rem] font-semibold text-text-0 mb-0.5">
+          {historyCount.toString().padStart(2, '0')} recalled entries
         </p>
-      </section>
+        <p className="text-[0.66rem] text-text-2">Use ↑↓ in the composer to recall previous prompts.</p>
+      </PanelSection>
 
-      <section className="panel-block" aria-labelledby="quick-injections-heading">
-        <p className="eyebrow">Quick injections</p>
-        <h3 id="quick-injections-heading">Suggested prompts</h3>
-        <div className="prompt-stack" role="list" aria-label="Suggested prompts">
-          {suggestedPrompts.map((prompt, index) => (
-            <button
-              key={prompt}
-              type="button"
-              className="prompt-chip"
-              onClick={() => onPromptSelect(prompt)}
-              role="listitem"
-              aria-label={`Suggested prompt ${index + 1}: ${prompt}`}
-            >
-              <span className="prompt-chip__index">0{index + 1}</span>
-              <span>{prompt}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* Suggested prompts */}
+      {suggestedPrompts.length > 0 && (
+        <PanelSection title="Quick injections">
+          <div className="flex flex-col gap-1.5" role="list">
+            {suggestedPrompts.map((prompt, i) => (
+              <button
+                key={prompt}
+                type="button"
+                role="listitem"
+                onClick={() => onPromptSelect(prompt)}
+                className="flex items-start gap-2 rounded-lg border border-soft bg-surface-0 px-2.5 py-2 text-left hover:border-[rgba(126,255,210,0.25)] hover:bg-[rgba(126,255,210,0.04)] transition-all duration-150 group"
+              >
+                <span className="flex-shrink-0 text-[0.6rem] font-mono text-text-3 group-hover:text-accent-mint-dim pt-0.5">
+                  0{i + 1}
+                </span>
+                <span className="text-[0.68rem] text-text-2 group-hover:text-text-1 leading-snug">{prompt}</span>
+              </button>
+            ))}
+          </div>
+        </PanelSection>
+      )}
     </aside>
   )
 }

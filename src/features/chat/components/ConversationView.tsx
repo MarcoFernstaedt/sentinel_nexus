@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ChatMessage } from '../model/types'
-
-type ConversationViewProps = {
-  messages: ChatMessage[]
-}
+import { cn } from '@/src/lib/cn'
 
 function formatTimestamp(timestamp: string) {
   const parsed = Date.parse(timestamp)
-  if (Number.isNaN(parsed)) {
-    return timestamp
-  }
-
+  if (Number.isNaN(parsed)) return timestamp
   return new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
@@ -19,67 +13,100 @@ function formatTimestamp(timestamp: string) {
   }).format(parsed)
 }
 
+type ConversationViewProps = {
+  messages: ChatMessage[]
+}
+
 export function ConversationView({ messages }: ConversationViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const element = scrollRef.current
-    if (!element) {
-      return
-    }
-
-    element.scrollTop = element.scrollHeight
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
-  const groupedCount = useMemo(
-    () => ({
-      system: messages.filter((message) => message.role === 'system').length,
-      operator: messages.filter((message) => message.role === 'operator').length,
-      sentinel: messages.filter((message) => message.role === 'sentinel').length,
-    }),
-    [messages],
-  )
-
-  return (
-    <section className="conversation-shell" aria-labelledby="conversation-log-heading">
-      <h3 id="conversation-log-heading" className="sr-only">Conversation log</h3>
-      <div className="conversation-shell__meta muted-copy" aria-label="Conversation totals">
-        <span>{groupedCount.operator} operator inputs</span>
-        <span>{groupedCount.sentinel} Sentinel replies</span>
-        <span>{groupedCount.system} runtime notices</span>
-      </div>
+  if (messages.length === 0) {
+    return (
       <div
         ref={scrollRef}
-        className="conversation-view"
+        className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-6 min-h-0 overflow-y-auto"
         role="log"
         aria-live="polite"
-        aria-relevant="additions text"
         aria-label="Conversation messages"
       >
-        {messages.map((message) => (
-          <article key={message.id} className={`message-card ${message.role}`} aria-label={`${message.author}. ${message.role === 'system' ? 'Runtime notice' : message.role === 'sentinel' ? 'Sentinel reply' : 'Operator input'}. ${formatTimestamp(message.timestamp)}.`}>
-            <div className="message-card__badge" aria-hidden="true">
-              {message.role === 'operator' ? 'M' : message.role === 'sentinel' ? 'S' : 'R'}
-            </div>
-            <div className="message-card__body">
-              <header className="message-card__header">
-                <div>
-                  <strong>{message.author}</strong>
-                  <p>
-                    {message.role === 'system'
-                      ? 'Runtime notice'
-                      : message.role === 'sentinel'
-                        ? 'Sentinel persona'
-                        : 'Operator input'}
-                  </p>
-                </div>
-                <time dateTime={message.timestamp}>{formatTimestamp(message.timestamp)}</time>
-              </header>
-              <p>{message.body}</p>
-            </div>
-          </article>
-        ))}
+        <p className="text-[0.6rem] uppercase tracking-[0.18em] text-text-3 font-medium">Command Channel</p>
+        <p className="text-[0.82rem] text-text-2 max-w-[280px] leading-relaxed">
+          Send Sentinel an objective, a decision, or a build constraint.
+        </p>
       </div>
-    </section>
+    )
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 min-h-0"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions text"
+      aria-label="Conversation messages"
+    >
+      {messages.map((message) => (
+        <article
+          key={message.id}
+          className={cn(
+            'flex gap-3 max-w-full',
+            message.role === 'operator' ? 'flex-row-reverse' : 'flex-row',
+            message.role === 'system' && 'justify-center',
+          )}
+        >
+          {message.role === 'system' ? (
+            <div className="rounded-full border border-soft bg-surface-0 px-3 py-1">
+              <p className="text-[0.66rem] text-text-3 font-medium">{message.body}</p>
+            </div>
+          ) : (
+            <>
+              {/* Avatar */}
+              <div
+                className={cn(
+                  'flex-shrink-0 w-7 h-7 rounded-[8px] flex items-center justify-center text-[0.6rem] font-bold font-mono',
+                  message.role === 'operator'
+                    ? 'bg-[rgba(126,255,210,0.12)] border border-[rgba(126,255,210,0.28)] text-accent-mint'
+                    : 'bg-surface-1 border border-soft text-text-2',
+                )}
+                aria-hidden
+              >
+                {message.role === 'operator' ? 'M' : 'S'}
+              </div>
+
+              {/* Bubble */}
+              <div
+                className={cn(
+                  'flex flex-col gap-1 max-w-[75%]',
+                  message.role === 'operator' && 'items-end',
+                )}
+              >
+                <div
+                  className={cn(
+                    'rounded-xl px-3.5 py-2.5 text-[0.78rem] leading-relaxed',
+                    message.role === 'operator'
+                      ? 'bg-[rgba(126,255,210,0.09)] border border-[rgba(126,255,210,0.20)] text-text-0'
+                      : 'bg-surface-1 border border-soft text-text-1',
+                  )}
+                >
+                  {message.body}
+                </div>
+                <time
+                  dateTime={message.timestamp}
+                  className="text-[0.6rem] text-text-3 font-mono px-1"
+                >
+                  {formatTimestamp(message.timestamp)}
+                </time>
+              </div>
+            </>
+          )}
+        </article>
+      ))}
+    </div>
   )
 }

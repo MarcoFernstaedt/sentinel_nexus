@@ -16,19 +16,23 @@ import {
   ChevronLeft,
   ChevronRight,
   Radio,
+  MessageSquare,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/src/lib/cn'
 
 const navItems = [
-  { href: '/',          label: 'Dashboard',  icon: LayoutDashboard, group: null },
-  { href: '/projects',  label: 'Projects',   icon: FolderKanban,    group: 'EXECUTION' },
-  { href: '/tasks',     label: 'Tasks',       icon: ListTodo,        group: 'EXECUTION' },
-  { href: '/calendar',  label: 'Calendar',    icon: CalendarDays,    group: 'EXECUTION' },
-  { href: '/tracking',  label: 'Tracking',    icon: Target,          group: 'EXECUTION' },
-  { href: '/agents',    label: 'Agents',      icon: Radio,           group: null },
-  { href: '/notes',     label: 'Notes',       icon: FileText,        group: null },
-  { href: '/docs',      label: 'Docs',        icon: BookOpen,        group: null },
-  { href: '/settings',  label: 'Settings',    icon: Settings,        group: null },
+  { href: '/',           label: 'Dashboard',  icon: LayoutDashboard, group: null },
+  { href: '/chat',       label: 'Chat',        icon: MessageSquare,   group: null },
+  { href: '/projects',   label: 'Projects',    icon: FolderKanban,    group: 'EXECUTION' },
+  { href: '/tasks',      label: 'Tasks',        icon: ListTodo,        group: 'EXECUTION' },
+  { href: '/calendar',   label: 'Calendar',     icon: CalendarDays,    group: 'EXECUTION' },
+  { href: '/tracking',   label: 'Tracking',     icon: Target,          group: 'EXECUTION' },
+  { href: '/agents',     label: 'Agents',       icon: Radio,           group: null },
+  { href: '/notes',      label: 'Notes',        icon: FileText,        group: null },
+  { href: '/docs',       label: 'Docs',         icon: BookOpen,        group: null },
+  { href: '/telemetry',  label: 'Telemetry',    icon: Activity,        group: 'SYSTEM' },
+  { href: '/settings',   label: 'Settings',     icon: Settings,        group: 'SYSTEM' },
 ]
 
 interface NavItemProps {

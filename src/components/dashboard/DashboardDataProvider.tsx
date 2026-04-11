@@ -11,7 +11,7 @@ import type {
   RuntimeTask,
   TransportPreview,
 } from '@/src/features/chat/model/types'
-import type { ChatMode, ChatModeId } from '@/src/features/chat/model/types'
+import type { ChatMessage, ChatMode, ChatModeId, ComposerDraft } from '@/src/features/chat/model/types'
 
 interface DashboardContextValue {
   mobileNavOpen: boolean
@@ -29,6 +29,17 @@ interface DashboardContextValue {
   activeModeId: ChatModeId
   modes: ChatMode[]
   refreshRuntime: () => Promise<boolean>
+  // Interactive chat state (for the /chat page)
+  messages: ChatMessage[]
+  draft: ComposerDraft
+  setDraft: React.Dispatch<React.SetStateAction<ComposerDraft>>
+  submitMessage: (value: string) => Promise<void>
+  isResponding: boolean
+  historyCursorLabel: string
+  cycleHistory: (direction: 'older' | 'newer') => void
+  suggestedPrompts: string[]
+  inputHistory: string[]
+  setActiveModeId: (modeId: ChatModeId) => void
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null)
@@ -53,6 +64,16 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     activeModeId: chat.activeModeId,
     modes: chat.modes,
     refreshRuntime: chat.refreshRuntime,
+    messages: chat.messages,
+    draft: chat.draft,
+    setDraft: chat.setDraft,
+    submitMessage: chat.submitMessage,
+    isResponding: chat.isResponding,
+    historyCursorLabel: chat.historyCursorLabel,
+    cycleHistory: chat.cycleHistory,
+    suggestedPrompts: chat.suggestedPrompts,
+    inputHistory: chat.inputHistory,
+    setActiveModeId: chat.setActiveModeId,
   }
 
   return (
