@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Minus, Plus, Pause, Play, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { cn } from '@/src/lib/cn'
 import type { TrackedTarget } from '@/src/types/tracking'
 import { progressLabel, progressRatio, TRACKING_CATEGORY_LABEL } from '@/src/types/tracking'
@@ -120,7 +121,10 @@ export function TrackedTargetCard({
   const isDone   = target.status === 'completed'
 
   return (
-    <article
+    <motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
       className={cn(
         'flex flex-col gap-0 rounded-lg overflow-hidden',
         'bg-surface-0 border-y border-r border-soft shadow-panel',
@@ -162,9 +166,11 @@ export function TrackedTargetCard({
       <div className="px-4 pb-3 grid gap-2">
         {/* Bar */}
         <div className="h-1.5 rounded-full bg-surface-1 overflow-hidden">
-          <div
-            className={cn('h-full rounded-full transition-all duration-300', styles.bar)}
-            style={{ width: `${Math.round(ratio * 100)}%` }}
+          <motion.div
+            className={cn('h-full rounded-full', styles.bar)}
+            initial={{ width: '0%' }}
+            animate={{ width: `${Math.round(ratio * 100)}%` }}
+            transition={{ type: 'spring', stiffness: 80, damping: 18 }}
             role="progressbar"
             aria-valuenow={target.currentCount}
             aria-valuemin={0}
@@ -316,6 +322,6 @@ export function TrackedTargetCard({
           </div>
         </div>
       )}
-    </article>
+    </motion.article>
   )
 }

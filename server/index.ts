@@ -1,8 +1,8 @@
 import http from 'node:http'
 import { getAppConfig } from './config/env.js'
 import { FileBackedStore } from './infrastructure/fileStore.js'
-import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './application/repositories.js'
-import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from './application/services.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './application/repositories.js'
+import { ChatService, MissionCommandService, NotesService, StatusService, TasksService, TrackedTargetsService } from './application/services.js'
 import { createRouter } from './api/router.js'
 
 const config = getAppConfig()
@@ -17,6 +17,7 @@ const server = http.createServer(
       tasksService: new TasksService(new TasksRepository(store), activityRepository),
       statusService: new StatusService(new StatusRepository(store), config),
       missionCommandService: new MissionCommandService(new MissionCommandRepository(store), activityRepository),
+      trackedTargetsService: new TrackedTargetsService(new TrackedTargetsRepository(store)),
       activityRepository,
     },
     {

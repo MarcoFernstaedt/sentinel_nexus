@@ -58,5 +58,6 @@ export const createSeedData = (): NexusDataStore => ({
   notes: seededNotes,
   tasks: seededTasks,
   activity: seededActivity,
+  trackedTargets: [],
   missionCommand: seededMissionCommand,
 })

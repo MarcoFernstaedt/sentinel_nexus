@@ -1,12 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
+import { cn } from '@/src/lib/cn'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { MetricCard } from '@/src/components/ui/MetricCard'
 import { ScheduleSection } from '@/src/components/calendar/ScheduleSection'
+import { AddCalendarItemSheet } from '@/src/components/calendar/AddCalendarItemSheet'
 import { useCalendarStore } from '@/src/hooks/useCalendarStore'
-import { cn } from '@/src/lib/cn'
-import type { CalendarItemType } from '@/src/types/calendar'
+import { useTrackedTargets } from '@/src/hooks/useTrackedTargets'
+import { useDerivedCalendarItems } from '@/src/hooks/useDerivedCalendarItems'
+import type { CalendarItem, CalendarItemType } from '@/src/types/calendar'
 import { TYPE_LABEL } from '@/src/types/calendar'
 
 const ALL_TYPES = Object.keys(TYPE_LABEL) as CalendarItemType[]
@@ -54,60 +58,104 @@ function FilterPill({
   )
 }
 
+type FilterMode = CalendarItemType | 'enforcement' | null
+
 export default function CalendarPage() {
-  const { items } = useCalendarStore()
-  const [activeType, setActiveType] = useState<CalendarItemType | null>(null)
+  const { items, addItem } = useCalendarStore()
+  const { targets }        = useTrackedTargets()
+  const derivedItems       = useDerivedCalendarItems(targets)
+
+  const [activeFilter, setActiveFilter] = useState<FilterMode>(null)
+  const [showAdd,      setShowAdd]      = useState(false)
 
   const today    = todayIso()
   const tomorrow = offsetIso(1)
   const weekEnd  = offsetIso(7)
 
-  // Filter by type and sort by date + time
-  const base   = activeType ? items.filter((it) => it.type === activeType) : items
-  const sorted = [...base].sort((a, b) => {
-    const dateComp = a.date.localeCompare(b.date)
-    if (dateComp !== 0) return dateComp
-    return (a.time ?? '00:00').localeCompare(b.time ?? '00:00')
-  })
+  // Merge stored + derived items (derived are deduped by id so they don't collide
+  // with the seeded enforcement-window items that came from calendarMock)
+  const allItems: CalendarItem[] = useMemo(() => {
+    const storedIds = new Set(items.map((it) => it.id))
+    const uniqueDerived = derivedItems.filter((d) => !storedIds.has(d.id))
+    return [...items, ...uniqueDerived]
+  }, [items, derivedItems])
 
-  const overdue   = sorted.filter((it) => it.status === 'overdue' || (it.date < today && it.status !== 'completed' && it.status !== 'cancelled'))
-  const todayItems     = sorted.filter((it) => it.date === today && it.status !== 'overdue' && !(it.date < today && it.status !== 'completed'))
-  const tomorrowItems  = sorted.filter((it) => it.date === tomorrow)
-  const thisWeekItems  = sorted.filter((it) => it.date > tomorrow && it.date <= weekEnd)
-  const laterItems     = sorted.filter((it) => it.date > weekEnd)
+  // Apply filter
+  const base = useMemo(() => {
+    if (activeFilter === null) return allItems
+    if (activeFilter === 'enforcement') {
+      return allItems.filter((it) => it.tags?.includes('enforcement-window'))
+    }
+    return allItems.filter((it) => it.type === activeFilter)
+  }, [allItems, activeFilter])
+
+  const sorted = useMemo(() =>
+    [...base].sort((a, b) => {
+      const dateComp = a.date.localeCompare(b.date)
+      if (dateComp !== 0) return dateComp
+      return (a.time ?? '00:00').localeCompare(b.time ?? '00:00')
+    }),
+  [base])
+
+  const overdue       = sorted.filter((it) => it.status === 'overdue' || (it.date < today && it.status !== 'completed' && it.status !== 'cancelled'))
+  const todayItems    = sorted.filter((it) => it.date === today && it.status !== 'overdue' && !(it.date < today && it.status !== 'completed'))
+  const tomorrowItems = sorted.filter((it) => it.date === tomorrow)
+  const thisWeekItems = sorted.filter((it) => it.date > tomorrow && it.date <= weekEnd)
+  const laterItems    = sorted.filter((it) => it.date > weekEnd)
 
   const stats = {
-    total:    items.length,
-    today:    items.filter((it) => it.date === today).length,
-    upcoming: items.filter((it) => it.date > today && it.date <= weekEnd).length,
-    overdue:  items.filter((it) => it.status === 'overdue' || (it.date < today && it.status !== 'completed' && it.status !== 'cancelled')).length,
+    total:       allItems.length,
+    today:       allItems.filter((it) => it.date === today).length,
+    upcoming:    allItems.filter((it) => it.date > today && it.date <= weekEnd).length,
+    overdue:     allItems.filter((it) => it.status === 'overdue' || (it.date < today && it.status !== 'completed' && it.status !== 'cancelled')).length,
+    enforcement: allItems.filter((it) => it.tags?.includes('enforcement-window') && it.date === today).length,
   }
 
   return (
     <div className="px-5 py-5 grid gap-5 max-w-[860px]">
-      <SectionHeading
-        eyebrow="Schedule"
-        title="Calendar"
-        description="Upcoming tasks, meetings, milestones, and deadlines across all active workstreams"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeading
+          eyebrow="Schedule"
+          title="Calendar"
+          description="Upcoming tasks, meetings, milestones, and enforcement windows derived from active tracked targets"
+        />
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className={cn(
+            'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[0.74rem] font-semibold transition-all duration-150',
+            'border border-[rgba(126,255,210,0.35)] bg-[rgba(126,255,210,0.08)] text-accent-mint',
+            'hover:bg-[rgba(126,255,210,0.16)] hover:border-[rgba(126,255,210,0.50)]',
+          )}
+        >
+          <Plus size={13} />
+          Add Item
+        </button>
+      </div>
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricCard label="Total"    value={String(stats.total)}    detail="All schedule items" />
-        <MetricCard label="Today"    value={String(stats.today)}    detail="On today's schedule" emphasis={stats.today > 0} />
-        <MetricCard label="This Week" value={String(stats.upcoming)} detail="In the next 7 days" />
-        <MetricCard label="Overdue"  value={String(stats.overdue)}  detail="Needs attention" />
+        <MetricCard label="Total"       value={String(stats.total)}       detail="All schedule items" />
+        <MetricCard label="Today"       value={String(stats.today)}       detail="On today's schedule" emphasis={stats.today > 0} />
+        <MetricCard label="This Week"   value={String(stats.upcoming)}    detail="In the next 7 days" />
+        <MetricCard label="Enforcement" value={String(stats.enforcement)} detail="Windows active today" emphasis={stats.enforcement > 0} />
       </div>
 
       {/* Type filter pills */}
       <div className="flex flex-wrap gap-1.5 items-center">
         <span className="text-[0.58rem] uppercase tracking-[0.14em] text-text-3 font-medium mr-1">Filter</span>
-        <FilterPill active={activeType === null} onClick={() => setActiveType(null)}>All</FilterPill>
+        <FilterPill active={activeFilter === null} onClick={() => setActiveFilter(null)}>All</FilterPill>
+        <FilterPill
+          active={activeFilter === 'enforcement'}
+          onClick={() => setActiveFilter(activeFilter === 'enforcement' ? null : 'enforcement')}
+        >
+          Enforcement
+        </FilterPill>
         {ALL_TYPES.map((t) => (
           <FilterPill
             key={t}
-            active={activeType === t}
-            onClick={() => setActiveType(activeType === t ? null : t)}
+            active={activeFilter === t}
+            onClick={() => setActiveFilter(activeFilter === t ? null : t)}
           >
             {TYPE_LABEL[t]}
           </FilterPill>
@@ -159,6 +207,13 @@ export default function CalendarPage() {
           sublabel="Beyond next 7 days"
           items={laterItems}
           accent="muted"
+        />
+      )}
+
+      {showAdd && (
+        <AddCalendarItemSheet
+          onClose={() => setShowAdd(false)}
+          onAdd={addItem}
         />
       )}
     </div>

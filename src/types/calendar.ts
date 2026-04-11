@@ -1,5 +1,6 @@
 export type CalendarItemType   = 'task' | 'meeting' | 'reminder' | 'milestone' | 'deadline'
 export type CalendarItemStatus = 'scheduled' | 'in-progress' | 'completed' | 'overdue' | 'cancelled'
+export type CalendarItemSource = 'user-created' | 'seeded' | 'derived'
 
 export interface CalendarItem {
   id: string
@@ -13,6 +14,8 @@ export interface CalendarItem {
   relatedProjectTitle?: string
   relatedAgent?: string
   tags: string[]
+  source?: CalendarItemSource   // defaults to 'user-created' when absent
+  derivedFrom?: string          // id of the tracked target this was generated from
 }
 
 export const TYPE_LABEL: Record<CalendarItemType, string> = {

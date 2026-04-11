@@ -9,6 +9,7 @@ import type {
   ProjectRecord,
   TaskRecord,
   TeamMemberRecord,
+  TrackedTargetRecord,
 } from '../domain/models.js'
 import { FileBackedStore } from '../infrastructure/fileStore.js'
 
@@ -90,6 +91,41 @@ export class StatusRepository {
 
   snapshot(): Promise<NexusDataStore> {
     return this.store.read()
+  }
+}
+
+export class TrackedTargetsRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async list(): Promise<TrackedTargetRecord[]> {
+    const data = await this.store.read()
+    return data.trackedTargets ?? []
+  }
+
+  async upsert(target: TrackedTargetRecord): Promise<TrackedTargetRecord> {
+    const data = await this.store.read()
+    const existing = data.trackedTargets ?? []
+    const idx = existing.findIndex((t) => t.id === target.id)
+    if (idx >= 0) {
+      existing[idx] = target
+    } else {
+      existing.unshift(target)
+    }
+    data.trackedTargets = existing
+    await this.store.write(data)
+    return target
+  }
+
+  async delete(id: string): Promise<void> {
+    const data = await this.store.read()
+    data.trackedTargets = (data.trackedTargets ?? []).filter((t) => t.id !== id)
+    await this.store.write(data)
+  }
+
+  async bulkWrite(targets: TrackedTargetRecord[]): Promise<void> {
+    const data = await this.store.read()
+    data.trackedTargets = targets
+    await this.store.write(data)
   }
 }
 

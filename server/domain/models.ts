@@ -54,6 +54,37 @@ export interface ActivityRecord extends BaseRecordMeta {
   status: 'logged' | 'watch' | 'done'
 }
 
+export type TrackedTargetPeriod = 'daily' | 'weekly' | 'custom'
+export type TrackedTargetStatus = 'active' | 'completed' | 'missed' | 'no-report' | 'paused'
+export type TrackedTargetCategory =
+  | 'job-search' | 'outreach' | 'fitness' | 'prospecting'
+  | 'sales' | 'productivity' | 'follow-up' | 'custom'
+
+export interface TrackedTargetHistoryEntryRecord {
+  periodKey: string
+  count: number
+  targetCount: number
+  reportedAt: string | null
+  notes: string | null
+  status: 'completed' | 'partial' | 'missed' | 'no-report'
+}
+
+export interface TrackedTargetRecord {
+  id: string
+  title: string
+  category: TrackedTargetCategory
+  period: TrackedTargetPeriod
+  targetCount: number
+  currentCount: number
+  currentPeriodKey: string
+  dueHour: number
+  status: TrackedTargetStatus
+  notes: string | null
+  createdAt: string
+  lastUpdatedAt: string
+  history: TrackedTargetHistoryEntryRecord[]
+}
+
 export interface StatusCard {
   id: string
   label: string
@@ -365,5 +396,6 @@ export interface NexusDataStore {
   notes: NoteRecord[]
   tasks: TaskRecord[]
   activity: ActivityRecord[]
+  trackedTargets: TrackedTargetRecord[]
   missionCommand: MissionCommandSnapshot
 }

@@ -1,4 +1,7 @@
+'use client'
+
 import type { PropsWithChildren } from 'react'
+import { motion } from 'framer-motion'
 import { cn } from '@/src/lib/cn'
 
 type BadgeTone = 'default' | 'subtle' | 'live' | 'warning' | 'critical' | 'pending'
@@ -22,7 +25,8 @@ export function StatusBadge({
   children,
   tone = 'default',
   className,
-}: PropsWithChildren<{ tone?: BadgeTone; className?: string }>) {
+  pulse = false,
+}: PropsWithChildren<{ tone?: BadgeTone; className?: string; pulse?: boolean }>) {
   return (
     <span
       className={cn(
@@ -33,9 +37,11 @@ export function StatusBadge({
       )}
     >
       {tone === 'live' && (
-        <span
+        <motion.span
           className="w-[5px] h-[5px] rounded-full bg-[#7ef7cd] shadow-[0_0_5px_rgba(126,255,210,0.8)]"
           aria-hidden
+          animate={pulse ? { scale: [1, 1.4, 1] } : {}}
+          transition={pulse ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
         />
       )}
       {children}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TrackedTarget, TrackingCategory, TrackingPeriod, TrackingStatus } from '@/src/types/tracking'
 import {
   buildHistoryEntry,
@@ -8,6 +8,7 @@ import {
   dailyPeriodKey,
   isPeriodStale,
 } from '@/src/types/tracking'
+import { apiUrl } from '@/src/lib/apiBaseUrl'
 
 const STORAGE_KEY = 'sentinel-nexus.tracked-targets'
 const STORE_VERSION = 1
@@ -113,6 +114,21 @@ export interface AddTargetInput {
   notes?: string
 }
 
+// ── Server sync helpers ───────────────────────────────────────────────────────
+
+function syncUpsert(target: TrackedTarget): void {
+  fetch(apiUrl('/api/tracked-targets'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(target),
+  }).catch(() => { /* silent — localStorage is source of truth */ })
+}
+
+function syncDelete(id: string): void {
+  fetch(apiUrl(`/api/tracked-targets/${id}`), { method: 'DELETE' })
+    .catch(() => { /* silent */ })
+}
+
 export function useTrackedTargets() {
   const [targets, setTargets] = useState<TrackedTarget[]>(() => {
     const stored = loadFromStorage()
@@ -120,10 +136,36 @@ export function useTrackedTargets() {
     return rolloverStaleTargets(base)
   })
 
+  // Track whether we've completed the initial server sync
+  const serverSyncedRef = useRef(false)
+
   // Persist on every change
   useEffect(() => {
     saveToStorage(targets)
   }, [targets])
+
+  // On mount: pull from server and merge (server wins for matching ids)
+  useEffect(() => {
+    if (serverSyncedRef.current) return
+    serverSyncedRef.current = true
+
+    fetch(apiUrl('/api/tracked-targets'))
+      .then((r) => r.ok ? r.json() as Promise<TrackedTarget[]> : Promise.reject())
+      .then((serverTargets) => {
+        if (!Array.isArray(serverTargets) || serverTargets.length === 0) return
+        setTargets((prev) => {
+          const serverMap = new Map(serverTargets.map((t) => [t.id, t]))
+          // Server wins on conflict; local-only targets are appended
+          const merged = prev.map((t) => serverMap.has(t.id) ? serverMap.get(t.id)! : t)
+          const localIds = new Set(prev.map((t) => t.id))
+          for (const st of serverTargets) {
+            if (!localIds.has(st.id)) merged.unshift(st)
+          }
+          return rolloverStaleTargets(merged)
+        })
+      })
+      .catch(() => { /* server not available — localStorage state stands */ })
+  }, [])
 
   // Roll over stale periods once per minute (tab stays open across midnight)
   useEffect(() => {
@@ -143,37 +185,43 @@ export function useTrackedTargets() {
   /** Increment count by delta (default +1). Clamps to 0. */
   const updateCount = useCallback((id: string, delta: number) => {
     const now = new Date().toISOString()
-    setTargets((prev) =>
-      prev.map((t) => {
+    setTargets((prev) => {
+      const next = prev.map((t) => {
         if (t.id !== id) return t
-        const next = Math.max(0, t.currentCount + delta)
-        const completed = next >= t.targetCount
+        const nextCount = Math.max(0, t.currentCount + delta)
+        const completed = nextCount >= t.targetCount
         return {
           ...t,
-          currentCount: next,
+          currentCount: nextCount,
           status: (completed ? 'completed' : 'active') as TrackingStatus,
           lastUpdatedAt: now,
         }
-      }),
-    )
+      })
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncUpsert(updated)
+      return next
+    })
   }, [])
 
   /** Set count to an exact value. */
   const setCount = useCallback((id: string, count: number) => {
     const now = new Date().toISOString()
-    setTargets((prev) =>
-      prev.map((t) => {
+    setTargets((prev) => {
+      const next = prev.map((t) => {
         if (t.id !== id) return t
-        const next = Math.max(0, count)
-        const completed = next >= t.targetCount
+        const nextCount = Math.max(0, count)
+        const completed = nextCount >= t.targetCount
         return {
           ...t,
-          currentCount: next,
+          currentCount: nextCount,
           status: (completed ? 'completed' : 'active') as TrackingStatus,
           lastUpdatedAt: now,
         }
-      }),
-    )
+      })
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncUpsert(updated)
+      return next
+    })
   }, [])
 
   /** Add a new tracked target. */
@@ -195,36 +243,44 @@ export function useTrackedTargets() {
       history: [],
     }
     setTargets((prev) => [target, ...prev])
+    syncUpsert(target)
   }, [])
 
   /** Toggle paused / active. */
   const togglePause = useCallback((id: string) => {
     const now = new Date().toISOString()
-    setTargets((prev) =>
-      prev.map((t) => {
+    setTargets((prev) => {
+      const next = prev.map((t) => {
         if (t.id !== id) return t
         return {
           ...t,
-          status: t.status === 'paused' ? 'active' : 'paused',
+          status: t.status === 'paused' ? 'active' : ('paused' as TrackingStatus),
           lastUpdatedAt: now,
         }
-      }),
-    )
+      })
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncUpsert(updated)
+      return next
+    })
   }, [])
 
   /** Update notes for a target. */
   const updateNotes = useCallback((id: string, notes: string) => {
     const now = new Date().toISOString()
-    setTargets((prev) =>
-      prev.map((t) =>
+    setTargets((prev) => {
+      const next = prev.map((t) =>
         t.id === id ? { ...t, notes: notes.trim() || null, lastUpdatedAt: now } : t,
-      ),
-    )
+      )
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncUpsert(updated)
+      return next
+    })
   }, [])
 
   /** Delete a target. */
   const deleteTarget = useCallback((id: string) => {
     setTargets((prev) => prev.filter((t) => t.id !== id))
+    syncDelete(id)
   }, [])
 
   // ── Derived state ─────────────────────────────────────────────────────────
