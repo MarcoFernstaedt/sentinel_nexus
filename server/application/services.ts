@@ -488,6 +488,7 @@ async function deriveBuildHealth(workspaceRoot: string): Promise<RuntimeBuildHea
 async function collectWorkspaceDocuments(workspaceRoot: string): Promise<RuntimeDocumentSurface[]> {
   return [
     createDocumentSurface(join(workspaceRoot, 'README.md'), 'README', 'Primary repo readme and operator-facing overview.'),
+    createDocumentSurface(join(workspaceRoot, 'ops', 'now.md'), 'ops/now.md', 'Operator truth layer — current mode, active priorities, and blockers. Must be kept up to date.'),
     createDocumentSurface(join(workspaceRoot, 'docs', 'ui-architecture-roadmap.md'), 'UI roadmap', 'Transitional direction toward a future Next.js + Tailwind + shadcn-style shell.'),
     createDocumentSurface(join(workspaceRoot, 'HEARTBEAT.md'), 'Heartbeat', 'Workspace heartbeat checklist and proactive operating instructions.'),
     createDocumentSurface(join(workspaceRoot, 'USER.md'), 'User context', 'Operator priorities, constraints, and execution bias.'),

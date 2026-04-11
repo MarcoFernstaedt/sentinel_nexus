@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Clock, Cpu, Server, Zap } from 'lucide-react'
+import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Clock, Cpu, Info, Server, Zap } from 'lucide-react'
 import { Surface } from '@/src/components/ui/Surface'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { StatusBadge } from '@/src/components/ui/StatusBadge'
@@ -8,9 +8,13 @@ import { EmptyState } from '@/src/components/ui/EmptyState'
 import { SystemMetricCard } from '@/src/components/telemetry/SystemMetricCard'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 import { useCalendarStore } from '@/src/hooks/useCalendarStore'
+import { useDashboard } from '@/src/components/dashboard/DashboardDataProvider'
 import { cn } from '@/src/lib/cn'
 
-const VPS_METRICS = [
+// NOTE: These metrics are NOT live. No host telemetry agent is wired up.
+// They are placeholder values shown for layout purposes only.
+// See the caveat label rendered below them in the UI.
+const PLACEHOLDER_METRICS = [
   { label: 'CPU',     value: 34, unit: '%',  max: 100 },
   { label: 'Memory',  value: 61, unit: '%',  max: 100 },
   { label: 'Disk',    value: 48, unit: '%',  max: 100 },
@@ -44,7 +48,13 @@ function LoadBar({ value }: { value: number }) {
 export default function TelemetryPage() {
   const { agents } = useAgentsStore()
   const { items } = useCalendarStore()
+  const { runtimeContext, apiState } = useDashboard()
   const today = new Date().toISOString().slice(0, 10)
+
+  const buildHealth  = runtimeContext?.surfaces.buildHealth ?? null
+  const documents    = runtimeContext?.surfaces.documents    ?? []
+  const nodeVersion  = runtimeContext?.session.nodeVersion   ?? null
+  const persistenceDriver = runtimeContext?.session.persistenceDriver ?? null
 
   const activeAgents  = agents.filter((a) => a.status === 'active').length
   const totalLoad     = agents.length > 0
@@ -106,10 +116,10 @@ export default function TelemetryPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           {
-            label: 'Uptime',
-            value: '99.7%',
+            label: 'API',
+            value: apiState === 'connected' ? 'Online' : 'Local',
             icon: CheckCircle2,
-            tone: 'live' as const,
+            tone: apiState === 'connected' ? 'live' as const : 'warning' as const,
           },
           {
             label: 'Active Agents',
@@ -213,7 +223,7 @@ export default function TelemetryPage() {
           labelledBy={metricsHeadingId}
         >
           <div className="grid gap-5">
-            {VPS_METRICS.map((m) => (
+            {PLACEHOLDER_METRICS.map((m) => (
               <SystemMetricCard
                 key={m.label}
                 label={m.label}
@@ -223,9 +233,24 @@ export default function TelemetryPage() {
               />
             ))}
           </div>
-          <div className="mt-4 pt-3 border-t border-soft">
-            <p className="text-[0.62rem] text-text-3 font-mono">Host: vps-sentinel-01 · Region: eu-central</p>
-            <p className="text-[0.62rem] text-text-3 font-mono mt-0.5">Node 20 · Next.js 15 · Uptime 99.7%</p>
+          <div className="mt-4 pt-3 border-t border-soft grid gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <Info size={9} className="text-accent-warn flex-shrink-0" aria-hidden />
+              <p className="text-[0.6rem] text-accent-warn font-medium">
+                Placeholder — no host telemetry agent connected
+              </p>
+            </div>
+            {nodeVersion && (
+              <p className="text-[0.62rem] text-text-3 font-mono">Node {nodeVersion} · Next.js 15</p>
+            )}
+            {persistenceDriver && (
+              <p className="text-[0.62rem] text-text-3 font-mono">Store: {persistenceDriver}</p>
+            )}
+            {buildHealth && (
+              <p className="text-[0.62rem] text-text-3 font-mono">
+                Build: {buildHealth.label} · {buildHealth.web.builtAt ? `web built` : 'web not built'}
+              </p>
+            )}
           </div>
         </Surface>
       </div>
@@ -279,6 +304,58 @@ export default function TelemetryPage() {
           </ol>
         )}
       </Surface>
+
+      {/* Runtime document surfaces — truth layer */}
+      {documents.length > 0 && (
+        <Surface
+          header={
+            <SectionHeading
+              eyebrow="Truth Layer"
+              title="Runtime Document Surfaces"
+              description="Key operator documents tracked by the Nexus API. Missing files are flagged here."
+            />
+          }
+        >
+          <div className="grid gap-2">
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className={cn(
+                  'flex items-start gap-3 py-2.5 px-3 rounded-lg border',
+                  doc.exists
+                    ? 'border-soft bg-surface-0'
+                    : 'border-[rgba(255,203,97,0.2)] bg-[rgba(255,203,97,0.04)]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'mt-[3px] flex-shrink-0 w-2 h-2 rounded-full',
+                    doc.exists ? 'bg-accent-mint shadow-[0_0_5px_rgba(126,255,210,0.5)]' : 'bg-accent-warn',
+                  )}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1 grid gap-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[0.74rem] font-mono font-semibold text-text-0">{doc.label}</span>
+                    {!doc.exists && (
+                      <span className="text-[0.58rem] font-medium text-accent-warn bg-[rgba(255,203,97,0.1)] border border-[rgba(255,203,97,0.2)] px-1.5 py-px rounded-full">
+                        Missing
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[0.67rem] text-text-2 leading-snug">{doc.summary}</p>
+                  <p className="text-[0.62rem] font-mono text-text-3">{doc.path}</p>
+                </div>
+                {doc.updatedAt && (
+                  <span className="flex-shrink-0 text-[0.58rem] font-mono text-text-3 tabular-nums mt-[2px]">
+                    {formatRelative(doc.updatedAt)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Surface>
+      )}
     </div>
   )
 }
