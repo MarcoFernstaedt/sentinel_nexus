@@ -13,7 +13,6 @@ const routeLabels: Record<string, { label: string; eyebrow: string }> = {
   '/calendar':   { label: 'Calendar',   eyebrow: 'Schedule' },
   '/tracking':   { label: 'Tracking',   eyebrow: 'Execution Enforcement' },
   '/chat':       { label: 'Chat',       eyebrow: 'Command Interface' },
-  '/telemetry':  { label: 'Telemetry',  eyebrow: 'System Health' },
   '/agents':     { label: 'Agents',     eyebrow: 'Agent Roster' },
   '/notes':      { label: 'Notes',      eyebrow: 'Operator Notes' },
   '/docs':       { label: 'Docs',       eyebrow: 'Artifact Vault' },
