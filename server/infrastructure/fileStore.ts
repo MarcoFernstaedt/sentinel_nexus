@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createSeedData } from '../domain/seeds.js'
-import type { NexusDataStore, RecordSource, TaskRecord, TaskStage, TrackedTargetRecord } from '../domain/models.js'
+import type { NexusClientRecord, NexusDataStore, NexusProjectRecord, NexusTaskRecord, RecordSource, TaskRecord, TaskStage, TrackedTargetRecord } from '../domain/models.js'
 
 const seedData = createSeedData()
 const seededIds = {
@@ -64,6 +64,31 @@ function normalizeTrackedTarget(target: TrackedTargetRecord): TrackedTargetRecor
   }
 }
 
+function normalizeNexusProject(p: NexusProjectRecord): NexusProjectRecord {
+  return {
+    ...p,
+    assignedSubAgents: p.assignedSubAgents ?? [],
+    linkedDocs: p.linkedDocs ?? [],
+    linkedMemories: p.linkedMemories ?? [],
+    relatedCalendarItems: p.relatedCalendarItems ?? [],
+    tags: p.tags ?? [],
+  }
+}
+
+function normalizeNexusTask(t: NexusTaskRecord): NexusTaskRecord {
+  return {
+    ...t,
+    notes: t.notes ?? '',
+    dependencies: t.dependencies ?? [],
+    taskReason: t.taskReason ?? '',
+    tags: t.tags ?? [],
+  }
+}
+
+function normalizeNexusClient(c: NexusClientRecord): NexusClientRecord {
+  return { ...c }
+}
+
 function normalizeStore(store: NexusDataStore): NexusDataStore {
   const missionCommand = store.missionCommand ?? seedData.missionCommand
 
@@ -73,6 +98,9 @@ function normalizeStore(store: NexusDataStore): NexusDataStore {
     tasks: store.tasks.map((item) => normalizeTask(normalizeSource(item, seededIds.tasks))),
     activity: (store.activity ?? []).map((item) => normalizeSource(item, seededIds.activity)),
     trackedTargets: (store.trackedTargets ?? []).map(normalizeTrackedTarget),
+    nexusClients:   (store.nexusClients  ?? []).map(normalizeNexusClient),
+    nexusProjects:  (store.nexusProjects ?? []).map(normalizeNexusProject),
+    nexusTasks:     (store.nexusTasks    ?? []).map(normalizeNexusTask),
     missionCommand: {
       mission: normalizeSource(missionCommand.mission, new Set([seedData.missionCommand.mission.id])),
       goals: missionCommand.goals.map((item) => normalizeSource(item, seededIds.goals)),

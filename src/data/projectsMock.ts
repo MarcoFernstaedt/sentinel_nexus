@@ -17,6 +17,7 @@ export const mockProjects: Project[] = [
     linkedDocs: ['docs/ui-architecture-roadmap.md', 'docs/design-system.md'],
     linkedMemories: ['mem-operator-doctrine', 'mem-runtime-seam'],
     relatedCalendarItems: ['cal-ui-review-2026-04-01'],
+    tags: [],
   },
   {
     id: 'proj-api-gateway',
@@ -34,6 +35,7 @@ export const mockProjects: Project[] = [
     linkedDocs: ['server/api/router.ts', 'nexus.schema.sql'],
     linkedMemories: ['mem-runtime-seam'],
     relatedCalendarItems: ['cal-gateway-review-2026-03-31'],
+    tags: [],
   },
   {
     id: 'proj-research-synthesis',
@@ -51,6 +53,7 @@ export const mockProjects: Project[] = [
     linkedDocs: [],
     linkedMemories: ['mem-operator-doctrine'],
     relatedCalendarItems: [],
+    tags: [],
   },
   {
     id: 'proj-ops-automation',
@@ -68,6 +71,7 @@ export const mockProjects: Project[] = [
     linkedDocs: ['docs/runbook.md'],
     linkedMemories: [],
     relatedCalendarItems: [],
+    tags: [],
   },
 ]
 
@@ -89,6 +93,7 @@ export const mockTasks: Task[] = [
     dependencies: [],
     completionDetails: 'Next.js 15 + Tailwind CSS v4 fully operational. Sidebar collapse, TopBar UTC clock, ShellBackdrop all working.',
     taskReason: 'Foundation for all subsequent UI work. No other surface can be built without this.',
+    tags: [],
   },
   {
     id: 'task-mc-dashboard',
@@ -105,6 +110,7 @@ export const mockTasks: Task[] = [
     dependencies: ['task-mc-shell'],
     completionDetails: 'Dashboard live with 5 sections. Responsive layout working on all breakpoints.',
     taskReason: 'Primary operator landing surface. Must give instant situational awareness.',
+    tags: [],
   },
   {
     id: 'task-mc-projects-tasks',
@@ -121,6 +127,7 @@ export const mockTasks: Task[] = [
     notes: 'Using localStorage-backed store. Will add API sync seam once gateway is live.',
     dependencies: ['task-mc-shell'],
     taskReason: 'Core execution surface. Operator needs project + task visibility to manage ongoing work.',
+    tags: [],
   },
   {
     id: 'task-mc-chat',
@@ -136,6 +143,7 @@ export const mockTasks: Task[] = [
     notes: '',
     dependencies: ['task-mc-shell'],
     taskReason: 'Primary command channel. Operator must be able to issue instructions to Sentinel.',
+    tags: [],
   },
   {
     id: 'task-mc-telemetry',
@@ -151,6 +159,7 @@ export const mockTasks: Task[] = [
     notes: '',
     dependencies: ['task-mc-shell'],
     taskReason: 'Operator needs live visibility into system health to trust the environment.',
+    tags: [],
   },
 
   // ── API Gateway tasks ────────────────────────────────────────
@@ -168,6 +177,7 @@ export const mockTasks: Task[] = [
     notes: 'Basic /health returns 200. Still needs daemon connectivity check and structured response.',
     dependencies: [],
     taskReason: 'Frontend status bar requires a reliable health signal to show true system state.',
+    tags: [],
   },
   {
     id: 'task-gw-telemetry-feed',
@@ -184,6 +194,7 @@ export const mockTasks: Task[] = [
     notes: 'Blocked: daemon runtime does not yet expose an event socket. Need runtime contract agreement.',
     dependencies: ['task-gw-health-endpoint'],
     taskReason: 'Without a live event stream, the mission control board cannot reflect real-time state changes.',
+    tags: [],
   },
   {
     id: 'task-gw-usage-budget',
@@ -199,6 +210,7 @@ export const mockTasks: Task[] = [
     notes: '',
     dependencies: ['task-gw-health-endpoint'],
     taskReason: 'Operator needs usage visibility to manage session budget and avoid surprise limits.',
+    tags: [],
   },
 
   // ── Research Synthesis tasks ─────────────────────────────────
@@ -216,6 +228,7 @@ export const mockTasks: Task[] = [
     notes: '',
     dependencies: [],
     taskReason: 'Cannot build the pipeline without knowing what to fetch and how to score evidence.',
+    tags: [],
   },
   {
     id: 'task-rs-fetch',
@@ -231,6 +244,7 @@ export const mockTasks: Task[] = [
     notes: '',
     dependencies: ['task-rs-scope'],
     taskReason: 'Raw data ingestion is the prerequisite for all downstream synthesis steps.',
+    tags: [],
   },
 
   // ── Ops Automation tasks (all completed) ────────────────────
@@ -249,6 +263,7 @@ export const mockTasks: Task[] = [
     completionDetails: 'Documented in docs/runbook.md sections 1-3.',
     dependencies: [],
     taskReason: 'Operators need a reliable reference for recurring ops tasks.',
+    tags: [],
   },
   {
     id: 'task-ops-log-rotation',
@@ -265,5 +280,6 @@ export const mockTasks: Task[] = [
     completionDetails: 'Log rotation script added to scripts/. Environment snapshot runs on every build.',
     dependencies: ['task-ops-healthcheck'],
     taskReason: 'Prevents disk accumulation and provides rollback reference points.',
+    tags: [],
   },
 ]

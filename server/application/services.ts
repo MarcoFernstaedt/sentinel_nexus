@@ -22,6 +22,9 @@ import type {
   RuntimeUpstreamSubagentRunSnapshot,
   RuntimeVisibilitySurface,
   RuntimeWorkstreamSnapshot,
+  NexusClientRecord,
+  NexusProjectRecord,
+  NexusTaskRecord,
   TaskRecord,
   TaskStage,
   TaskStatus,
@@ -31,7 +34,7 @@ import type {
 import type { AppConfig } from '../config/env.js'
 import { ConflictError, ValidationError } from '../api/http.js'
 import { validateCalendarCreate, validateMemoryCreate, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
-import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './repositories.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NexusClientsRepository, NexusProjectsRepository, NexusTasksRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -1201,5 +1204,145 @@ export class TrackedTargetsService {
 
   async bulkWrite(targets: TrackedTargetRecord[]): Promise<void> {
     return this.repository.bulkWrite(targets)
+  }
+}
+
+export class NexusClientsService {
+  constructor(private readonly repository: NexusClientsRepository) {}
+
+  async list(): Promise<NexusClientRecord[]> {
+    return this.repository.list()
+  }
+
+  async create(input: Omit<NexusClientRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<NexusClientRecord> {
+    const now = new Date().toISOString()
+    const client: NexusClientRecord = {
+      id: `client-${crypto.randomUUID()}`,
+      ...input,
+      createdAt: now,
+      updatedAt: now,
+    }
+    return this.repository.create(client)
+  }
+
+  async patch(id: string, patch: Partial<NexusClientRecord>): Promise<NexusClientRecord | null> {
+    return this.repository.patch(id, patch)
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.repository.delete(id)
+  }
+}
+
+export class NexusProjectsService {
+  constructor(
+    private readonly projectsRepo: NexusProjectsRepository,
+    private readonly tasksRepo: NexusTasksRepository,
+  ) {}
+
+  async list(): Promise<NexusProjectRecord[]> {
+    return this.projectsRepo.list()
+  }
+
+  async create(input: Omit<NexusProjectRecord, 'id' | 'createdAt' | 'updatedAt' | 'percentComplete'>): Promise<NexusProjectRecord> {
+    const now = new Date().toISOString()
+    const project: NexusProjectRecord = {
+      id: `proj-${crypto.randomUUID()}`,
+      percentComplete: 0,
+      ...input,
+      createdAt: now,
+      updatedAt: now,
+    }
+    return this.projectsRepo.create(project)
+  }
+
+  async patch(id: string, patch: Partial<NexusProjectRecord>): Promise<NexusProjectRecord | null> {
+    return this.projectsRepo.patch(id, patch)
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.projectsRepo.delete(id)
+  }
+
+  async bulkWrite(projects: NexusProjectRecord[]): Promise<void> {
+    return this.projectsRepo.bulkWrite(projects)
+  }
+
+  /** Recompute percentComplete from tasks and persist. */
+  async recomputeProgress(projectId: string): Promise<NexusProjectRecord | null> {
+    const tasks = await this.tasksRepo.listByProject(projectId)
+    if (tasks.length === 0) {
+      return this.projectsRepo.patch(projectId, { percentComplete: 0 })
+    }
+    const completed = tasks.filter((t) => t.status === 'completed').length
+    const pct = Math.round((completed / tasks.length) * 100)
+    return this.projectsRepo.patch(projectId, { percentComplete: pct })
+  }
+}
+
+export class NexusTasksService {
+  constructor(
+    private readonly tasksRepo: NexusTasksRepository,
+    private readonly projectsRepo: NexusProjectsRepository,
+  ) {}
+
+  async list(): Promise<NexusTaskRecord[]> {
+    return this.tasksRepo.list()
+  }
+
+  async listByProject(projectId: string): Promise<NexusTaskRecord[]> {
+    return this.tasksRepo.listByProject(projectId)
+  }
+
+  async create(input: Omit<NexusTaskRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<NexusTaskRecord> {
+    const now = new Date().toISOString()
+    const task: NexusTaskRecord = {
+      id: `task-${crypto.randomUUID()}`,
+      ...input,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const created = await this.tasksRepo.create(task)
+    // Recompute parent project progress after adding a task
+    if (created.projectId) {
+      const tasks = await this.tasksRepo.listByProject(created.projectId)
+      const completed = tasks.filter((t) => t.status === 'completed').length
+      const pct = Math.round((completed / tasks.length) * 100)
+      await this.projectsRepo.patch(created.projectId, { percentComplete: pct })
+    }
+    return created
+  }
+
+  async patch(id: string, patch: Partial<NexusTaskRecord>): Promise<NexusTaskRecord | null> {
+    const updated = await this.tasksRepo.patch(id, patch)
+    // Recompute parent project progress whenever task status changes
+    if (updated?.projectId && patch.status !== undefined) {
+      const tasks = await this.tasksRepo.listByProject(updated.projectId)
+      const completed = tasks.filter((t) => t.status === 'completed').length
+      const pct = Math.round((completed / tasks.length) * 100)
+      await this.projectsRepo.patch(updated.projectId, { percentComplete: pct })
+    }
+    return updated
+  }
+
+  async delete(id: string): Promise<void> {
+    // Read task before deleting to find its projectId for progress recompute
+    const all = await this.tasksRepo.list()
+    const task = all.find((t) => t.id === id)
+    await this.tasksRepo.delete(id)
+    if (task?.projectId) {
+      const remaining = await this.tasksRepo.listByProject(task.projectId)
+      if (remaining.length === 0) {
+        await this.projectsRepo.patch(task.projectId, { percentComplete: 0 })
+      } else {
+        const completed = remaining.filter((t) => t.status === 'completed').length
+        const pct = Math.round((completed / remaining.length) * 100)
+        await this.projectsRepo.patch(task.projectId, { percentComplete: pct })
+      }
+    }
+  }
+
+  async bulkWrite(tasks: NexusTaskRecord[]): Promise<void> {
+    return this.tasksRepo.bulkWrite(tasks)
   }
 }

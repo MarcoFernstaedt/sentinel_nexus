@@ -17,6 +17,8 @@ export interface Project {
   linkedDocs: string[]
   linkedMemories: string[]
   relatedCalendarItems: string[]
+  clientId?: string
+  tags: string[]
 }
 
 export interface Task {
@@ -28,6 +30,7 @@ export interface Task {
   assignedSubAgent?: string
   percentComplete: number
   projectId?: string
+  clientId?: string
   createdAt: string
   updatedAt: string
   dueDate?: string
@@ -35,6 +38,7 @@ export interface Task {
   dependencies: string[]
   completionDetails?: string
   taskReason: string
+  tags: string[]
 }
 
 export const STATUS_LABEL: Record<ProjectStatus, string> = {

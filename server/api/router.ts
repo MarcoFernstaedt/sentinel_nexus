@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord, TrackedTargetRecord } from '../domain/models.js'
+import type { CalendarEventRecord, ChatModeId, MemoryRecord, NexusClientRecord, NexusProjectRecord, NexusTaskRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord, TrackedTargetRecord } from '../domain/models.js'
 import { ConflictError, HttpError, ValidationError, assertOriginAllowed, badRequest, internalServerError, json, notFound, readJson, writeSseHeaders } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
-import { ChatService, MissionCommandService, NotesService, StatusService, TasksService, TrackedTargetsService } from '../application/services.js'
+import { ChatService, MissionCommandService, NexusClientsService, NexusProjectsService, NexusTasksService, NotesService, StatusService, TasksService, TrackedTargetsService } from '../application/services.js'
 
 interface Services {
   chatService: ChatService
@@ -12,6 +12,9 @@ interface Services {
   missionCommandService: MissionCommandService
   activityRepository: ActivityRepository
   trackedTargetsService: TrackedTargetsService
+  nexusClientsService: NexusClientsService
+  nexusProjectsService: NexusProjectsService
+  nexusTasksService: NexusTasksService
 }
 
 interface RouterOptions {
@@ -414,6 +417,209 @@ export function createRouter(services: Services, options: RouterOptions) {
           source: 'runtime',
         })
         json(response, request, options.allowedOrigins, 201, entry)
+        return
+      }
+
+      // ── /api/exec/clients ──────────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/exec/clients') {
+        json(response, request, options.allowedOrigins, 200, await services.nexusClientsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/exec/clients') {
+        const body = await readJson<Partial<NexusClientRecord>>(request)
+        if (!body.name?.trim()) return badRequest(response, request, options.allowedOrigins, 'name is required')
+        const allowedClientStatuses: NexusClientRecord['status'][] = ['active', 'paused', 'closed']
+        const status = body.status && allowedClientStatuses.includes(body.status) ? body.status : 'active'
+        json(response, request, options.allowedOrigins, 201, await services.nexusClientsService.create({
+          name: body.name.trim(),
+          status,
+          contactName: body.contactName?.trim(),
+          contactEmail: body.contactEmail?.trim(),
+          notes: body.notes?.trim(),
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/exec/clients/')) {
+        const clientId = url.pathname.split('/').at(-1)
+        if (!clientId) return badRequest(response, request, options.allowedOrigins, 'clientId is required')
+        const body = await readJson<Partial<NexusClientRecord>>(request)
+        const patch: Partial<NexusClientRecord> = {}
+        if (body.name !== undefined) patch.name = body.name.trim()
+        if (body.status !== undefined) patch.status = body.status
+        if (body.contactName !== undefined) patch.contactName = body.contactName.trim() || undefined
+        if (body.contactEmail !== undefined) patch.contactEmail = body.contactEmail.trim() || undefined
+        if (body.notes !== undefined) patch.notes = body.notes.trim() || undefined
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
+        const updated = await services.nexusClientsService.patch(clientId, patch)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/exec/clients/')) {
+        const clientId = url.pathname.split('/').at(-1)
+        if (!clientId) return badRequest(response, request, options.allowedOrigins, 'clientId is required')
+        await services.nexusClientsService.delete(clientId)
+        json(response, request, options.allowedOrigins, 200, { ok: true })
+        return
+      }
+
+      // ── /api/exec/projects ─────────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/exec/projects') {
+        json(response, request, options.allowedOrigins, 200, await services.nexusProjectsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/exec/projects/bulk') {
+        const body = await readJson<{ projects?: unknown[] }>(request)
+        if (!Array.isArray(body.projects)) return badRequest(response, request, options.allowedOrigins, 'projects array is required')
+        await services.nexusProjectsService.bulkWrite(body.projects as NexusProjectRecord[])
+        json(response, request, options.allowedOrigins, 200, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/exec/projects') {
+        const body = await readJson<Partial<NexusProjectRecord>>(request)
+        if (!body.title?.trim()) return badRequest(response, request, options.allowedOrigins, 'title is required')
+        const allowedStatuses: NexusProjectRecord['status'][] = ['todo', 'in-progress', 'blocked', 'completed']
+        const allowedPriorities: NexusProjectRecord['priority'][] = ['critical', 'high', 'medium', 'low']
+        json(response, request, options.allowedOrigins, 201, await services.nexusProjectsService.create({
+          title: body.title.trim(),
+          description: body.description?.trim() ?? '',
+          status: body.status && allowedStatuses.includes(body.status) ? body.status : 'todo',
+          priority: body.priority && allowedPriorities.includes(body.priority) ? body.priority : 'medium',
+          clientId: body.clientId?.trim() || undefined,
+          ownerAgent: body.ownerAgent?.trim() ?? 'operator',
+          assignedSubAgents: Array.isArray(body.assignedSubAgents) ? body.assignedSubAgents : [],
+          dueDate: body.dueDate?.trim() || undefined,
+          notes: body.notes?.trim() || undefined,
+          linkedDocs: Array.isArray(body.linkedDocs) ? body.linkedDocs : [],
+          linkedMemories: Array.isArray(body.linkedMemories) ? body.linkedMemories : [],
+          relatedCalendarItems: Array.isArray(body.relatedCalendarItems) ? body.relatedCalendarItems : [],
+          tags: Array.isArray(body.tags) ? body.tags : [],
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/exec/projects/')) {
+        const projectId = url.pathname.split('/').at(-1)
+        if (!projectId) return badRequest(response, request, options.allowedOrigins, 'projectId is required')
+        const body = await readJson<Partial<NexusProjectRecord>>(request)
+        const patch: Partial<NexusProjectRecord> = {}
+        const allowedStatuses: NexusProjectRecord['status'][] = ['todo', 'in-progress', 'blocked', 'completed']
+        const allowedPriorities: NexusProjectRecord['priority'][] = ['critical', 'high', 'medium', 'low']
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.description !== undefined) patch.description = body.description.trim()
+        if (body.status !== undefined) {
+          if (!allowedStatuses.includes(body.status)) return badRequest(response, request, options.allowedOrigins, `status must be one of: ${allowedStatuses.join(', ')}`)
+          patch.status = body.status
+        }
+        if (body.priority !== undefined) {
+          if (!allowedPriorities.includes(body.priority)) return badRequest(response, request, options.allowedOrigins, `priority must be one of: ${allowedPriorities.join(', ')}`)
+          patch.priority = body.priority
+        }
+        if (body.clientId !== undefined) patch.clientId = body.clientId.trim() || undefined
+        if (body.ownerAgent !== undefined) patch.ownerAgent = body.ownerAgent.trim()
+        if (body.percentComplete !== undefined) {
+          const pct = Number(body.percentComplete)
+          if (!Number.isNaN(pct)) patch.percentComplete = Math.max(0, Math.min(100, pct))
+        }
+        if (body.dueDate !== undefined) patch.dueDate = body.dueDate.trim() || undefined
+        if (body.notes !== undefined) patch.notes = body.notes.trim() || undefined
+        if (body.tags !== undefined) patch.tags = Array.isArray(body.tags) ? body.tags : []
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
+        const updated = await services.nexusProjectsService.patch(projectId, patch)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/exec/projects/')) {
+        const projectId = url.pathname.split('/').at(-1)
+        if (!projectId) return badRequest(response, request, options.allowedOrigins, 'projectId is required')
+        await services.nexusProjectsService.delete(projectId)
+        json(response, request, options.allowedOrigins, 200, { ok: true })
+        return
+      }
+
+      // ── /api/exec/tasks ────────────────────────────────────────────────────────
+      if (method === 'GET' && url.pathname === '/api/exec/tasks') {
+        const projectId = url.searchParams.get('projectId')
+        const results = projectId
+          ? await services.nexusTasksService.listByProject(projectId)
+          : await services.nexusTasksService.list()
+        json(response, request, options.allowedOrigins, 200, results)
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/exec/tasks/bulk') {
+        const body = await readJson<{ tasks?: unknown[] }>(request)
+        if (!Array.isArray(body.tasks)) return badRequest(response, request, options.allowedOrigins, 'tasks array is required')
+        await services.nexusTasksService.bulkWrite(body.tasks as NexusTaskRecord[])
+        json(response, request, options.allowedOrigins, 200, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/exec/tasks') {
+        const body = await readJson<Partial<NexusTaskRecord>>(request)
+        if (!body.title?.trim()) return badRequest(response, request, options.allowedOrigins, 'title is required')
+        const allowedStatuses: NexusTaskRecord['status'][] = ['todo', 'in-progress', 'blocked', 'completed']
+        json(response, request, options.allowedOrigins, 201, await services.nexusTasksService.create({
+          title: body.title.trim(),
+          description: body.description?.trim() ?? '',
+          status: body.status && allowedStatuses.includes(body.status) ? body.status : 'todo',
+          projectId: body.projectId?.trim() || undefined,
+          clientId: body.clientId?.trim() || undefined,
+          assignedAgent: body.assignedAgent?.trim() ?? 'operator',
+          assignedSubAgent: body.assignedSubAgent?.trim() || undefined,
+          percentComplete: typeof body.percentComplete === 'number' ? body.percentComplete : 0,
+          dueDate: body.dueDate?.trim() || undefined,
+          notes: body.notes?.trim() ?? '',
+          dependencies: Array.isArray(body.dependencies) ? body.dependencies : [],
+          completionDetails: body.completionDetails?.trim() || undefined,
+          taskReason: body.taskReason?.trim() ?? '',
+          tags: Array.isArray(body.tags) ? body.tags : [],
+        }))
+        return
+      }
+
+      if (method === 'PATCH' && url.pathname.startsWith('/api/exec/tasks/')) {
+        const taskId = url.pathname.split('/').at(-1)
+        if (!taskId) return badRequest(response, request, options.allowedOrigins, 'taskId is required')
+        const body = await readJson<Partial<NexusTaskRecord>>(request)
+        const patch: Partial<NexusTaskRecord> = {}
+        const allowedStatuses: NexusTaskRecord['status'][] = ['todo', 'in-progress', 'blocked', 'completed']
+        if (body.title !== undefined) patch.title = body.title.trim()
+        if (body.description !== undefined) patch.description = body.description.trim()
+        if (body.status !== undefined) {
+          if (!allowedStatuses.includes(body.status)) return badRequest(response, request, options.allowedOrigins, `status must be one of: ${allowedStatuses.join(', ')}`)
+          patch.status = body.status
+        }
+        if (body.percentComplete !== undefined) {
+          const pct = Number(body.percentComplete)
+          if (!Number.isNaN(pct)) patch.percentComplete = Math.max(0, Math.min(100, pct))
+        }
+        if (body.assignedAgent !== undefined) patch.assignedAgent = body.assignedAgent.trim()
+        if (body.assignedSubAgent !== undefined) patch.assignedSubAgent = body.assignedSubAgent.trim() || undefined
+        if (body.dueDate !== undefined) patch.dueDate = body.dueDate.trim() || undefined
+        if (body.notes !== undefined) patch.notes = body.notes.trim()
+        if (body.completionDetails !== undefined) patch.completionDetails = body.completionDetails.trim() || undefined
+        if (body.taskReason !== undefined) patch.taskReason = body.taskReason.trim()
+        if (body.tags !== undefined) patch.tags = Array.isArray(body.tags) ? body.tags : []
+        if (Object.keys(patch).length === 0) return badRequest(response, request, options.allowedOrigins, 'at least one field required')
+        const updated = await services.nexusTasksService.patch(taskId, patch)
+        if (!updated) return notFound(response, request, options.allowedOrigins)
+        json(response, request, options.allowedOrigins, 200, updated)
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/exec/tasks/')) {
+        const taskId = url.pathname.split('/').at(-1)
+        if (!taskId) return badRequest(response, request, options.allowedOrigins, 'taskId is required')
+        await services.nexusTasksService.delete(taskId)
+        json(response, request, options.allowedOrigins, 200, { ok: true })
         return
       }
 

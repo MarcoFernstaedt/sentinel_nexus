@@ -1,8 +1,8 @@
 import http from 'node:http'
 import { getAppConfig } from './config/env.js'
 import { FileBackedStore } from './infrastructure/fileStore.js'
-import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './application/repositories.js'
-import { ChatService, MissionCommandService, NotesService, StatusService, TasksService, TrackedTargetsService } from './application/services.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NexusClientsRepository, NexusProjectsRepository, NexusTasksRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './application/repositories.js'
+import { ChatService, MissionCommandService, NexusClientsService, NexusProjectsService, NexusTasksService, NotesService, StatusService, TasksService, TrackedTargetsService } from './application/services.js'
 import { createRouter } from './api/router.js'
 
 const config = getAppConfig()
@@ -18,6 +18,9 @@ const server = http.createServer(
       statusService: new StatusService(new StatusRepository(store), config),
       missionCommandService: new MissionCommandService(new MissionCommandRepository(store), activityRepository),
       trackedTargetsService: new TrackedTargetsService(new TrackedTargetsRepository(store)),
+      nexusClientsService: new NexusClientsService(new NexusClientsRepository(store)),
+      nexusProjectsService: new NexusProjectsService(new NexusProjectsRepository(store), new NexusTasksRepository(store)),
+      nexusTasksService: new NexusTasksService(new NexusTasksRepository(store), new NexusProjectsRepository(store)),
       activityRepository,
     },
     {
