@@ -85,6 +85,64 @@ export interface TrackedTargetRecord {
   history: TrackedTargetHistoryEntryRecord[]
 }
 
+// ── Execution layer: clients, projects, tasks ─────────────────────────────────
+
+export interface NexusClientRecord {
+  id: string
+  name: string
+  contactName?: string
+  contactEmail?: string
+  status: 'active' | 'paused' | 'closed'
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type NexusProjectStatus   = 'todo' | 'in-progress' | 'blocked' | 'completed'
+export type NexusProjectPriority = 'critical' | 'high' | 'medium' | 'low'
+
+export interface NexusProjectRecord {
+  id: string
+  title: string
+  description: string
+  status: NexusProjectStatus
+  priority: NexusProjectPriority
+  clientId?: string
+  ownerAgent: string
+  assignedSubAgents: string[]
+  percentComplete: number
+  createdAt: string
+  updatedAt: string
+  dueDate?: string
+  notes?: string
+  linkedDocs: string[]
+  linkedMemories: string[]
+  relatedCalendarItems: string[]
+  tags: string[]
+}
+
+export type NexusTaskStatus = 'todo' | 'in-progress' | 'blocked' | 'completed'
+
+export interface NexusTaskRecord {
+  id: string
+  title: string
+  description: string
+  status: NexusTaskStatus
+  projectId?: string
+  clientId?: string
+  assignedAgent: string
+  assignedSubAgent?: string
+  percentComplete: number
+  createdAt: string
+  updatedAt: string
+  dueDate?: string
+  notes: string
+  dependencies: string[]
+  completionDetails?: string
+  taskReason: string
+  tags: string[]
+}
+
 export interface StatusCard {
   id: string
   label: string
@@ -397,5 +455,8 @@ export interface NexusDataStore {
   tasks: TaskRecord[]
   activity: ActivityRecord[]
   trackedTargets: TrackedTargetRecord[]
+  nexusClients: NexusClientRecord[]
+  nexusProjects: NexusProjectRecord[]
+  nexusTasks: NexusTaskRecord[]
   missionCommand: MissionCommandSnapshot
 }

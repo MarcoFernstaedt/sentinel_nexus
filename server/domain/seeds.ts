@@ -59,5 +59,8 @@ export const createSeedData = (): NexusDataStore => ({
   tasks: seededTasks,
   activity: seededActivity,
   trackedTargets: [],
+  nexusClients: [],
+  nexusProjects: [],
+  nexusTasks: [],
   missionCommand: seededMissionCommand,
 })

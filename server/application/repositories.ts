@@ -4,7 +4,10 @@ import type {
   ChatMessageRecord,
   MemoryRecord,
   MissionRecord,
+  NexusClientRecord,
   NexusDataStore,
+  NexusProjectRecord,
+  NexusTaskRecord,
   NoteRecord,
   ProjectRecord,
   TaskRecord,
@@ -125,6 +128,116 @@ export class TrackedTargetsRepository {
   async bulkWrite(targets: TrackedTargetRecord[]): Promise<void> {
     const data = await this.store.read()
     data.trackedTargets = targets
+    await this.store.write(data)
+  }
+}
+
+export class NexusClientsRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async list(): Promise<NexusClientRecord[]> {
+    const data = await this.store.read()
+    return data.nexusClients ?? []
+  }
+
+  async create(client: NexusClientRecord): Promise<NexusClientRecord> {
+    const data = await this.store.read()
+    data.nexusClients = [client, ...(data.nexusClients ?? [])]
+    await this.store.write(data)
+    return client
+  }
+
+  async patch(id: string, patch: Partial<NexusClientRecord>): Promise<NexusClientRecord | null> {
+    const data = await this.store.read()
+    const idx = (data.nexusClients ?? []).findIndex((c) => c.id === id)
+    if (idx === -1) return null
+    data.nexusClients[idx] = { ...data.nexusClients[idx], ...patch, updatedAt: new Date().toISOString() }
+    await this.store.write(data)
+    return data.nexusClients[idx]
+  }
+
+  async delete(id: string): Promise<void> {
+    const data = await this.store.read()
+    data.nexusClients = (data.nexusClients ?? []).filter((c) => c.id !== id)
+    await this.store.write(data)
+  }
+}
+
+export class NexusProjectsRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async list(): Promise<NexusProjectRecord[]> {
+    const data = await this.store.read()
+    return data.nexusProjects ?? []
+  }
+
+  async create(project: NexusProjectRecord): Promise<NexusProjectRecord> {
+    const data = await this.store.read()
+    data.nexusProjects = [project, ...(data.nexusProjects ?? [])]
+    await this.store.write(data)
+    return project
+  }
+
+  async patch(id: string, patch: Partial<NexusProjectRecord>): Promise<NexusProjectRecord | null> {
+    const data = await this.store.read()
+    const idx = (data.nexusProjects ?? []).findIndex((p) => p.id === id)
+    if (idx === -1) return null
+    data.nexusProjects[idx] = { ...data.nexusProjects[idx], ...patch, updatedAt: new Date().toISOString() }
+    await this.store.write(data)
+    return data.nexusProjects[idx]
+  }
+
+  async delete(id: string): Promise<void> {
+    const data = await this.store.read()
+    data.nexusProjects = (data.nexusProjects ?? []).filter((p) => p.id !== id)
+    await this.store.write(data)
+  }
+
+  async bulkWrite(projects: NexusProjectRecord[]): Promise<void> {
+    const data = await this.store.read()
+    data.nexusProjects = projects
+    await this.store.write(data)
+  }
+}
+
+export class NexusTasksRepository {
+  constructor(private readonly store: FileBackedStore) {}
+
+  async list(): Promise<NexusTaskRecord[]> {
+    const data = await this.store.read()
+    return data.nexusTasks ?? []
+  }
+
+  async listByProject(projectId: string): Promise<NexusTaskRecord[]> {
+    const data = await this.store.read()
+    return (data.nexusTasks ?? []).filter((t) => t.projectId === projectId)
+  }
+
+  async create(task: NexusTaskRecord): Promise<NexusTaskRecord> {
+    const data = await this.store.read()
+    data.nexusTasks = [task, ...(data.nexusTasks ?? [])]
+    await this.store.write(data)
+    return task
+  }
+
+  async patch(id: string, patch: Partial<NexusTaskRecord>): Promise<NexusTaskRecord | null> {
+    const data = await this.store.read()
+    const idx = (data.nexusTasks ?? []).findIndex((t) => t.id === id)
+    if (idx === -1) return null
+    data.nexusTasks[idx] = { ...data.nexusTasks[idx], ...patch, updatedAt: new Date().toISOString() }
+    await this.store.write(data)
+    return data.nexusTasks[idx]
+  }
+
+  async delete(id: string): Promise<void> {
+    const data = await this.store.read()
+    data.nexusTasks = (data.nexusTasks ?? []).filter((t) => t.id !== id)
+    await this.store.write(data)
+  }
+
+  async bulkWrite(tasks: NexusTaskRecord[]): Promise<void> {
+    const data = await this.store.read()
+    data.nexusTasks = tasks
     await this.store.write(data)
   }
 }
