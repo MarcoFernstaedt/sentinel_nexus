@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createSeedData } from '../domain/seeds.js'
-import type { NexusDataStore, RecordSource, TaskRecord, TaskStage } from '../domain/models.js'
+import type { NexusDataStore, RecordSource, TaskRecord, TaskStage, TrackedTargetRecord } from '../domain/models.js'
 
 const seedData = createSeedData()
 const seededIds = {
@@ -56,6 +56,14 @@ function normalizeTask(task: TaskRecord): TaskRecord {
   }
 }
 
+function normalizeTrackedTarget(target: TrackedTargetRecord): TrackedTargetRecord {
+  return {
+    ...target,
+    notes: target.notes ?? null,
+    history: target.history ?? [],
+  }
+}
+
 function normalizeStore(store: NexusDataStore): NexusDataStore {
   const missionCommand = store.missionCommand ?? seedData.missionCommand
 
@@ -64,6 +72,7 @@ function normalizeStore(store: NexusDataStore): NexusDataStore {
     notes: store.notes.map((item) => normalizeSource(item, seededIds.notes)),
     tasks: store.tasks.map((item) => normalizeTask(normalizeSource(item, seededIds.tasks))),
     activity: (store.activity ?? []).map((item) => normalizeSource(item, seededIds.activity)),
+    trackedTargets: (store.trackedTargets ?? []).map(normalizeTrackedTarget),
     missionCommand: {
       mission: normalizeSource(missionCommand.mission, new Set([seedData.missionCommand.mission.id])),
       goals: missionCommand.goals.map((item) => normalizeSource(item, seededIds.goals)),

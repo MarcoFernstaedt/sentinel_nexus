@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { MetricCard } from '@/src/components/ui/MetricCard'
 import { ProjectCard } from '@/src/components/projects/ProjectCard'
+import { AddProjectSheet } from '@/src/components/projects/AddProjectSheet'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
 import { cn } from '@/src/lib/cn'
 import type { ProjectStatus } from '@/src/types/projects'
@@ -42,8 +44,9 @@ function FilterPill({
 }
 
 export default function ProjectsPage() {
-  const { projects, tasks } = useProjectsStore()
+  const { projects, tasks, addProject } = useProjectsStore()
   const [activeFilter, setActiveFilter] = useState<ProjectStatus | 'all'>('all')
+  const [showAdd,      setShowAdd]      = useState(false)
 
   const stats = {
     total:     projects.length,
@@ -59,11 +62,25 @@ export default function ProjectsPage() {
   return (
     <div className="px-5 py-5 grid gap-5 max-w-[1600px]">
       {/* Page header */}
-      <SectionHeading
-        eyebrow="Execution"
-        title="Projects"
-        description="Active workstreams tracked in the mission execution layer"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeading
+          eyebrow="Execution"
+          title="Projects"
+          description="Active workstreams tracked in the mission execution layer"
+        />
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className={cn(
+            'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[0.74rem] font-semibold transition-all duration-150',
+            'border border-[rgba(126,255,210,0.35)] bg-[rgba(126,255,210,0.08)] text-accent-mint',
+            'hover:bg-[rgba(126,255,210,0.16)] hover:border-[rgba(126,255,210,0.50)]',
+          )}
+        >
+          <Plus size={13} />
+          New Project
+        </button>
+      </div>
 
       {/* Stat ribbon */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -102,9 +119,23 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center py-14 rounded-lg border border-dashed border-soft">
+        <div className="flex flex-col items-center justify-center py-14 rounded-lg border border-dashed border-soft gap-3">
           <p className="text-[0.76rem] text-text-3">No projects match this filter</p>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.68rem] font-medium border border-soft text-text-2 hover:text-text-1 hover:border-med transition-colors"
+          >
+            <Plus size={11} /> New Project
+          </button>
         </div>
+      )}
+
+      {showAdd && (
+        <AddProjectSheet
+          onClose={() => setShowAdd(false)}
+          onAdd={addProject}
+        />
       )}
     </div>
   )

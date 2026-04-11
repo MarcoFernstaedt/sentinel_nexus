@@ -26,11 +26,12 @@ import type {
   TaskStage,
   TaskStatus,
   TeamMemberRecord,
+  TrackedTargetRecord,
 } from '../domain/models.js'
 import type { AppConfig } from '../config/env.js'
 import { ConflictError, ValidationError } from '../api/http.js'
 import { validateCalendarCreate, validateMemoryCreate, validateTaskCreate, validateTaskTransition } from '../domain/validators.js'
-import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository } from './repositories.js'
+import { ActivityRepository, ChatRepository, MissionCommandRepository, NotesRepository, StatusRepository, TasksRepository, TrackedTargetsRepository } from './repositories.js'
 
 const personaReplies: Record<ChatModeId, string> = {
   command:
@@ -1180,5 +1181,25 @@ export class MissionCommandService {
       source: 'runtime',
     } as ActivityRecord)
     return created
+  }
+}
+
+export class TrackedTargetsService {
+  constructor(private readonly repository: TrackedTargetsRepository) {}
+
+  async list(): Promise<TrackedTargetRecord[]> {
+    return this.repository.list()
+  }
+
+  async upsert(target: TrackedTargetRecord): Promise<TrackedTargetRecord> {
+    return this.repository.upsert(target)
+  }
+
+  async delete(id: string): Promise<void> {
+    return this.repository.delete(id)
+  }
+
+  async bulkWrite(targets: TrackedTargetRecord[]): Promise<void> {
+    return this.repository.bulkWrite(targets)
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { Calendar, Target, Users } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { cn } from '@/src/lib/cn'
 import { useAgentsStore } from '@/src/hooks/useAgentsStore'
 import { useProjectsStore } from '@/src/hooks/useProjectsStore'
@@ -70,9 +71,11 @@ export function MissionProgressPanel() {
             </span>
           </div>
           <div className="w-full h-[6px] rounded-full bg-[rgba(126,255,210,0.08)] overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-accent-mint to-accent-cyan transition-[width] duration-700"
-              style={{ width: `${pct}%` }}
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-accent-mint to-accent-cyan"
+              initial={{ width: '0%' }}
+              animate={{ width: `${pct}%` }}
+              transition={{ type: 'spring', stiffness: 70, damping: 18, delay: 0.2 }}
             />
           </div>
           {/* Project breakdown */}

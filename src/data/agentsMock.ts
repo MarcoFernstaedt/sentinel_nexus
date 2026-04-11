@@ -2,13 +2,13 @@ import type { Agent, MissionContext } from '@/src/types/agents'
 
 export const mockMissionContext: MissionContext = {
   statement:
-    'Sentinel Nexus operates as the unified intelligence and execution layer for the OpenClaw operator environment — coordinating AI agents, tracking mission-critical workstreams, and maintaining command clarity across all active operations.',
+    'Land a senior/staff full-stack engineering role while shipping Sentinel Nexus v1 — a dynamic personal execution OS for tracking targets, goals, and agent workflows.',
   teamObjective:
-    'Deliver the Mission Control UI foundation, integrate the API gateway, and complete the research synthesis workstream by target date.',
+    'Hit daily job-search targets (applications + outreach) without letting Nexus build momentum slip. Both must move simultaneously.',
   commandIntent:
-    'Prioritize execution velocity on the UI layer while keeping API integration unblocked. Research Cell provides intelligence support on demand. Ops Watch maintains system health and surfaces risks before they become blockers.',
-  progressPercent: 62,
-  targetDate: '2026-06-01',
+    'Prioritize execution enforcement on job-search daily targets. Nexus platform hardening is the support layer — it must make the daily grind measurable and visible, not add overhead.',
+  progressPercent: 35,
+  targetDate: '2026-07-11',
 }
 
 export const mockAgents: Agent[] = [

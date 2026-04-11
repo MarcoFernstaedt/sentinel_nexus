@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord } from '../domain/models.js'
+import type { CalendarEventRecord, ChatModeId, MemoryRecord, ProjectRecord, TaskRecord, TaskStage, TaskStatus, TeamMemberRecord, TrackedTargetRecord } from '../domain/models.js'
 import { ConflictError, HttpError, ValidationError, assertOriginAllowed, badRequest, internalServerError, json, notFound, readJson, writeSseHeaders } from './http.js'
 import { ActivityRepository } from '../application/repositories.js'
-import { ChatService, MissionCommandService, NotesService, StatusService, TasksService } from '../application/services.js'
+import { ChatService, MissionCommandService, NotesService, StatusService, TasksService, TrackedTargetsService } from '../application/services.js'
 
 interface Services {
   chatService: ChatService
@@ -11,6 +11,7 @@ interface Services {
   statusService: StatusService
   missionCommandService: MissionCommandService
   activityRepository: ActivityRepository
+  trackedTargetsService: TrackedTargetsService
 }
 
 interface RouterOptions {
@@ -367,6 +368,34 @@ export function createRouter(services: Services, options: RouterOptions) {
           kind: body.kind,
           tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
         }))
+        return
+      }
+
+      if (method === 'GET' && url.pathname === '/api/tracked-targets') {
+        json(response, request, options.allowedOrigins, 200, await services.trackedTargetsService.list())
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/tracked-targets/bulk') {
+        const body = await readJson<{ targets?: unknown[] }>(request)
+        if (!Array.isArray(body.targets)) return badRequest(response, request, options.allowedOrigins, 'targets array is required')
+        await services.trackedTargetsService.bulkWrite(body.targets as TrackedTargetRecord[])
+        json(response, request, options.allowedOrigins, 200, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/tracked-targets') {
+        const body = await readJson<Partial<TrackedTargetRecord>>(request)
+        if (!body.id?.trim() || !body.title?.trim()) return badRequest(response, request, options.allowedOrigins, 'id and title are required')
+        json(response, request, options.allowedOrigins, 200, await services.trackedTargetsService.upsert(body as TrackedTargetRecord))
+        return
+      }
+
+      if (method === 'DELETE' && url.pathname.startsWith('/api/tracked-targets/')) {
+        const targetId = url.pathname.split('/').at(-1)
+        if (!targetId) return badRequest(response, request, options.allowedOrigins, 'targetId is required')
+        await services.trackedTargetsService.delete(targetId)
+        json(response, request, options.allowedOrigins, 200, { ok: true })
         return
       }
 

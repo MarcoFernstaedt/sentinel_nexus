@@ -1,4 +1,7 @@
-import type { ReactNode } from 'react'
+'use client'
+
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { animate, motion } from 'framer-motion'
 import { cn } from '@/src/lib/cn'
 
 type MetricCardProps = {
@@ -9,9 +12,39 @@ type MetricCardProps = {
   emphasis?: boolean
 }
 
+function AnimatedValue({ raw }: { raw: string }) {
+  const [display, setDisplay] = useState(raw)
+  const prevRef = useRef<number>(0)
+  const mountedRef = useRef(false)
+
+  useEffect(() => {
+    const match = raw.match(/^(\d+\.?\d*)(.*)$/)
+    if (!match) return // display stays as raw (initialized to raw in useState)
+    const numStr = match[1]
+    const suffix = match[2] ?? ''
+    const target = parseFloat(numStr)
+    const from   = mountedRef.current ? prevRef.current : 0
+    prevRef.current = target
+    mountedRef.current = true
+    const controls = animate(from, target, {
+      duration: 0.55,
+      ease: 'easeOut',
+      onUpdate: (v) => setDisplay(`${Math.round(v)}${suffix}`),
+    })
+    return () => controls.stop()
+  }, [raw])
+
+  return <>{display}</>
+}
+
 export function MetricCard({ label, value, detail, className, emphasis = false }: MetricCardProps) {
+  const isAnimatable = typeof value === 'string' && /^\d/.test(value)
+
   return (
-    <article
+    <motion.article
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
       className={cn(
         'relative grid gap-3 overflow-hidden rounded-xl border p-4 lg:p-5',
         'shadow-panel backdrop-blur-xl transition-[transform,box-shadow,border-color] duration-200',
@@ -26,13 +59,13 @@ export function MetricCard({ label, value, detail, className, emphasis = false }
         {label}
       </span>
       <strong className="text-[1.28rem] font-semibold text-text-0 font-mono leading-none tracking-[-0.02em]">
-        {value}
+        {isAnimatable ? <AnimatedValue raw={value as string} /> : value}
       </strong>
       {detail ? (
         <small className="text-[0.72rem] text-[#a9cabb] leading-relaxed font-normal max-w-[28ch]">
           {detail}
         </small>
       ) : null}
-    </article>
+    </motion.article>
   )
 }

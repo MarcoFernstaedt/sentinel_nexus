@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Plus, Target } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { MetricCard } from '@/src/components/ui/MetricCard'
 import { EmptyState } from '@/src/components/ui/EmptyState'
@@ -65,7 +66,12 @@ export default function TrackingPage() {
   ]
 
   return (
-    <div className="px-5 py-5 grid gap-5 max-w-[900px]">
+    <motion.div
+      className="px-5 py-5 grid gap-5 max-w-[900px]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
 
       <div className="flex items-start justify-between gap-4">
         <SectionHeading
@@ -144,7 +150,12 @@ export default function TrackingPage() {
 
       {/* ── Target list ── */}
       {sorted.length > 0 ? (
-        <div className="grid gap-3">
+        <motion.div
+          className="grid gap-3"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
+        >
           {sorted.map((target) => (
             <TrackedTargetCard
               key={target.id}
@@ -155,7 +166,7 @@ export default function TrackingPage() {
               onDelete={() => deleteTarget(target.id)}
             />
           ))}
-        </div>
+        </motion.div>
       ) : (
         <div className="rounded-lg border border-dashed border-soft">
           <EmptyState
@@ -220,6 +231,6 @@ export default function TrackingPage() {
           onAdd={addTarget}
         />
       )}
-    </div>
+    </motion.div>
   )
 }

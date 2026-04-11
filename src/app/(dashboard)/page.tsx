@@ -1,6 +1,7 @@
 import { MetricRibbon } from '@/src/components/dashboard/MetricRibbon'
 import { MissionProgressPanel } from '@/src/components/dashboard/MissionProgressPanel'
 import { OperatorQueue } from '@/src/components/dashboard/OperatorQueue'
+import { TrackedTargetsSummary } from '@/src/components/dashboard/TrackedTargetsSummary'
 import { BlockersAlertsPanel } from '@/src/components/dashboard/BlockersAlertsPanel'
 import { RecentCompletionsPanel } from '@/src/components/dashboard/RecentCompletionsPanel'
 import { SuggestionPanel } from '@/src/components/dashboard/SuggestionPanel'
@@ -24,6 +25,9 @@ export default function DashboardPage() {
 
       {/* Row 2.5: Operator queue — tasks assigned to operator or pending approval */}
       <OperatorQueue />
+
+      {/* Row 2.6: Today's tracked targets with +1 buttons */}
+      <TrackedTargetsSummary />
 
       {/* Row 2.75: Reminder / schedule truth surfaces */}
       <ScheduleHealthPanel />

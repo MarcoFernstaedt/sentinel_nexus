@@ -1,19 +1,23 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
+import { cn } from '@/src/lib/cn'
 import { SectionHeading } from '@/src/components/ui/SectionHeading'
 import { MetricCard } from '@/src/components/ui/MetricCard'
 import { MemorySection } from '@/src/components/memory/MemorySection'
 import { MemorySearchBar } from '@/src/components/memory/MemorySearchBar'
+import { AddMemorySheet } from '@/src/components/memory/AddMemorySheet'
 import { useMemoryStore } from '@/src/hooks/useMemoryStore'
 import type { MemoryCategory } from '@/src/types/memory'
 
 export default function NotesPage() {
-  const { memories } = useMemoryStore()
+  const { memories, addMemory } = useMemoryStore()
+  const [showAdd, setShowAdd] = useState(false)
 
-  const [query, setQuery]                   = useState('')
+  const [query,          setQuery]          = useState('')
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | null>(null)
-  const [activeAgent, setActiveAgent]       = useState<string | null>(null)
+  const [activeAgent,    setActiveAgent]    = useState<string | null>(null)
 
   // Derive unique agent options from data
   const agentOptions = useMemo(() => {
@@ -52,11 +56,25 @@ export default function NotesPage() {
 
   return (
     <div className="px-5 py-5 grid gap-5 max-w-[900px]">
-      <SectionHeading
-        eyebrow="Memory Vault"
-        title="Memory"
-        description="Structured agent and operator memory — decisions, context, patterns, and reference history"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeading
+          eyebrow="Memory Vault"
+          title="Memory"
+          description="Structured agent and operator memory — decisions, context, patterns, and reference history"
+        />
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className={cn(
+            'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[0.74rem] font-semibold transition-all duration-150',
+            'border border-[rgba(126,255,210,0.35)] bg-[rgba(126,255,210,0.08)] text-accent-mint',
+            'hover:bg-[rgba(126,255,210,0.16)] hover:border-[rgba(126,255,210,0.50)]',
+          )}
+        >
+          <Plus size={13} />
+          Add Memory
+        </button>
+      </div>
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -81,6 +99,13 @@ export default function NotesPage() {
       <MemorySection status="active"    memories={active} />
       <MemorySection status="long-term" memories={longTerm} />
       <MemorySection status="archived"  memories={archived} defaultCollapsed />
+
+      {showAdd && (
+        <AddMemorySheet
+          onClose={() => setShowAdd(false)}
+          onAdd={addMemory}
+        />
+      )}
     </div>
   )
 }
