@@ -348,7 +348,10 @@ async function createScheduleVisibility(
   const enabledJobs = cronJobs?.filter((job) => job.enabled) ?? []
   const failingJobs = enabledJobs.filter((job) => job.lastRunStatus === 'error' || (job.consecutiveErrors ?? 0) > 0)
   const deliveryIssues = enabledJobs.filter(
-    (job) => job.lastDeliveryStatus === 'not-delivered' || job.lastDeliveryStatus === 'unknown',
+    (job) =>
+      job.lastDeliveryStatus === 'not-delivered' &&
+      job.lastRunAtMs !== undefined &&
+      job.lastRunStatus === 'success',
   )
   const nextRunJob = enabledJobs
     .filter((job) => typeof job.nextRunAtMs === 'number')
