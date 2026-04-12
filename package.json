@@ -14,7 +14,7 @@
     "test:watch": "vitest server/__tests__",
     "lint": "eslint . --max-warnings=0",
     "start": "node scripts/start.mjs",
-    "start:web": "bash -lc 'exec next start --hostname ${NEXUS_WEB_HOST:-127.0.0.1} --port 3000'",
+    "start:web": "bash -lc 'exec ./node_modules/.bin/next start --hostname ${NEXUS_WEB_HOST:-127.0.0.1} --port 3000'",
     "start:api": "node --env-file-if-exists=.env --env-file-if-exists=.env.example dist-server/index.js"
   },
   "dependencies": {
